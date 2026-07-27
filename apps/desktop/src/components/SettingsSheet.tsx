@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { UiPrefs } from "@rotpunktarena/domain";
 import {
   assertCapability,
   getAppAccessSnapshot,
@@ -12,6 +13,8 @@ import {
   useAppUpdate,
   type AppUpdateStatus,
 } from "../hooks/useAppUpdate";
+import type { UiPrefsStatus } from "../hooks/useUiPrefs";
+import type { AppView } from "./appNav";
 import { SearchSelect } from "./SearchSelect";
 import { SideSheetShell } from "./SideSheetShell";
 import {
@@ -42,6 +45,14 @@ type Props = {
   onDatabaseReplaced?: () => void;
   /** Opens device discovery / first-setup sheet (Gerät suchen). */
   onSearchDevice?: () => void;
+  /** General prefs — owned by App via useUiPrefs (no direct invoke here). */
+  uiPrefs: UiPrefs;
+  uiPrefsStatus: UiPrefsStatus;
+  uiPrefsError: string | null;
+  onUpdateUiPrefs: (patch: Partial<UiPrefs>) => void;
+  onRetryUiPrefs?: () => void;
+  /** Current main nav view — used when enabling rememberLastView. */
+  currentView: AppView;
 };
 
 function connectionStatusLabel(opts: {
@@ -144,12 +155,20 @@ export function SettingsSheet({
   isAdminModeEnabled,
   onDatabaseReplaced,
   onSearchDevice,
+  uiPrefs,
+  uiPrefsStatus,
+  uiPrefsError,
+  onUpdateUiPrefs,
+  onRetryUiPrefs,
+  currentView,
 }: Props) {
   const link = useLiveLinkStatus();
   const appUpdate = useAppUpdate();
   const [busy, setBusy] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const prefsReady = uiPrefsStatus === "ready" || uiPrefsStatus === "saving";
+  const prefsBusy = uiPrefsStatus === "loading" || uiPrefsStatus === "saving";
   const [backups, setBackups] = useState<DbBackupInfo[]>([]);
   const [selectedBackup, setSelectedBackup] = useState("");
   const [lastCreatedPath, setLastCreatedPath] = useState<string | null>(null);
@@ -325,21 +344,71 @@ export function SettingsSheet({
         open={openSection === "allgemein"}
         onOpenChange={() => toggleSection("allgemein")}
       >
+        {uiPrefsStatus === "loading" ? (
+          <SettingsHint>Einstellungen werden geladen…</SettingsHint>
+        ) : null}
+        {uiPrefsError ? (
+          <p className="banner-error">
+            {uiPrefsError}
+            {onRetryUiPrefs ? (
+              <>
+                {" "}
+                <button type="button" className="ghost" onClick={onRetryUiPrefs}>
+                  Erneut laden
+                </button>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+        {uiPrefsStatus === "error" && !uiPrefsError ? (
+          <p className="banner-error">Nicht gespeichert.</p>
+        ) : null}
         <SettingsChoice
           label="Startansicht"
-          value="live"
+          value={uiPrefs.startView}
+          disabled={!prefsReady}
           options={[
             { value: "live", label: "Arena" },
             { value: "history", label: "Statistik" },
             { value: "bureau", label: "Verwaltung" },
           ]}
+          onChange={(value) =>
+            onUpdateUiPrefs({
+              startView: value as UiPrefs["startView"],
+            })
+          }
         />
-        <SettingsToggle label="Letzte Ansicht merken" />
-        <SettingsToggle label="Kompakte Oberfläche" />
+        <SettingsToggle
+          label="Letzte Ansicht merken"
+          checked={uiPrefs.rememberLastView}
+          disabled={!prefsReady}
+          onChange={(on) => {
+            if (on) {
+              onUpdateUiPrefs({
+                rememberLastView: true,
+                lastView: currentView,
+              });
+            } else {
+              onUpdateUiPrefs({ rememberLastView: false });
+            }
+          }}
+        />
+        <SettingsToggle
+          label="Kompakte Oberfläche"
+          checked={uiPrefs.compactUi}
+          disabled={!prefsReady}
+          onChange={(on) => onUpdateUiPrefs({ compactUi: on })}
+        />
         <SettingsToggle
           label="Größere Schrift"
           hint="Bessere Lesbarkeit auf Distanz."
+          checked={uiPrefs.largeText}
+          disabled={!prefsReady}
+          onChange={(on) => onUpdateUiPrefs({ largeText: on })}
         />
+        {prefsBusy && prefsReady ? (
+          <SettingsHint>Speichere…</SettingsHint>
+        ) : null}
       </SettingsSection>
 
       <SettingsSection

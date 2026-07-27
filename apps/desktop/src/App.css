@@ -77,6 +77,21 @@ body.is-app-fullscreen .app-frame {
   box-sizing: border-box;
 }
 
+.app-frame.is-compact-ui {
+  padding: clamp(0.4rem, 0.85vmin, 0.75rem) clamp(0.55rem, 1.1vmin, 1rem)
+    clamp(0.35rem, 0.75vmin, 0.65rem);
+  gap: clamp(0.3rem, 0.7vmin, 0.55rem);
+}
+
+.app-frame.is-large-text {
+  font-size: 1.08rem;
+}
+
+.app-frame.is-large-text .top,
+.app-frame.is-large-text .settings-sheet {
+  font-size: 1.05em;
+}
+
 .app-frame-body {
   min-height: 0;
   min-width: 0;
