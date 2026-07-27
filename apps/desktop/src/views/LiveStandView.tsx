@@ -33,6 +33,8 @@ import {
   effectiveScoreDisplay,
   hitFeedbackIntensityClass,
   hitFeedbackShowsFlash,
+  scoreDisplayOverrideForMode,
+  shouldPersistScoreDisplay,
   targetFitMultiplier,
 } from "../lib/arenaPrefsLogic";
 import { xpPreviewForLiveSeries } from "../training/seriesPulse";
@@ -170,13 +172,15 @@ export function LiveStandView({
   const onDisplayModeChange = (next: ScoreDisplayMode) => {
     if (mode !== "training") return;
     setTrainingDisplayOverride(next);
-    if (arenaPrefs.rememberScoreDisplay) {
+    if (shouldPersistScoreDisplay(arenaPrefs.rememberScoreDisplay)) {
       arenaPrefs.onUpdatePrefs({ scoreDisplay: next });
     }
   };
 
   useEffect(() => {
-    if (mode === "competition") setTrainingDisplayOverride(null);
+    setTrainingDisplayOverride((prev) =>
+      scoreDisplayOverrideForMode(mode, prev),
+    );
   }, [mode]);
 
   const fitMult = useMemo(
