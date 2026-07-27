@@ -462,14 +462,6 @@ export function SettingsSheet({
           </SettingsHint>
         )}
         <div className="settings-connection-actions">
-          <button
-            type="button"
-            className="settings-action-primary"
-            disabled={appUpdate.busy}
-            onClick={() => void appUpdate.checkForUpdates()}
-          >
-            {appUpdate.checking ? "Suche…" : "Nach Updates suchen"}
-          </button>
           {appUpdate.status.kind === "available" ? (
             <button
               type="button"
@@ -488,6 +480,18 @@ export function SettingsSheet({
               Update installieren
             </button>
           ) : null}
+          <button
+            type="button"
+            className={
+              appUpdate.status.kind === "available"
+                ? "secondary settings-action-secondary"
+                : "settings-action-primary"
+            }
+            disabled={appUpdate.busy}
+            onClick={() => void appUpdate.checkForUpdates()}
+          >
+            {appUpdate.checking ? "Suche…" : "Nach Updates suchen"}
+          </button>
           {appUpdate.status.kind === "readyToRelaunch" ||
           appUpdate.status.kind === "needsManualRestart" ? (
             <button
