@@ -8,7 +8,7 @@ import type {
   Person,
   ScoringMode,
   TeamResultSummary,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 
 export async function listPeople(
   query?: string,
@@ -66,7 +66,7 @@ export async function createCompetition(input: {
   nachkaufShots?: number;
   teamScoringEnabled?: boolean;
   teamCount?: number;
-  kind?: import("@reddot/domain").CompetitionKind;
+  kind?: import("@rotpunktarena/domain").CompetitionKind;
 }): Promise<Competition> {
   return invoke("create_competition", { competition: input });
 }
@@ -83,7 +83,7 @@ export async function updateCompetition(
     nachkaufShots?: number;
     teamScoringEnabled?: boolean;
     teamCount?: number;
-    kind?: import("@reddot/domain").CompetitionKind;
+    kind?: import("@rotpunktarena/domain").CompetitionKind;
   },
 ): Promise<Competition> {
   return invoke("update_competition", { id, competition: input });
@@ -170,19 +170,19 @@ export async function cloneEntries(
 
 export async function listCompetitionResults(
   competitionId: string,
-): Promise<import("@reddot/domain").EntryResultSummary[]> {
+): Promise<import("@rotpunktarena/domain").EntryResultSummary[]> {
   return invoke("list_competition_results", { competitionId });
 }
 
 export async function getEntryResult(
   entryId: string,
-): Promise<import("@reddot/domain").EntryResultDetail | null> {
+): Promise<import("@rotpunktarena/domain").EntryResultDetail | null> {
   return invoke("get_entry_result", { entryId });
 }
 
 export async function listEntrySeries(
   entryId: string,
-): Promise<import("@reddot/domain").SeriesResultSummary[]> {
+): Promise<import("@rotpunktarena/domain").SeriesResultSummary[]> {
   return invoke("list_entry_series", { entryId });
 }
 

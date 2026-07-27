@@ -3,7 +3,7 @@ import type {
   Competition,
   CompetitionEntry,
   CompetitionTeam,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import {
   ShooterAutocomplete,
   type ShooterValue,

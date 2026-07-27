@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { UiShot } from "@reddot/domain";
+import type { UiShot } from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "../components/TargetFace";
 import { bestShotOf } from "./useScoreDisplay";
 import { classifyShotMoment } from "../live/presenceContract";

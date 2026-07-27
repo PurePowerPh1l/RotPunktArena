@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { UiShot } from "@reddot/domain";
+import type { UiShot } from "@rotpunktarena/domain";
 import {
   BLACK_AIM_RADIUS_SVG,
   DEVICE_RADIUS_AT_RING_1,

@@ -1,6 +1,6 @@
 /**
  * Geometry selftest — no DOM.
- * Run: npm run test:geometry --workspace=@reddot/desktop
+ * Run: npm run test:geometry --workspace=@rotpunktarena/desktop
  */
 import {
   BLACK_AIM_RADIUS_SVG,

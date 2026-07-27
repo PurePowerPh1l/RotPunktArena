@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type PointerEvent } from "react";
-import type { Person } from "@reddot/domain";
+import type { Person } from "@rotpunktarena/domain";
 import { OverflowMenu } from "../../components/OverflowMenu";
 
 type Props = {

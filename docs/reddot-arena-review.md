@@ -1,6 +1,6 @@
-# RedDot Arena — Architektur- & Feature-Review
+# RotPunktArena — Architektur- & Feature-Review
 
-Stand: Codebasis `D:\Disag Reddot 2` (verifiziert gegen Repo) · lokaler Tauri-Stand-Client als Ersatz für RedDotView (Phase-1-MVP) · SQLite-Migrationen bis **v8** · **37** Tauri-Commands · **3** UI-Views (Live · Büro · Training).
+Stand: Codebasis `D:\RotPunktArena` (verifiziert gegen Repo) · lokaler Tauri-Stand-Client als Ersatz für RedDotView (Phase-1-MVP) · SQLite-Migrationen bis **v8** · **37** Tauri-Commands · **3** UI-Views (Live · Büro · Training).
 
 > **Kurzurteil:** Die App ist ein lauffähiger lokaler Stand-Client. Schüsse laufen fail-closed über Arena-Ingest (Frame → Event → Projection → UI). Büro/Wettkampf inkl. Nachkauf, Mannschaften und Ergebnisse sind verdrahtet; Training speichert Serien automatisch. Offen: Live-Validierung am Gerät, TCP-Transport, Serial nur hinter Cargo-Feature.
 
@@ -197,7 +197,7 @@ React schreibt nicht direkt in SQLite (Single Writer, [ADR 0002](./adr/0002-sing
 | `apps/desktop/src-tauri/tests` | Arena-Integritätstests |
 | `packages/protocol` | TS-Parser (Serielles Protokoll; auch Sniffer) |
 | `packages/domain` | Geteilte Domain-Typen Stand ↔ später Server |
-| `tools/sniffer` | CLI Replay/COM-Sniff auf `@reddot/protocol` |
+| `tools/sniffer` | CLI Replay/COM-Sniff auf `@rotpunktarena/protocol` |
 | `docs/` | Protokoll, Transport, ADRs, Captures, diese Review; Provenance: `docs/protocol/provenance.md` |
 
 npm workspaces (Root `package.json`): `desktop:dev` / `desktop:build`, `protocol:test`.
@@ -232,7 +232,7 @@ Unter `docs/adr/` (Welle A, Accepted):
 ## 8. Schnellstart
 
 ```bash
-cd "D:\Disag Reddot 2"
+cd "D:\RotPunktArena"
 npm install
 npm run desktop:dev
 ```

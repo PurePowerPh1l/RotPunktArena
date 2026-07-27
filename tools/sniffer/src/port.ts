@@ -4,7 +4,7 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { RedDotStreamParser, SERIAL, encodeEnq, type Incoming } from "@reddot/protocol";
+import { RedDotStreamParser, SERIAL, encodeEnq, type Incoming } from "@rotpunktarena/protocol";
 import { formatIncoming } from "./replay.ts";
 import { bytesToHex } from "./capture.ts";
 

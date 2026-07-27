@@ -7,7 +7,7 @@ import type {
   Competition,
   CompetitionEntry,
   CompetitionTeam,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import * as api from "../api/commands";
 import { createRequestSeq } from "../lib/requestSeq";
 

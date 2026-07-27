@@ -21,8 +21,8 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@reddot/protocol": ["../../packages/protocol/src/index.ts"],
-      "@reddot/domain": ["../../packages/domain/src/index.ts"]
+      "@rotpunktarena/protocol": ["../../packages/protocol/src/index.ts"],
+      "@rotpunktarena/domain": ["../../packages/domain/src/index.ts"]
     }
   },
   "include": ["src", "../../packages/protocol/src", "../../packages/domain/src"],

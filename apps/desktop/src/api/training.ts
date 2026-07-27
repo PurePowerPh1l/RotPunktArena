@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 export async function listTrainingHistory(
   limit?: number,
   filter?: { personId?: string | null; shooterName?: string | null },
-): Promise<import("@reddot/domain").TrainingSessionSummary[]> {
+): Promise<import("@rotpunktarena/domain").TrainingSessionSummary[]> {
   return invoke("list_training_history", {
     limit: limit ?? null,
     personId: filter?.personId ?? null,
@@ -13,12 +13,12 @@ export async function listTrainingHistory(
 
 export async function getTrainingSessionDetail(
   sessionId: string,
-): Promise<import("@reddot/domain").TrainingSessionDetail | null> {
+): Promise<import("@rotpunktarena/domain").TrainingSessionDetail | null> {
   return invoke("get_training_session_detail", { sessionId });
 }
 
 export async function listTrainingShooters(): Promise<
-  import("@reddot/domain").TrainingShooterOption[]
+  import("@rotpunktarena/domain").TrainingShooterOption[]
 > {
   return invoke("list_training_shooters");
 }
@@ -35,6 +35,6 @@ export async function clearTrainingHistory(filter?: {
 
 export async function promoteTrainingShooter(
   shooterName: string,
-): Promise<import("@reddot/domain").PromoteTrainingShooterResult> {
+): Promise<import("@rotpunktarena/domain").PromoteTrainingShooterResult> {
   return invoke("promote_training_shooter", { shooterName });
 }

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { TrainingShooterOption } from "@reddot/domain";
+import type { TrainingShooterOption } from "@rotpunktarena/domain";
 import type { LeagueRank } from "../training/league";
 import { LeagueBadge } from "./LeagueBadge";
 

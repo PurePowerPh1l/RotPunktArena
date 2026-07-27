@@ -1,4 +1,4 @@
-import type { EntryResultSummary, TeamResultSummary } from "@reddot/domain";
+import type { EntryResultSummary, TeamResultSummary } from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "../components/TargetFace";
 
 /** Opaque rank from Rust — UI may order by this, never recompute from scores. */

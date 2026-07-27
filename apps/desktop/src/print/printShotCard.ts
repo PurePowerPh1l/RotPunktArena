@@ -1,4 +1,4 @@
-import type { UiShot } from "@reddot/domain";
+import type { UiShot } from "@rotpunktarena/domain";
 import { type ScoreDisplayMode } from "../components/TargetFace";
 import {
   fitFaceScale,
@@ -97,7 +97,7 @@ ${PRINT_BASE_CSS}
       <p class="total">Serie <strong>${fmt(input.seriesTotal)}</strong></p>
     </div>
   </div>
-  <p class="foot">RedDot Arena · append-only Ergebnis · Ausdruck zur Dokumentation</p>
+  <p class="foot">RotPunktArena · append-only Ergebnis · Ausdruck zur Dokumentation</p>
   <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;

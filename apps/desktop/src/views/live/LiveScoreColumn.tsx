@@ -1,4 +1,4 @@
-import type { CompetitionEntry, UiShot } from "@reddot/domain";
+import type { CompetitionEntry, UiShot } from "@rotpunktarena/domain";
 import { useCallback, type ReactNode } from "react";
 import { IconCheck, IconPerson, IconPrint } from "../../components/UiIcons";
 import { ShotList } from "../../components/ShotList";

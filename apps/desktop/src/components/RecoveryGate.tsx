@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api/commands";
-import type { RecoverySessionInfo } from "@reddot/domain";
+import type { RecoverySessionInfo } from "@rotpunktarena/domain";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 
 type Props = {

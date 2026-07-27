@@ -1,6 +1,6 @@
 /**
  * Access / capability selftest — no DOM.
- * Run: npm run test:access --workspace=@reddot/desktop
+ * Run: npm run test:access --workspace=@rotpunktarena/desktop
  */
 import { adminAccessStore } from "./adminAccessStore.ts";
 import {

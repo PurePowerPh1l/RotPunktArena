@@ -16,7 +16,7 @@ fn load_known() -> Option<RfcommTarget> {
     let path = std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("de.disag.reddot.arena")
+        .join("de.disag.rotpunktarena")
         .join("rfcomm_known_target.json");
     let bytes = std::fs::read(path).ok()?;
     serde_json::from_slice(&bytes).ok()

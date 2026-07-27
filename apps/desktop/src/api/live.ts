@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LiveState } from "@reddot/domain";
+import type { LiveState } from "@rotpunktarena/domain";
 
 export async function getLiveState(): Promise<LiveState> {
   return invoke("get_live_state");

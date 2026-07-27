@@ -1,9 +1,9 @@
 /**
  * Offline analysis of STX frames for header/trailer mapping (Phase 0 hardware prep).
  */
-import { parseShotFrame, SHOT_FRAME_LENGTH, CONTROL } from "@reddot/protocol";
+import { parseShotFrame, SHOT_FRAME_LENGTH, CONTROL } from "@rotpunktarena/protocol";
 import { bytesToHex, parseCaptureText, rxBytesFromCapture } from "./capture.ts";
-import { RedDotStreamParser } from "@reddot/protocol";
+import { RedDotStreamParser } from "@rotpunktarena/protocol";
 
 export interface FrameRegionDump {
   index: number;

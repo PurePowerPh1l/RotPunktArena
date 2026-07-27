@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { TrainingSessionSummary } from "@reddot/domain";
+import type { TrainingSessionSummary } from "@rotpunktarena/domain";
 import { SlidingSeg } from "../../components/SlidingSeg";
 import {
   createGoal,

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import type { Competition, CompetitionKind, ScoringMode } from "@reddot/domain";
+import type { Competition, CompetitionKind, ScoringMode } from "@rotpunktarena/domain";
 import { SearchSelect } from "../../components/SearchSelect";
 
 export type CompetitionCreateInput = {

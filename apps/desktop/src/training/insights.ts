@@ -1,4 +1,4 @@
-import type { TrainingSessionSummary, UiShot } from "@reddot/domain";
+import type { TrainingSessionSummary, UiShot } from "@rotpunktarena/domain";
 import { sessionsChronological } from "./seriesPulse";
 import { fmtStat } from "./stats";
 

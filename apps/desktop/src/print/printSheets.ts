@@ -7,7 +7,7 @@ import type {
   TeamResultSummary,
   TrainingSessionSummary,
   UiShot,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import { type ScoreDisplayMode } from "../components/TargetFace";
 import {
   fitFaceScale,
@@ -140,7 +140,7 @@ function buildResultsHtml(input: ResultsSheetInput): string {
     <tbody>${rows || "<tr><td colspan='5'>Keine Starter</td></tr>"}</tbody>
   </table>
   ${teamBlock}
-  <p class="foot">RedDot Arena · Ergebnisprotokoll${bestOfNote ? " · Werte = beste Serie" : ""}</p>
+  <p class="foot">RotPunktArena · Ergebnisprotokoll${bestOfNote ? " · Werte = beste Serie" : ""}</p>
   <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;
@@ -264,7 +264,7 @@ ${PRINT_BASE_CSS}
       : ""
   }
   ${seriesBlocks || "<p>Keine Serien</p>"}
-  <p class="foot">RedDot Arena · Ergebnis · ${seriesList.length > 1 ? "Wertung = beste Serie" : "Ausdruck zur Dokumentation"}</p>
+  <p class="foot">RotPunktArena · Ergebnis · ${seriesList.length > 1 ? "Wertung = beste Serie" : "Ausdruck zur Dokumentation"}</p>
   <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;
@@ -315,7 +315,7 @@ function buildTrainingHtml(input: TrainingSheetInput): string {
     <thead><tr><th>Datum</th><th>Schütze</th><th>Schüsse</th><th>Σ Punkte</th><th>Ø / Schuss</th><th>Ø Teiler</th></tr></thead>
     <tbody>${rows || "<tr><td colspan='6'>Keine Serien</td></tr>"}</tbody>
   </table>
-  <p class="foot">RedDot Arena · Trainingshistorie</p>
+  <p class="foot">RotPunktArena · Trainingshistorie</p>
   <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;

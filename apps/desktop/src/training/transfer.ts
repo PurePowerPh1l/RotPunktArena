@@ -1,4 +1,4 @@
-import type { EntryResultSummary, TrainingSessionSummary } from "@reddot/domain";
+import type { EntryResultSummary, TrainingSessionSummary } from "@rotpunktarena/domain";
 import { fmtStat } from "./stats";
 
 export type TransferSnapshot = {
