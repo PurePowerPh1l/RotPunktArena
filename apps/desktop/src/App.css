@@ -2691,6 +2691,9 @@ button.ghost:hover:not(:disabled) {
   letter-spacing: 0.01em;
   line-height: 1.25;
   border: 1px solid transparent;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .settings-status-pill.is-ok {
