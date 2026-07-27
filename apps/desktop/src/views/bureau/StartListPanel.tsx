@@ -277,9 +277,8 @@ export function StartListPanel({
                 const isSelected = selectedEntryId === e.id;
                 const label = formatPersonName(e.lastName, e.firstName, "");
                 const isDone = e.status === "done";
-                const canRemove = canEdit && (!isDone || adminMode);
+                const canRemove = canEdit;
                 const canDragOut = canEdit && Boolean(onBeginEntryDrag);
-                const statusLocked = isDone && !adminMode;
                 const nk = Math.max(0, e.nachkaufPurchased ?? 0);
                 return (
                   <tr
@@ -301,9 +300,7 @@ export function StartListPanel({
                       className={`drag-handle${canDragOut ? " is-active" : ""}`}
                       title={
                         canDragOut
-                          ? isDone && !adminMode
-                            ? "Ziehen: Reihenfolge ändern · Fertig nicht entfernbar"
-                            : "Ziehen: Reihenfolge ändern oder aus der Liste nehmen"
+                          ? "Ziehen: Reihenfolge ändern oder aus der Liste nehmen"
                           : undefined
                       }
                       onPointerDown={(ev) => {
@@ -365,18 +362,13 @@ export function StartListPanel({
                           onChange={(id) =>
                             void onSetEntryStatus(e.id, id as EntryStatus)
                           }
-                          disabled={busy || statusLocked}
+                          disabled={busy}
                           placeholder="Status…"
                           allowClear={false}
                         />
                       ) : (
                         ENTRY_LABEL[e.status] ?? e.status
                       )}
-                      {statusLocked ? (
-                        <span className="hint start-status-lock">
-                          Admin zum Ändern
-                        </span>
-                      ) : null}
                     </td>
                     <td onClick={(ev) => ev.stopPropagation()}>
                       {canEdit ? (
@@ -394,8 +386,8 @@ export function StartListPanel({
                             className="ghost danger-text"
                             disabled={busy || !canRemove}
                             title={
-                              !canRemove
-                                ? "Fertig — Entfernen nur im Admin-Modus"
+                              isDone && !adminMode
+                                ? "Fertig — Admin-Passwort beim Entfernen"
                                 : undefined
                             }
                             onClick={() => void onRemoveEntry(e.id)}
