@@ -27,6 +27,24 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Minimal light tokens — readability/contrast only, not a redesign. */
+html[data-color-scheme="light"] {
+  color-scheme: light;
+  --bg0: #f3f4f6;
+  --bg1: #e7e9ee;
+  --ink: #1a1f27;
+  --muted: #5a6472;
+  --accent-soft: rgba(226, 90, 40, 0.12);
+  --accent-line: rgba(226, 90, 40, 0.4);
+  --panel: rgba(0, 0, 0, 0.035);
+  --panel-border: rgba(0, 0, 0, 0.1);
+  --panel-inset: rgba(0, 0, 0, 0.05);
+}
+
+html[data-color-scheme="dark"] {
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -58,6 +76,23 @@ body {
     linear-gradient(168deg, #0e1116 0%, var(--bg0) 45%, var(--bg1) 100%);
   color: var(--ink);
   overscroll-behavior: none;
+}
+
+html[data-color-scheme="light"] body {
+  background:
+    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.08) 0%, transparent 55%),
+    radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.08) 0%, transparent 50%),
+    linear-gradient(168deg, #fafbfc 0%, var(--bg0) 45%, var(--bg1) 100%);
+}
+
+/* Pref opt-in: structural reduced motion (OS media queries stay as-is). */
+html.is-reduced-motion *,
+html.is-reduced-motion *::before,
+html.is-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 body.is-app-fullscreen .app-frame {

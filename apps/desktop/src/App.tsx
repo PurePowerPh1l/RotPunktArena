@@ -11,6 +11,7 @@ import { useAppAccess } from "./hooks/useAppAccess";
 import { useShotSound } from "./hooks/useShotSound";
 import { useTrueFullscreen } from "./hooks/useTrueFullscreen";
 import { resolveStartView, useUiPrefs } from "./hooks/useUiPrefs";
+import { useApplyAppearance } from "./hooks/useApplyAppearance";
 import * as api from "./api/commands";
 import { BureauView } from "./views/BureauView";
 import type { ArenaHandoff } from "./views/bureau/StartListPanel";
@@ -34,6 +35,11 @@ export default function App() {
   const access = useAppAccess();
   const uiPrefs = useUiPrefs();
   const bootViewApplied = useRef(false);
+  useApplyAppearance({
+    colorScheme: uiPrefs.prefs.colorScheme,
+    reducedMotion: uiPrefs.prefs.reducedMotion,
+    enabled: uiPrefs.status !== "loading",
+  });
   const {
     can,
     isAdminModeEnabled,
