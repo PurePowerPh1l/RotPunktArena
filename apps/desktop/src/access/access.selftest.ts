@@ -9,9 +9,9 @@ import {
   hasCapability,
 } from "./capabilities.ts";
 import {
-  DEVELOPER_ACCESS_POLICY,
   isDeveloperEntryVisible,
   isDeveloperModeEnabled,
+  resolveDeveloperAccessPolicy,
 } from "./developerAccess.ts";
 import { getAppAccessSnapshot } from "./appAccess.ts";
 import type { AppAccessSnapshot, Capability } from "./types.ts";
@@ -25,23 +25,25 @@ function snapshot(partial?: Partial<AppAccessSnapshot>): AppAccessSnapshot {
     adminAccessState: "unconfigured",
     isAdminModeEnabled: false,
     isDeveloperModeEnabled: true,
-    developerAccessPolicy: DEVELOPER_ACCESS_POLICY,
+    developerAccessPolicy: "always-visible",
     ...partial,
   };
 }
 
-// --- Policy defaults (current stage) ---
-assert(DEVELOPER_ACCESS_POLICY === "always-visible", "policy always-visible");
-assert(isDeveloperEntryVisible(), "dev entry visible");
-assert(isDeveloperModeEnabled(), "developer mode on for always-visible");
+assert(
+  resolveDeveloperAccessPolicy(true) === "always-visible",
+  "dev → always-visible",
+);
+assert(resolveDeveloperAccessPolicy(false) === "disabled", "release → disabled");
+assert(isDeveloperEntryVisible("always-visible"), "dev entry visible");
+assert(isDeveloperModeEnabled("always-visible"), "developer mode on");
 assert(!isDeveloperEntryVisible("disabled"), "disabled hides entry");
 assert(!isDeveloperModeEnabled("disabled"), "disabled turns mode off");
 assert(
   !isDeveloperEntryVisible("hidden-trigger"),
-  "hidden-trigger hides until gesture (placeholder)",
+  "hidden-trigger hides until gesture",
 );
 
-// --- Capabilities ---
 const locked = snapshot();
 const unlocked = snapshot({
   adminAccessState: "unlocked",
@@ -75,7 +77,6 @@ assert(
   "diagnostics denied when developer off",
 );
 
-// --- Store: ephemeral unlock ---
 adminAccessStore.lock();
 assert(
   String(adminAccessStore.state) === "unconfigured",

@@ -1,7 +1,18 @@
 import type { DeveloperAccessPolicy } from "./types.ts";
 
-/** Current stage: Dev entry always shown. Flip here later to hide/disable. */
-export const DEVELOPER_ACCESS_POLICY: DeveloperAccessPolicy = "always-visible";
+/** Dev vs release — Release hides Dev entirely; tauri/vite dev keeps it. */
+export function resolveDeveloperAccessPolicy(
+  isDev: boolean = Boolean(
+    typeof import.meta !== "undefined" &&
+      (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV,
+  ),
+): DeveloperAccessPolicy {
+  return isDev ? "always-visible" : "disabled";
+}
+
+/** Resolved once at module load (Vite injects import.meta.env.DEV). */
+export const DEVELOPER_ACCESS_POLICY: DeveloperAccessPolicy =
+  resolveDeveloperAccessPolicy();
 
 /** Developer capabilities (diagnostics, mouse-aim gate) — off only when policy is disabled. */
 export function isDeveloperModeEnabled(

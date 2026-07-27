@@ -15,5 +15,12 @@ export {
   DEVELOPER_ACCESS_POLICY,
   isDeveloperEntryVisible,
   isDeveloperModeEnabled,
+  resolveDeveloperAccessPolicy,
 } from "./developerAccess.ts";
 export { getAppAccessSnapshot } from "./appAccess.ts";
+export {
+  completeAdminAuth,
+  registerAdminAuthUi,
+  requireAdminAuth,
+} from "./requireAdminAuth.ts";
+export type { AdminAuthMode } from "./requireAdminAuth.ts";

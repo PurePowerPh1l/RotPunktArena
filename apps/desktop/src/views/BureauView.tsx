@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   EntryResultDetail,
   EntryResultSummary,
+  EntryStatus,
   TeamResultSummary,
 } from "@rotpunktarena/domain";
+import { requireAdminAuth } from "../access";
 import { SlidingSeg } from "../components/SlidingSeg";
 import { useBureauData } from "../hooks/useBureauData";
 import { useEntryStartListDnD } from "../hooks/useEntryStartListDnD";
@@ -145,14 +147,41 @@ export function BureauView({
       ids.splice(to, 0, draggedId);
       await b.reorderEntries(ids);
     },
-    onRemove: (entryId) => b.removeEntry(entryId),
-    canRemove: (entryId) => {
+    onRemove: async (entryId) => {
       const entry = b.entries.find((e) => e.id === entryId);
-      if (!entry) return false;
-      if (entry.status === "done" && !adminMode) return false;
-      return true;
+      if (!entry) return;
+      if (entry.status === "done") {
+        if (!(await requireAdminAuth())) return;
+      }
+      await b.removeEntry(entryId);
     },
+    canRemove: (entryId) => Boolean(b.entries.find((e) => e.id === entryId)),
   });
+
+  const requireAdminForDoneEntry = useCallback(
+    async (entryId: string): Promise<boolean> => {
+      const entry = b.entries.find((e) => e.id === entryId);
+      if (!entry || entry.status !== "done") return true;
+      return requireAdminAuth();
+    },
+    [b.entries],
+  );
+
+  const setEntryStatusGuarded = useCallback(
+    async (entryId: string, status: EntryStatus) => {
+      if (!(await requireAdminForDoneEntry(entryId))) return false;
+      return b.setEntryStatus(entryId, status);
+    },
+    [b, requireAdminForDoneEntry],
+  );
+
+  const removeEntryGuarded = useCallback(
+    async (entryId: string) => {
+      if (!(await requireAdminForDoneEntry(entryId))) return false;
+      return b.removeEntry(entryId);
+    },
+    [b, requireAdminForDoneEntry],
+  );
 
   const inList = useMemo(
     () => new Set(b.entries.map((e) => e.personId)),
@@ -299,7 +328,9 @@ export function BureauView({
                   onRemoveFromStartList={async (personId) => {
                     const entry = b.entries.find((e) => e.personId === personId);
                     if (!entry) return false;
-                    if (entry.status === "done" && !adminMode) return false;
+                    if (entry.status === "done") {
+                      if (!(await requireAdminAuth())) return false;
+                    }
                     return b.removeEntry(entry.id);
                   }}
                   doneInList={doneInList}
@@ -373,8 +404,8 @@ export function BureauView({
                       listDropActive={listDropActive || personDnD.overDrop}
                       onListDropActive={setListDropActive}
                       onAddByName={b.addShooterByName}
-                      onSetEntryStatus={b.setEntryStatus}
-                      onRemoveEntry={b.removeEntry}
+                      onSetEntryStatus={setEntryStatusGuarded}
+                      onRemoveEntry={removeEntryGuarded}
                       onArchivePerson={(personId) =>
                         b.setPersonArchived(personId, true)
                       }
