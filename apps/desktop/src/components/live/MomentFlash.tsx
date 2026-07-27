@@ -4,14 +4,23 @@ type Props = {
   flashKind: MomentFlashKind;
   toast: string | null;
   onDismissToast?: () => void;
+  className?: string;
 };
 
 /** Non-blocking training beat overlay (flash ring + short toast). */
-export function MomentFlash({ flashKind, toast, onDismissToast }: Props) {
+export function MomentFlash({
+  flashKind,
+  toast,
+  onDismissToast,
+  className,
+}: Props) {
   if (!flashKind && !toast) return null;
 
   return (
-    <div className="moment-layer" aria-live="polite">
+    <div
+      className={["moment-layer", className].filter(Boolean).join(" ")}
+      aria-live="polite"
+    >
       {flashKind ? (
         <div
           className={`moment-flash moment-flash-${flashKind}`}

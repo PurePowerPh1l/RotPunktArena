@@ -88,7 +88,6 @@ impl Database {
         }
     }
 
-    #[allow(dead_code)]
     pub fn set_setting(&self, key: &str, value: &str) -> Result<(), String> {
         self.conn
             .execute(

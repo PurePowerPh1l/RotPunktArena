@@ -12,6 +12,7 @@ type Props = {
   xpPreview?: number | null;
   /** Open Statistik for the current shooter. */
   onOpenStats: () => void;
+  className?: string;
 };
 
 function fmtSrDelta(delta: number): string {
@@ -30,6 +31,7 @@ export function SeriesCeremony({
   pulse = null,
   xpPreview,
   onOpenStats,
+  className,
 }: Props) {
   if (!open) return null;
 
@@ -66,7 +68,13 @@ export function SeriesCeremony({
   return (
     <button
       type="button"
-      className={`series-ceremony${pulse?.leveledUp ? " series-ceremony-levelup" : ""}`}
+      className={[
+        "series-ceremony",
+        pulse?.leveledUp ? "series-ceremony-levelup" : "",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
       onClick={onOpenStats}
       aria-label="Serie abgeschlossen — zur Statistik"
     >

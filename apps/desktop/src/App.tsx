@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import type { RecoverySessionInfo } from "@rotpunktarena/domain";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { AppViewPref, RecoverySessionInfo } from "@rotpunktarena/domain";
 import { AppTopBar } from "./components/AppTopBar";
 import type { AppView } from "./components/appNav";
 import type { ShooterValue } from "./components/ShooterAutocomplete";
@@ -10,6 +10,8 @@ import { IconDev, IconMute, IconSettings, IconSound } from "./components/UiIcons
 import { useAppAccess } from "./hooks/useAppAccess";
 import { useShotSound } from "./hooks/useShotSound";
 import { useTrueFullscreen } from "./hooks/useTrueFullscreen";
+import { resolveStartView, useUiPrefs } from "./hooks/useUiPrefs";
+import { useApplyAppearance } from "./hooks/useApplyAppearance";
 import * as api from "./api/commands";
 import { BureauView } from "./views/BureauView";
 import type { ArenaHandoff } from "./views/bureau/StartListPanel";
@@ -23,10 +25,21 @@ const VIEW_SUBTITLE: Record<AppView, string> = {
   bureau: "Verwaltung",
 };
 
+function asAppView(pref: AppViewPref): AppView {
+  return pref;
+}
+
 export default function App() {
   const fs = useTrueFullscreen();
   const sound = useShotSound();
   const access = useAppAccess();
+  const uiPrefs = useUiPrefs();
+  const bootViewApplied = useRef(false);
+  useApplyAppearance({
+    colorScheme: uiPrefs.prefs.colorScheme,
+    reducedMotion: uiPrefs.prefs.reducedMotion,
+    enabled: uiPrefs.status !== "loading",
+  });
   const {
     can,
     isAdminModeEnabled,
@@ -97,6 +110,24 @@ export default function App() {
     };
   }, []);
 
+  /** Apply start/last view once prefs leave loading. */
+  useEffect(() => {
+    if (bootViewApplied.current) return;
+    if (uiPrefs.status === "loading") return;
+    bootViewApplied.current = true;
+    setView(asAppView(resolveStartView(uiPrefs.prefs)));
+  }, [uiPrefs.status, uiPrefs.prefs]);
+
+  const changeView = useCallback(
+    (next: AppView) => {
+      setView(next);
+      if (uiPrefs.prefs.rememberLastView) {
+        uiPrefs.updatePrefs({ lastView: next });
+      }
+    },
+    [uiPrefs],
+  );
+
   const onRecoveryResolved = useCallback(() => {
     setRecoverySessions([]);
   }, []);
@@ -151,17 +182,25 @@ export default function App() {
     );
   }
 
+  const frameClass = [
+    "app-frame",
+    `app-frame-${view}`,
+    isAdminModeEnabled ? "is-admin-mode" : "",
+    uiPrefs.prefs.compactUi ? "is-compact-ui" : "",
+    uiPrefs.prefs.largeText ? "is-large-text" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div
-      className={`app-frame app-frame-${view}${isAdminModeEnabled ? " is-admin-mode" : ""}`}
-    >
+    <div className={frameClass}>
       <AppTopBar
         subtitle={VIEW_SUBTITLE[view]}
         view={view}
         nav={{
-          onOpenLive: () => setView("live"),
-          onOpenBureau: () => setView("bureau"),
-          onOpenHistory: () => setView("history"),
+          onOpenLive: () => changeView("live"),
+          onOpenBureau: () => changeView("bureau"),
+          onOpenHistory: () => changeView("history"),
         }}
         tools={
           <>
@@ -206,7 +245,7 @@ export default function App() {
           view === "live" && arenaMode === "competition" && arenaNachkauf
         }
         onRequestSetup={() => {
-          setView("live");
+          changeView("live");
           setSetupRequestNonce((n) => n + 1);
         }}
       />
@@ -226,7 +265,7 @@ export default function App() {
             developerSheetOpen={isDeveloperSheetOpen}
             mouseAimEnabled={mouseAimEnabled}
             devShotInjectEpoch={devShotInjectEpoch}
-            onOpenHistory={() => setView("history")}
+            onOpenHistory={() => changeView("history")}
             onArenaModeChange={setArenaMode}
             onNachkaufActiveChange={setArenaNachkauf}
             arenaVisible={view === "live"}
@@ -237,6 +276,13 @@ export default function App() {
             arenaHandoff={arenaHandoff}
             onArenaHandoffConsumed={() => setArenaHandoff(null)}
             setupRequestNonce={setupRequestNonce}
+            arenaPrefs={{
+              scoreDisplay: uiPrefs.prefs.scoreDisplay,
+              rememberScoreDisplay: uiPrefs.prefs.rememberScoreDisplay,
+              hitFeedback: uiPrefs.prefs.hitFeedback,
+              targetFit: uiPrefs.prefs.targetFit,
+              onUpdatePrefs: uiPrefs.updatePrefs,
+            }}
           />
         </div>
         {view === "bureau" ? (
@@ -252,7 +298,7 @@ export default function App() {
                 setBureauCompetitionId(handoff.competitionId);
                 setArenaHandoff(handoff);
               }
-              setView("live");
+              changeView("live");
             }}
           />
         ) : null}
@@ -266,9 +312,15 @@ export default function App() {
         onClose={() => setSettingsSheetOpen(false)}
         adminAccessState={adminAccessState}
         isAdminModeEnabled={isAdminModeEnabled}
+        currentView={view}
+        uiPrefs={uiPrefs.prefs}
+        uiPrefsStatus={uiPrefs.status}
+        uiPrefsError={uiPrefs.error}
+        onUpdateUiPrefs={uiPrefs.updatePrefs}
+        onRetryUiPrefs={() => void uiPrefs.retryLoad()}
         onSearchDevice={() => {
           setSettingsSheetOpen(false);
-          setView("live");
+          changeView("live");
           setSetupRequestNonce((n) => n + 1);
         }}
         onDatabaseReplaced={() => {
