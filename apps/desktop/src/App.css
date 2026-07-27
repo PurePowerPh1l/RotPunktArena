@@ -1022,6 +1022,24 @@ body.is-app-fullscreen .app-frame {
   box-shadow: 0 0 0 1px rgba(184, 134, 11, 0.35);
 }
 
+.moment-layer.is-feedback-reduced .moment-flash {
+  animation-duration: 0.16s;
+  opacity: 0.7;
+}
+
+.moment-layer.is-feedback-reduced .moment-toast {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+}
+
+.series-ceremony.is-feedback-reduced {
+  opacity: 0.92;
+}
+
+.series-ceremony.is-feedback-reduced .series-ceremony-bar-fill {
+  transition: none;
+}
+
 .moment-toast {
   pointer-events: auto;
   margin: 0;

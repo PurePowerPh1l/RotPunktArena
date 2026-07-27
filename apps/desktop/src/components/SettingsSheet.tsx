@@ -544,34 +544,65 @@ export function SettingsSheet({
         open={openSection === "arena"}
         onOpenChange={() => toggleSection("arena")}
       >
+        {uiPrefsStatus === "loading" ? (
+          <SettingsHint>Einstellungen werden geladen…</SettingsHint>
+        ) : null}
         <SettingsChoice
           label="Trefferanzeige"
-          value="punkte"
+          value={uiPrefs.scoreDisplay}
+          disabled={!prefsReady}
           options={[
             { value: "punkte", label: "Punkte zuerst" },
             { value: "teiler", label: "Teiler zuerst" },
           ]}
+          onChange={(value) =>
+            onUpdateUiPrefs({
+              scoreDisplay: value as UiPrefs["scoreDisplay"],
+            })
+          }
         />
         <SettingsChoice
           label="Trefferfeedback"
-          value="normal"
+          value={uiPrefs.hitFeedback}
+          disabled={!prefsReady}
           options={[
             { value: "normal", label: "Normal" },
             { value: "reduced", label: "Reduziert" },
             { value: "minimal", label: "Minimal" },
           ]}
+          onChange={(value) =>
+            onUpdateUiPrefs({
+              hitFeedback: value as UiPrefs["hitFeedback"],
+            })
+          }
         />
         <SettingsChoice
           label="Zieldarstellung"
-          value="auto"
+          value={uiPrefs.targetFit}
+          disabled={!prefsReady}
           options={[
             { value: "auto", label: "Automatisch" },
             { value: "calm", label: "Ruhig" },
             { value: "aggressive", label: "Aggressiv" },
           ]}
           hint="Wie stark die Scheibe an das Fenster angepasst wird."
+          onChange={(value) =>
+            onUpdateUiPrefs({
+              targetFit: value as UiPrefs["targetFit"],
+            })
+          }
         />
-        <SettingsToggle label="Letzte Wertungsansicht merken" />
+        <SettingsToggle
+          label="Letzte Wertungsansicht merken"
+          hint="Manuelle Umschaltung Punkte/Teiler im Training speichern."
+          checked={uiPrefs.rememberScoreDisplay}
+          disabled={!prefsReady}
+          onChange={(on) => onUpdateUiPrefs({ rememberScoreDisplay: on })}
+        />
+        <SettingsHint>
+          Im Wettkampf gilt die Wertungsart des Wettbewerbs — die Nutzerpräferenz
+          wird nicht überschrieben.
+        </SettingsHint>
       </SettingsSection>
 
       <SettingsSection
