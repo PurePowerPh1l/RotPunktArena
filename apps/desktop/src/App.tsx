@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppViewPref, RecoverySessionInfo } from "@rotpunktarena/domain";
+import { adminAccessStore } from "./access";
+import { AdminAuthSheet } from "./components/AdminAuthSheet";
 import { AppTopBar } from "./components/AppTopBar";
 import type { AppView } from "./components/appNav";
 import type { ShooterValue } from "./components/ShooterAutocomplete";
@@ -80,6 +82,16 @@ export default function App() {
     RecoverySessionInfo[] | null
   >(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void adminAccessStore.hydrate().catch((e: unknown) => {
+      if (!cancelled) console.error("admin auth hydrate failed", e);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -327,6 +339,10 @@ export default function App() {
           setSettingsSheetOpen(false);
           window.location.reload();
         }}
+      />
+
+      <AdminAuthSheet
+        stackedSecondary={isSettingsSheetOpen || isDeveloperSheetOpen}
       />
 
       <DevPanel
