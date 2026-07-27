@@ -57,6 +57,11 @@ type Props = {
   /** Which metric to show when labelMode is "value". */
   displayMode?: ScoreDisplayMode;
   /**
+   * Multiplier on auto-fit scale (prefs: calm/auto/aggressive).
+   * 1 = unchanged fitFaceScale.
+   */
+  fitMultiplier?: number;
+  /**
    * After a series: mouse-wheel zoom + drag pan to inspect impacts.
    * Resets automatically when this becomes false (new series).
    */
@@ -112,12 +117,16 @@ export function TargetFace({
   interactive,
   labelMode = "value",
   displayMode = "punkte",
+  fitMultiplier = 1,
   allowInspect = false,
 }: Props) {
   const glowId = useId();
   const svgRef = useRef<SVGSVGElement>(null);
   const dense = shots.length > 24;
-  const fitScale = useMemo(() => fitFaceScale(shots), [shots]);
+  const fitScale = useMemo(
+    () => fitFaceScale(shots) * fitMultiplier,
+    [shots, fitMultiplier],
+  );
   const [inspect, setInspect] = useState<InspectView>(INSPECT_RESET);
   const [resetting, setResetting] = useState(false);
   const dragRef = useRef<{

@@ -396,3 +396,42 @@ export interface Shooter {
 
 /** @deprecated Prefer SessionInfo */
 export type TrainingSession = SessionInfo;
+
+/** Mirrors Rust `UiPrefs` / settings key `ui.prefs` (camelCase). */
+export type AppViewPref = "live" | "history" | "bureau";
+export type ColorSchemePref = "system" | "light" | "dark";
+export type ScoreDisplayPref = "punkte" | "teiler";
+export type HitFeedbackPref = "normal" | "reduced" | "minimal";
+export type TargetFitPref = "auto" | "calm" | "aggressive";
+
+export interface UiPrefs {
+  startView: AppViewPref;
+  rememberLastView: boolean;
+  lastView: AppViewPref | null;
+  compactUi: boolean;
+  largeText: boolean;
+  colorScheme: ColorSchemePref;
+  reducedMotion: boolean;
+  scoreDisplay: ScoreDisplayPref;
+  rememberScoreDisplay: boolean;
+  hitFeedback: HitFeedbackPref;
+  targetFit: TargetFitPref;
+}
+
+/**
+ * Defensive FE load placeholder only — authoritative defaults live in
+ * Rust `UiPrefs::default()`. Keep values in sync via settings.selftest.
+ */
+export const UI_PREFS_LOAD_PLACEHOLDER: UiPrefs = {
+  startView: "live",
+  rememberLastView: false,
+  lastView: null,
+  compactUi: false,
+  largeText: false,
+  colorScheme: "system",
+  reducedMotion: false,
+  scoreDisplay: "punkte",
+  rememberScoreDisplay: false,
+  hitFeedback: "normal",
+  targetFit: "auto",
+};

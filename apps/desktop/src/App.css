@@ -27,6 +27,24 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Minimal light tokens — readability/contrast only, not a redesign. */
+html[data-color-scheme="light"] {
+  color-scheme: light;
+  --bg0: #f3f4f6;
+  --bg1: #e7e9ee;
+  --ink: #1a1f27;
+  --muted: #5a6472;
+  --accent-soft: rgba(226, 90, 40, 0.12);
+  --accent-line: rgba(226, 90, 40, 0.4);
+  --panel: rgba(0, 0, 0, 0.035);
+  --panel-border: rgba(0, 0, 0, 0.1);
+  --panel-inset: rgba(0, 0, 0, 0.05);
+}
+
+html[data-color-scheme="dark"] {
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -60,6 +78,23 @@ body {
   overscroll-behavior: none;
 }
 
+html[data-color-scheme="light"] body {
+  background:
+    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.08) 0%, transparent 55%),
+    radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.08) 0%, transparent 50%),
+    linear-gradient(168deg, #fafbfc 0%, var(--bg0) 45%, var(--bg1) 100%);
+}
+
+/* Pref opt-in: structural reduced motion (OS media queries stay as-is). */
+html.is-reduced-motion *,
+html.is-reduced-motion *::before,
+html.is-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 body.is-app-fullscreen .app-frame {
   padding-top: clamp(0.45rem, 0.9vmin, 0.75rem);
 }
@@ -75,6 +110,21 @@ body.is-app-fullscreen .app-frame {
   gap: clamp(0.45rem, 1vmin, 0.9rem);
   overflow: hidden;
   box-sizing: border-box;
+}
+
+.app-frame.is-compact-ui {
+  padding: clamp(0.4rem, 0.85vmin, 0.75rem) clamp(0.55rem, 1.1vmin, 1rem)
+    clamp(0.35rem, 0.75vmin, 0.65rem);
+  gap: clamp(0.3rem, 0.7vmin, 0.55rem);
+}
+
+.app-frame.is-large-text {
+  font-size: 1.08rem;
+}
+
+.app-frame.is-large-text .top,
+.app-frame.is-large-text .settings-sheet {
+  font-size: 1.05em;
 }
 
 .app-frame-body {
@@ -970,6 +1020,24 @@ body.is-app-fullscreen .app-frame {
 .moment-flash-best {
   border-color: rgba(184, 134, 11, 0.95);
   box-shadow: 0 0 0 1px rgba(184, 134, 11, 0.35);
+}
+
+.moment-layer.is-feedback-reduced .moment-flash {
+  animation-duration: 0.16s;
+  opacity: 0.7;
+}
+
+.moment-layer.is-feedback-reduced .moment-toast {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+}
+
+.series-ceremony.is-feedback-reduced {
+  opacity: 0.92;
+}
+
+.series-ceremony.is-feedback-reduced .series-ceremony-bar-fill {
+  transition: none;
 }
 
 .moment-toast {

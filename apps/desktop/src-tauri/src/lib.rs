@@ -97,6 +97,8 @@ pub fn run() {
             commands::list_db_backups,
             commands::restore_db_backup,
             commands::reset_all_database,
+            commands::get_ui_prefs,
+            commands::set_ui_prefs,
             commands::reset_training_series,
             commands::set_training_endless,
             commands::save_training_session,
