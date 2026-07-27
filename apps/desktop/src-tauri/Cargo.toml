@@ -1,0 +1,166 @@
+[package]
+name = "reddot-desktop"
+version = "0.1.0"
+description = "DISAG RedDot Arena (Phase 1 MVP)"
+authors = ["RedDot"]
+edition = "2021"
+default-run = "reddot-desktop"
+
+[lib]
+name = "reddot_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "bt_diag"
+path = "src/bin/bt_diag.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_soak"
+path = "src/bin/bt_soak.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_pair"
+path = "src/bin/bt_pair.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_product_smoke"
+path = "src/bin/bt_product_smoke.rs"
+required-features = ["rfcomm"]
+
+# --- Soft-Wake comparison labs (not product; require softwake-labs) ---
+[[bin]]
+name = "bt_softwake_ab"
+path = "src/bin/bt_softwake_ab.rs"
+required-features = ["rfcomm", "softwake-labs"]
+
+[[bin]]
+name = "bt_master_auto"
+path = "src/bin/bt_master_auto.rs"
+required-features = ["rfcomm", "softwake-labs"]
+
+# --- Experimental labs (not Soft-Wake orchestra; not softwake-labs-gated) ---
+[[bin]]
+name = "bt_bonded_simple"
+path = "src/bin/bt_bonded_simple.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_winrt_simple"
+path = "src/bin/bt_winrt_simple.rs"
+required-features = ["rfcomm"]
+
+# --- Product matrix labs (see docs/rfcomm-nuclear-test-matrix.md) ---
+[[bin]]
+name = "bt_reset_connect"
+path = "src/bin/bt_reset_connect.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_cold_start"
+path = "src/bin/bt_cold_start.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_nuclear_smoke"
+path = "src/bin/bt_nuclear_smoke.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_nuclear_twice"
+path = "src/bin/bt_nuclear_twice.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_nuclear_timeout"
+path = "src/bin/bt_nuclear_timeout.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_json_corrupt"
+path = "src/bin/bt_json_corrupt.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_auto_once"
+path = "src/bin/bt_auto_once.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_auto_ab"
+path = "src/bin/bt_auto_ab.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_auto_connected_gate"
+path = "src/bin/bt_auto_connected_gate.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_start_pair_variants"
+path = "src/bin/bt_start_pair_variants.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_startup_race"
+path = "src/bin/bt_startup_race.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_auto_then_nuclear"
+path = "src/bin/bt_auto_then_nuclear.rs"
+required-features = ["rfcomm"]
+
+[[bin]]
+name = "bt_bond_gate_matrix"
+path = "src/bin/bt_bond_gate_matrix.rs"
+required-features = ["rfcomm"]
+
+[features]
+default = ["simulator", "rfcomm"]
+simulator = []
+# Legacy Virtual COM / USB serial — optional, not used for Bluetooth link.
+serial = ["dep:serialport"]
+# Native Winsock RFCOMM — product Bluetooth connect path (+ bt_diag / bt_soak).
+rfcomm = []
+# Soft-Wake comparison bins only (`bt_softwake_ab`, `bt_master_auto`). Not product.
+#   cargo run -p reddot-desktop --bin bt_softwake_ab --features softwake-labs
+softwake-labs = []
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+parking_lot = "0.12"
+thiserror = "2"
+serialport = { version = "4", optional = true }
+sha2 = "0.11.0"
+hex = "0.4.3"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+    "Devices_Bluetooth",
+    "Devices_Bluetooth_Rfcomm",
+    "Devices_Enumeration",
+    "Devices_Radios",
+    "Foundation",
+    "Networking",
+    "Networking_Sockets",
+    "Win32_Devices_Bluetooth",
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }

@@ -1,0 +1,9 @@
+# shot-series.hex — TEMPLATE (Live-Hardware)
+# Mindestens 3 echte 59-Byte STX-Frames + ACK.
+# Nach Capture: npm run sniffer -- analyze <diese-datei>
+
+# TX: 05
+# RX: 15
+# TX: 05
+# RX: 02 … (59 Bytes)
+# TX: 06

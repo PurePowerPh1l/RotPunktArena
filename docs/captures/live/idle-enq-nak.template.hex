@@ -1,0 +1,6 @@
+# idle-enq-nak.hex — TEMPLATE (Live-Hardware)
+# Ersetzen durch echten Sniffer-Output (`port COMx --out …`).
+# Erwartung: TX ENQ (05), RX NAK (15), mehrfach.
+
+# TX: 05
+# RX: 15

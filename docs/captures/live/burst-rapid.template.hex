@@ -1,0 +1,4 @@
+# burst-rapid.hex — TEMPLATE (Live-Hardware)
+# Schnelle Schussfolge: Parser/ACK unter Last prüfen.
+
+# (Sniffer --duration 60000 während dichter Schüsse)
