@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TrainingSaveInfo, TrainingSessionSummary } from "@reddot/domain";
+import type { TrainingSaveInfo, TrainingSessionSummary } from "@rotpunktarena/domain";
 import type { ShooterValue } from "../components/ShooterAutocomplete";
 import * as api from "../api/commands";
 import { createRequestSeq } from "../lib/requestSeq";

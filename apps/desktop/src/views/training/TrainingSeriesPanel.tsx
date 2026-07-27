@@ -1,4 +1,4 @@
-import type { TrainingSessionSummary } from "@reddot/domain";
+import type { TrainingSessionSummary } from "@rotpunktarena/domain";
 import { IconPrint } from "../../components/UiIcons";
 import { formatScoreCompact } from "../../lib/format";
 import type { SeriesPulse } from "../../training/seriesPulse";

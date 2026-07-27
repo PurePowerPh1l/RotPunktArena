@@ -2,12 +2,12 @@ import type {
   Competition,
   CompetitionEntry,
   CompetitionTeam,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import {
   trainingEndlessResetConfirmMessage,
   trainingHistoryMinShotsHint,
   trainingResetConfirmMessage,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import type { ReactNode } from "react";
 import { MagicButton } from "../../components/MagicButton";
 import {

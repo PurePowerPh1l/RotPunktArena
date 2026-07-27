@@ -12,7 +12,7 @@ import type {
   EntryResultSummary,
   EntryStatus,
   TeamResultSummary,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import { EntryResultPanel } from "../../components/EntryResultPanel";
 import { SearchSelect } from "../../components/SearchSelect";
 import { SlidingSeg } from "../../components/SlidingSeg";

@@ -1,4 +1,4 @@
-import type { Competition, EntryStatus } from "@reddot/domain";
+import type { Competition, EntryStatus } from "@rotpunktarena/domain";
 
 export const ENTRY_LABEL: Record<EntryStatus, string> = {
   waiting: "Wartend",

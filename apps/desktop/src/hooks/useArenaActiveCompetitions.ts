@@ -3,7 +3,7 @@
  * Owns reload/stale-id clear only — selection (`competitionId`) stays parent-owned.
  */
 import { useEffect, useState } from "react";
-import type { Competition } from "@reddot/domain";
+import type { Competition } from "@rotpunktarena/domain";
 import * as api from "../api/commands";
 
 type Args = {

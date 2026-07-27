@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { valueDisplay } from "@reddot/protocol";
+import { valueDisplay } from "@rotpunktarena/protocol";
 import { parseCaptureText, rxBytesFromCapture } from "../src/capture.ts";
 import { replayCaptureFile } from "../src/replay.ts";
 

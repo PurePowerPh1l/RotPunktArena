@@ -4,8 +4,8 @@ import type {
   TrainingSessionDetail,
   TrainingSessionSummary,
   TrainingShooterOption,
-} from "@reddot/domain";
-import { trainingHistoryClearConfirmMessage } from "@reddot/domain";
+} from "@rotpunktarena/domain";
+import { trainingHistoryClearConfirmMessage } from "@rotpunktarena/domain";
 import type { ShooterValue } from "../components/ShooterAutocomplete";
 import type { ScoreDisplayMode } from "../components/TargetFace";
 import { SlidingSeg } from "../components/SlidingSeg";

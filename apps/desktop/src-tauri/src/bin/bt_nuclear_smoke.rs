@@ -17,7 +17,7 @@ fn data_dir() -> PathBuf {
     std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("de.disag.reddot.arena")
+        .join("de.disag.rotpunktarena")
 }
 
 fn main() {

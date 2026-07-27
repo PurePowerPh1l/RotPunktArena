@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { DevDiagnostics, LiveState } from "@reddot/domain";
+import type { DevDiagnostics, LiveState } from "@rotpunktarena/domain";
 
 export type { DevDiagnostics };
 

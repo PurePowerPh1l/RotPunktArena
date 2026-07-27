@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { DevDiagnostics } from "@reddot/domain";
+import type { DevDiagnostics } from "@rotpunktarena/domain";
 import {
   assertCapability,
   getAppAccessSnapshot,

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { UiShot } from "@reddot/domain";
+import type { UiShot } from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "../components/TargetFace";
 
 /** Points/Teiler primary/secondary + series Σ from Rust fields (no local reduce). */

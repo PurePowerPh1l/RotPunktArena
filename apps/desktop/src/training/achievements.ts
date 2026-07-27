@@ -1,4 +1,4 @@
-import type { TrainingSessionSummary } from "@reddot/domain";
+import type { TrainingSessionSummary } from "@rotpunktarena/domain";
 import { levelFromXp, xpFromSessions } from "./stats";
 
 /**

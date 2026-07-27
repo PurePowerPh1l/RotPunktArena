@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
-import type { CompetitionTeam, Person } from "@reddot/domain";
+import type { CompetitionTeam, Person } from "@rotpunktarena/domain";
 import { SearchSelect } from "../../components/SearchSelect";
 import { formatPersonName } from "../../lib/format";
 

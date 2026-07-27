@@ -11,8 +11,8 @@ export default defineConfig(async () => ({
   plugins: [react()],
   resolve: {
     alias: {
-      "@reddot/protocol": `${repoRoot}/packages/protocol/src/index.ts`,
-      "@reddot/domain": `${repoRoot}/packages/domain/src/index.ts`,
+      "@rotpunktarena/protocol": `${repoRoot}/packages/protocol/src/index.ts`,
+      "@rotpunktarena/domain": `${repoRoot}/packages/domain/src/index.ts`,
     },
   },
 

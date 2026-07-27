@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { EntryResultDetail, SeriesResultSummary, UiShot } from "@reddot/domain";
+import type { EntryResultDetail, SeriesResultSummary, UiShot } from "@rotpunktarena/domain";
 import { ShotList } from "./ShotList";
 import { TargetFace, type ScoreDisplayMode } from "./TargetFace";
 import { bestShotOf } from "../hooks/useScoreDisplay";

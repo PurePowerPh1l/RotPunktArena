@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type PointerEvent } from "react";
-import type { Competition, CompetitionEntry, CompetitionTeam, EntryStatus } from "@reddot/domain";
+import type { Competition, CompetitionEntry, CompetitionTeam, EntryStatus } from "@rotpunktarena/domain";
 import { OverflowMenu } from "../../components/OverflowMenu";
 import { SearchSelect } from "../../components/SearchSelect";
 import { formatPersonName } from "../../lib/format";

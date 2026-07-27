@@ -1,4 +1,4 @@
-# RedDot Arena
+# RotPunktArena
 
 Lokaler Stand-Client als Ersatz für RedDotView (Phase 1 MVP).
 

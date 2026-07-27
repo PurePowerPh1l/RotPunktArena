@@ -1,5 +1,5 @@
 {
-  "name": "@reddot/desktop",
+  "name": "@rotpunktarena/desktop",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -15,8 +15,8 @@
     "@fontsource/barlow-condensed": "^5.3.0",
     "@fontsource/figtree": "^5.3.0",
     "@fontsource/syne": "^5.3.0",
-    "@reddot/domain": "*",
-    "@reddot/protocol": "*",
+    "@rotpunktarena/domain": "*",
+    "@rotpunktarena/protocol": "*",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.3.1",

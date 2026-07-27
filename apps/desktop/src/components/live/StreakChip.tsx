@@ -1,4 +1,4 @@
-import type { UiShot } from "@reddot/domain";
+import type { UiShot } from "@rotpunktarena/domain";
 import { tenStreak } from "../../live/presenceContract";
 
 type Props = {

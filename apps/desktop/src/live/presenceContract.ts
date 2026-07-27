@@ -14,7 +14,7 @@
  * Mode gate: gamification (B/C/D-tiers/E) ONLY when mode === "training".
  * Competition: Halo labels + last/best highlight only.
  */
-import type { UiShot } from "@reddot/domain";
+import type { UiShot } from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "../components/TargetFace";
 
 /** Audio cue tier — training may pass rich tiers; competition keeps miss|hit. */

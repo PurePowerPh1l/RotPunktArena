@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { RecoverySessionInfo } from "@reddot/domain";
+import type { RecoverySessionInfo } from "@rotpunktarena/domain";
 import { AppTopBar } from "./components/AppTopBar";
 import type { AppView } from "./components/appNav";
 import type { ShooterValue } from "./components/ShooterAutocomplete";

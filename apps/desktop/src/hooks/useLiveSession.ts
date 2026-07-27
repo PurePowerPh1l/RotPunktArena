@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import type { ConnectionUpdate, LiveState, SeriesCompletePayload, UiShot } from "@reddot/domain";
-import { trainingSaveUiMessage } from "@reddot/domain";
+import type { ConnectionUpdate, LiveState, SeriesCompletePayload, UiShot } from "@rotpunktarena/domain";
+import { trainingSaveUiMessage } from "@rotpunktarena/domain";
 import * as api from "../api/commands";
 import { useAsyncAction } from "./useAsyncAction";
 

@@ -3,7 +3,7 @@ import type {
   CompetitionStatus,
   EntryStatus,
   ScoringMode,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import * as api from "../../api/commands";
 
 export type BureauMutate = (fn: () => Promise<void>) => Promise<boolean>;
@@ -88,7 +88,7 @@ export function createBureauMutations(ctx: BureauMutationCtx) {
     nachkaufShots?: number;
     teamScoringEnabled?: boolean;
     teamCount?: number;
-    kind?: import("@reddot/domain").CompetitionKind;
+    kind?: import("@rotpunktarena/domain").CompetitionKind;
     activateOnCreate?: boolean;
   }): Promise<string | null> => {
     let createdId: string | null = null;
@@ -117,7 +117,7 @@ export function createBureauMutations(ctx: BureauMutationCtx) {
       nachkaufShots?: number;
       teamScoringEnabled?: boolean;
       teamCount?: number;
-      kind?: import("@reddot/domain").CompetitionKind;
+      kind?: import("@rotpunktarena/domain").CompetitionKind;
       activateOnCreate?: boolean;
     },
   ): Promise<boolean> =>

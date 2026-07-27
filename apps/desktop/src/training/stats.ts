@@ -1,4 +1,4 @@
-import type { TrainingSessionSummary } from "@reddot/domain";
+import type { TrainingSessionSummary } from "@rotpunktarena/domain";
 
 /**
  * Display aggregates from saved series — not shot scoring logic.

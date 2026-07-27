@@ -17,7 +17,7 @@ import {
   buildSyntheticShotFrame,
   CONTROL,
   SHOT_FRAME_LENGTH,
-} from "@reddot/protocol";
+} from "@rotpunktarena/protocol";
 import { analyzeCaptureText, printFrameAnalysis } from "./analyze.ts";
 import { bytesToHex } from "./capture.ts";
 import { listSerialPorts, openAndSniff } from "./port.ts";

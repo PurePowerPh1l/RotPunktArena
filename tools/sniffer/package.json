@@ -1,5 +1,5 @@
 {
-  "name": "@reddot/sniffer",
+  "name": "@rotpunktarena/sniffer",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "selftest": "tsx src/cli.ts replay ../../docs/captures/synthetic-shot.hex"
   },
   "dependencies": {
-    "@reddot/protocol": "file:../../packages/protocol",
+    "@rotpunktarena/protocol": "file:../../packages/protocol",
     "serialport": "^13.0.0"
   },
   "devDependencies": {

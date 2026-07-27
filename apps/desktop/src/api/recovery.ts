@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LiveState, RecoverySessionInfo } from "@reddot/domain";
+import type { LiveState, RecoverySessionInfo } from "@rotpunktarena/domain";
 
 export type { RecoverySessionInfo };
 

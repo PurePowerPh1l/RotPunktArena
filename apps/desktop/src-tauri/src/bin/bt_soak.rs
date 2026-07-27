@@ -44,7 +44,7 @@ fn dirs_fallback() -> PathBuf {
     std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("de.disag.reddot.arena")
+        .join("de.disag.rotpunktarena")
 }
 
 fn connect_once(target: &RfcommTarget, timeout: Duration) -> Result<RfcommSocket, String> {

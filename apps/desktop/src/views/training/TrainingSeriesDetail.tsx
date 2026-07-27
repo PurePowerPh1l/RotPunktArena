@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { TrainingSessionDetail, UiShot } from "@reddot/domain";
+import type { TrainingSessionDetail, UiShot } from "@rotpunktarena/domain";
 import { ShotList } from "../../components/ShotList";
 import { SlidingSeg } from "../../components/SlidingSeg";
 import {

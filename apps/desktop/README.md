@@ -1,4 +1,4 @@
-# RedDot Arena (Phase 1 MVP)
+# RotPunktArena (Phase 1 MVP)
 
 Lokaler Tauri-Client: Live-Stand mit Simulator, SQLite-Event-Log, Transport-Adapter.
 
@@ -10,7 +10,7 @@ Lokaler Tauri-Client: Live-Stand mit Simulator, SQLite-Event-Log, Transport-Adap
 ## Start
 
 ```bash
-cd "D:\Disag Reddot 2"
+cd "D:\RotPunktArena"
 npm install
 npm run desktop:dev
 ```
@@ -18,7 +18,7 @@ npm run desktop:dev
 Nur Frontend (ohne Tauri-Shell):
 
 ```bash
-npm run dev --workspace=@reddot/desktop
+npm run dev --workspace=@rotpunktarena/desktop
 ```
 
 ## Serial (optional)

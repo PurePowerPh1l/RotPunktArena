@@ -6,7 +6,7 @@
  * (arena progress needs `rivalEnabled` from this hook first).
  */
 import { useEffect, useRef, useState } from "react";
-import type { UiShot } from "@reddot/domain";
+import type { UiShot } from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "../components/TargetFace";
 import {
   classifyShotMoment,

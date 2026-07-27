@@ -4,7 +4,7 @@ import type {
   EntryResultDetail,
   EntryResultSummary,
   TeamResultSummary,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import * as api from "../../api/commands";
 import { CompetitionPodium } from "../../components/CompetitionPodium";
 import type { ScoreDisplayMode } from "../../components/TargetFace";

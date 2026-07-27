@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { ConnectionStatus } from "@reddot/domain";
+import type { ConnectionStatus } from "@rotpunktarena/domain";
 
 type RfcommStatusDto = {
   status: string;

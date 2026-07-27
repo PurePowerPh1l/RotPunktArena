@@ -3,7 +3,7 @@ import type {
   EntryResultDetail,
   EntryResultSummary,
   TeamResultSummary,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import { SlidingSeg } from "../components/SlidingSeg";
 import { useBureauData } from "../hooks/useBureauData";
 import { useEntryStartListDnD } from "../hooks/useEntryStartListDnD";

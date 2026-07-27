@@ -3,7 +3,7 @@ import type {
   Competition,
   CompetitionKind,
   CompetitionStatus,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import { ExpandSlot } from "../../components/ExpandSlot";
 import { OverflowMenu } from "../../components/OverflowMenu";
 import {

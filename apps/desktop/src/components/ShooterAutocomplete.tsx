@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import type { Person } from "@reddot/domain";
+import type { Person } from "@rotpunktarena/domain";
 import * as api from "../api/commands";
 import { createRequestSeq } from "../lib/requestSeq";
 

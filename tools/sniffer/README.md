@@ -1,8 +1,8 @@
-# @reddot/sniffer
+# @rotpunktarena/sniffer
 
 CLI zum Replay/Parsen/Analysieren von RedDot-Hex-Captures und optionalem Live-COM-Sniff (9600 8N1).
 
-Nutzt `@reddot/protocol` (`packages/protocol`).
+Nutzt `@rotpunktarena/protocol` (`packages/protocol`).
 
 Live-Checkliste: `docs/captures/CHECKLIST.md`.
 
@@ -11,7 +11,7 @@ Live-Checkliste: `docs/captures/CHECKLIST.md`.
 Node.js 20+ (auf dieser Maschine per `winget install OpenJS.NodeJS.LTS`).
 
 ```powershell
-cd "D:\Disag Reddot 2\tools\sniffer"
+cd "D:\RotPunktArena\tools\sniffer"
 npm install
 ```
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { UiShot } from "@reddot/domain";
+import type { UiShot } from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "./TargetFace";
 import { IconTraining } from "./UiIcons";
 import { shotRowValues } from "../hooks/useScoreDisplay";

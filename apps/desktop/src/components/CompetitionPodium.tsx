@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type {
   EntryResultSummary,
   TeamResultSummary,
-} from "@reddot/domain";
+} from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "./TargetFace";
 import { formatPersonName, formatScoreCompact } from "../lib/format";
 import {

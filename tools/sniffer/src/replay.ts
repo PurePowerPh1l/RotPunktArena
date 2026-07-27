@@ -10,7 +10,7 @@ import {
   type Incoming,
   type Shot,
   valueDisplay,
-} from "@reddot/protocol";
+} from "@rotpunktarena/protocol";
 import { bytesToHex, parseCaptureText, rxBytesFromCapture } from "./capture.ts";
 
 function formatShot(shot: Shot): string {

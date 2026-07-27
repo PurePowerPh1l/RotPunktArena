@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { TrainingSessionSummary } from "@reddot/domain";
+import type { TrainingSessionSummary } from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "./TargetFace";
 import { fmtStat } from "../training/stats";
 
