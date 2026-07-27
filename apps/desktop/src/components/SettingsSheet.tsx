@@ -23,6 +23,7 @@ import {
   SettingsChoice,
   SettingsHint,
   SettingsInfoRow,
+  SettingsLockedCard,
   SettingsSection,
   SettingsToggle,
   type SettingsStatusTone,
@@ -182,8 +183,8 @@ export function SettingsSheet({
     setOpenSection((prev) => (prev === id ? null : id));
   };
 
-  const canRestore = true;
-  const canReset = true;
+  const canRestore = isAdminModeEnabled;
+  const canReset = isAdminModeEnabled;
 
   const latestBackup = useMemo(() => backups[0], [backups]);
 
@@ -724,12 +725,18 @@ export function SettingsSheet({
           label="Status"
           value={
             isAdminModeEnabled
-              ? "Admin entsperrt"
+              ? "Entsperrt"
               : adminAccessState === "locked"
-                ? "Admin gesperrt"
-                : "Admin-Passwort noch nicht gesetzt"
+                ? "Gesperrt"
+                : "Noch nicht gesetzt"
           }
-          statusTone={isAdminModeEnabled ? "ok" : "neutral"}
+          statusTone={
+            isAdminModeEnabled
+              ? "ok"
+              : adminAccessState === "locked"
+                ? "locked"
+                : "neutral"
+          }
         />
         {!isAdminModeEnabled ? (
           <div className="side-sheet-actions">
@@ -750,53 +757,65 @@ export function SettingsSheet({
             </button>
           </div>
         )}
-        <SettingsHint>
-          Wiederherstellen und Zurücksetzen verlangen das Admin-Passwort erst beim Ausführen.
-        </SettingsHint>
-        <label className="field">
-          Backup wiederherstellen
-          <SearchSelect
-            value={selectedBackup}
-            options={backups.map((b) => ({
-              id: b.name,
-              label: b.name,
-            }))}
-            onChange={setSelectedBackup}
-            disabled={busy || !canRestore}
-            placeholder={
-              backups.length ? "Backup wählen…" : "Kein Backup vorhanden"
+        {isAdminModeEnabled ? (
+          <>
+            <label className="field">
+              Backup wiederherstellen
+              <SearchSelect
+                value={selectedBackup}
+                options={backups.map((b) => ({
+                  id: b.name,
+                  label: b.name,
+                }))}
+                onChange={setSelectedBackup}
+                disabled={busy || !canRestore}
+                placeholder={
+                  backups.length ? "Backup wählen…" : "Kein Backup vorhanden"
+                }
+                allowClear
+              />
+            </label>
+            <div className="side-sheet-actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || !canRestore || !selectedBackup}
+                onClick={onRestore}
+              >
+                Wiederherstellen
+              </button>
+            </div>
+            <div className="settings-danger-block">
+              <p className="settings-section-title settings-danger-label">
+                Gefahrenzone
+              </p>
+              <SettingsHint>
+                Löscht alle Schützen, Wettkämpfe und Trainingsdaten.
+              </SettingsHint>
+              <div className="side-sheet-actions">
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={busy || !canReset}
+                  onClick={onReset}
+                >
+                  Alle Daten zurücksetzen
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <SettingsLockedCard
+            statusLabel={
+              adminAccessState === "locked" ? "Gesperrt" : "Noch nicht gesetzt"
             }
-            allowClear
-          />
-        </label>
-        <div className="side-sheet-actions">
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy || !canRestore || !selectedBackup}
-            onClick={onRestore}
           >
-            Wiederherstellen
-          </button>
-        </div>
-        <div className="settings-danger-block">
-          <p className="settings-section-title settings-danger-label">
-            Gefahrenzone
-          </p>
-          <SettingsHint>
-            Löscht alle Schützen, Wettkämpfe und Trainingsdaten.
-          </SettingsHint>
-          <div className="side-sheet-actions">
-            <button
-              type="button"
-              className="danger"
-              disabled={busy || !canReset}
-              onClick={onReset}
-            >
-              Alle Daten zurücksetzen
-            </button>
-          </div>
-        </div>
+            <p>
+              Wiederherstellen und Zurücksetzen sind erst nach Admin-Entsperren
+              verfügbar.
+            </p>
+          </SettingsLockedCard>
+        )}
       </SettingsSection>
     </SideSheetShell>
   );
