@@ -88,26 +88,18 @@ export function LiveLinkBadge({ onRequestSetup }: Props) {
   } else if (needsSetup || (!hasTarget && !linked)) {
     tone = "setup";
     label = "Gerät einrichten";
-    actionHint = "RedDot einrichten";
+    actionHint = "";
   } else if (linked) {
     tone = "ok";
     label = "Verbunden";
     actionHint = targetName ?? "";
   } else if (connecting) {
     tone = "busy";
-    label =
-      reason &&
-      (reason.includes("vorbereitet") ||
-        reason.includes("Kopple") ||
-        reason.includes("Verbinde"))
-        ? reason
-        : targetName
-          ? `Verbinde mit ${targetName}…`
-          : "Verbinde…";
+    label = targetName ? `Verbinde mit ${targetName}…` : "Verbinde…";
     actionHint = "Abbrechen";
   } else if (faulted) {
     tone = "fault";
-    label = "Verbindung neu aufsetzen fehlgeschlagen";
+    label = "Verbindung fehlgeschlagen";
     actionHint = needsSetup ? "Gerät auswählen" : "Verbinden";
   } else {
     tone = "idle";
