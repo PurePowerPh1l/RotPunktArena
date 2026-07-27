@@ -724,12 +724,18 @@ export function SettingsSheet({
           label="Status"
           value={
             isAdminModeEnabled
-              ? "Admin entsperrt"
+              ? "Entsperrt"
               : adminAccessState === "locked"
-                ? "Admin gesperrt"
-                : "Admin-Passwort noch nicht gesetzt"
+                ? "Gesperrt"
+                : "Noch nicht gesetzt"
           }
-          statusTone={isAdminModeEnabled ? "ok" : "neutral"}
+          statusTone={
+            isAdminModeEnabled
+              ? "ok"
+              : adminAccessState === "locked"
+                ? "locked"
+                : "neutral"
+          }
         />
         {!isAdminModeEnabled ? (
           <div className="side-sheet-actions">
