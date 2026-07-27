@@ -5,7 +5,6 @@
 | [roadmap.md](./roadmap.md) | Phasen-Checkliste vs. Code (Gap-Analyse, Prioritäten) |
 | [app-update.md](./app-update.md) | In-App-Update V1/V2 — Vertrag, Analyse, Slice-Plan, Lab-Checkliste |
 | [app-update-release.md](./app-update-release.md) | Release-Checkliste: Signing, Manifest, Version-Bump, GitHub Releases |
-| [windows-authenticode.md](./windows-authenticode.md) | Windows Authenticode ≠ Updater-Sig; Prep, Reihenfolge, SmartScreen |
 | [plans/hybrid-vacuum-snapshots.md](./plans/hybrid-vacuum-snapshots.md) | Implementierungsplan: Hybrid-VACUUM-INTO-Snapshots |
 | [reddot-arena-review.md](./reddot-arena-review.md) | Architektur- & Feature-Review (Fortschritt, Verdrahtung, Repo, Lücken) |
 | [code-guidelines.md](./code-guidelines.md) | Code-Richtlinien (Schreibpfade, Module, Contracts) |
