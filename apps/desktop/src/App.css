@@ -283,6 +283,7 @@ body.is-app-fullscreen .app-frame {
 }
 
 .top-live-slot {
+  --live-link-expanded-max: 20rem;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -299,6 +300,7 @@ body.is-app-fullscreen .app-frame {
 }
 
 .top-live-slot:has(.nachkauf-chip) {
+  --live-link-expanded-max: 24rem;
   max-width: 9.5rem;
 }
 
@@ -306,7 +308,7 @@ body.is-app-fullscreen .app-frame {
 .top-live-slot:not(.is-collapsed):hover,
 .top-live-slot:not(.is-collapsed):focus-within,
 .top-live-slot:not(.is-collapsed):has(.live-link.is-expanded) {
-  max-width: 16rem;
+  max-width: var(--live-link-expanded-max);
   transition:
     max-width 0.5s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.2s ease,
@@ -316,7 +318,7 @@ body.is-app-fullscreen .app-frame {
 .top-live-slot:has(.nachkauf-chip):not(.is-collapsed):hover,
 .top-live-slot:has(.nachkauf-chip):not(.is-collapsed):focus-within,
 .top-live-slot:has(.nachkauf-chip):not(.is-collapsed):has(.live-link.is-expanded) {
-  max-width: 22rem;
+  max-width: var(--live-link-expanded-max);
 }
 
 .top-live-slot.is-collapsed {
@@ -417,7 +419,7 @@ body.is-app-fullscreen .app-frame {
 .live-link:hover,
 .live-link:focus-visible,
 .live-link.is-expanded {
-  max-width: 22rem;
+  max-width: var(--live-link-expanded-max, 20rem);
   padding-inline: 0.72rem;
   gap: 0.45rem;
   background: rgba(0, 0, 0, 0.38);
@@ -2691,6 +2693,9 @@ button.ghost:hover:not(:disabled) {
   letter-spacing: 0.01em;
   line-height: 1.25;
   border: 1px solid transparent;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .settings-status-pill.is-ok {
