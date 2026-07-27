@@ -33,7 +33,20 @@ export function targetFitMultiplier(fit: TargetFitPref): number {
   }
 }
 
-/** Whether MomentFlash / ceremony intensity should show. */
+/** Whether a training display toggle may write `scoreDisplay` into ui.prefs. */
+export function shouldPersistScoreDisplay(rememberScoreDisplay: boolean): boolean {
+  return rememberScoreDisplay;
+}
+
+/** Session override is dropped when entering competition. */
+export function scoreDisplayOverrideForMode(
+  mode: "training" | "competition",
+  trainingOverride: ScoreDisplayMode | null,
+): ScoreDisplayMode | null {
+  return mode === "competition" ? null : trainingOverride;
+}
+
+/** Whether MomentFlash should mount at all. */
 export function hitFeedbackShowsFlash(feedback: HitFeedbackPref): boolean {
   return feedback !== "minimal";
 }

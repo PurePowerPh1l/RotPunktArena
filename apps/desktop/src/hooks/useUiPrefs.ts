@@ -7,6 +7,13 @@ import type { UiPrefs } from "@rotpunktarena/domain";
 import { UI_PREFS_LOAD_PLACEHOLDER } from "@rotpunktarena/domain";
 import * as settingsApi from "../api/settings";
 import { mergeUiPrefsPatch } from "../lib/uiPrefsLogic";
+import {
+  emptySaveQueue,
+  onSaveFailed,
+  onSaveFinished,
+  onSaveRequested,
+  type SaveQueueState,
+} from "../lib/prefsSaveQueue";
 
 export type UiPrefsStatus = "loading" | "ready" | "saving" | "error";
 
@@ -26,8 +33,7 @@ export function useUiPrefs(): UiPrefsState {
   const [error, setError] = useState<string | null>(null);
 
   const confirmedRef = useRef<UiPrefs>(UI_PREFS_LOAD_PLACEHOLDER);
-  const inflightRef = useRef(false);
-  const pendingRef = useRef<UiPrefs | null>(null);
+  const queueRef = useRef<SaveQueueState<UiPrefs>>(emptySaveQueue());
   const mountedRef = useRef(true);
 
   const applyLoaded = useCallback((loaded: UiPrefs) => {
@@ -60,37 +66,34 @@ export function useUiPrefs(): UiPrefsState {
   }, [load]);
 
   const flushSave = useCallback(async (next: UiPrefs) => {
-    if (inflightRef.current) {
-      pendingRef.current = next;
-      return;
-    }
-    inflightRef.current = true;
+    const enqueued = onSaveRequested(queueRef.current, next);
+    queueRef.current = enqueued.state;
+    if (!enqueued.start) return;
+
     setStatus("saving");
     setError(null);
+    let toSave: UiPrefs | null = enqueued.start;
     try {
-      let toSave = next;
-      for (;;) {
+      while (toSave) {
         const saved = await settingsApi.setUiPrefs(toSave);
         if (!mountedRef.current) return;
-        const queued = pendingRef.current;
-        if (queued) {
-          pendingRef.current = null;
-          toSave = queued;
+        const finished = onSaveFinished(queueRef.current);
+        queueRef.current = finished.state;
+        if (finished.continueWith) {
+          toSave = finished.continueWith;
           continue;
         }
         confirmedRef.current = saved;
         setPrefs(saved);
         setStatus("ready");
-        break;
+        toSave = null;
       }
     } catch (e) {
       if (!mountedRef.current) return;
-      pendingRef.current = null;
+      queueRef.current = onSaveFailed();
       setPrefs(confirmedRef.current);
       setError(String(e));
       setStatus("error");
-    } finally {
-      inflightRef.current = false;
     }
   }, []);
 

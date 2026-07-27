@@ -5,6 +5,8 @@
 import {
   effectiveScoreDisplay,
   hitFeedbackShowsFlash,
+  scoreDisplayOverrideForMode,
+  shouldPersistScoreDisplay,
   targetFitMultiplier,
 } from "./arenaPrefsLogic.ts";
 
@@ -48,5 +50,12 @@ assert(targetFitMultiplier("auto") === 1, "auto is 1");
 assert(hitFeedbackShowsFlash("normal"), "normal shows flash");
 assert(hitFeedbackShowsFlash("reduced"), "reduced shows flash");
 assert(!hitFeedbackShowsFlash("minimal"), "minimal hides flash");
+
+assert(!shouldPersistScoreDisplay(false), "no writeback when remember off");
+assert(shouldPersistScoreDisplay(true), "writeback when remember on");
+assert(
+  scoreDisplayOverrideForMode("competition", "teiler") === null,
+  "competition clears override",
+);
 
 console.log("arenaPrefsLogic.selftest: ok");
