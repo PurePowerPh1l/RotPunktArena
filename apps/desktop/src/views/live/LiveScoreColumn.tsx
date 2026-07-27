@@ -133,17 +133,31 @@ export function LiveScoreColumn({
         </span>
       </p>
 
-      <SlidingSeg
-        className="score-seg"
-        size="sm"
-        ariaLabel="Anzeige"
-        value={displayMode}
-        onChange={onDisplayModeChange}
-        options={[
-          { value: "punkte", label: "Punkte" },
-          { value: "teiler", label: "Teiler" },
-        ]}
-      />
+      <div className="score-toolbar">
+        <SlidingSeg
+          className="score-seg"
+          size="sm"
+          ariaLabel="Anzeige"
+          value={displayMode}
+          onChange={onDisplayModeChange}
+          options={[
+            { value: "punkte", label: "Punkte" },
+            { value: "teiler", label: "Teiler" },
+          ]}
+        />
+        {shotCount > 0 ? (
+          <button
+            type="button"
+            className="ghost score-print-btn nav-btn"
+            onClick={doPrint}
+            title="Schussbild drucken"
+            aria-label="Schussbild drucken"
+          >
+            <IconPrint size={14} />
+            Drucken
+          </button>
+        ) : null}
+      </div>
 
       <p className="value value-tick" key={scoreTick} aria-live="polite">
         {primary != null ? formatScoreDe(primary) : "—"}
@@ -198,31 +212,19 @@ export function LiveScoreColumn({
         displayMode={displayMode}
       />
 
-      {shotCount > 0 || showEndlessToggle ? (
+      {showEndlessToggle ? (
         <div className="score-actions">
-          {shotCount > 0 ? (
-            <button
-              type="button"
-              className="secondary print-btn nav-btn"
-              onClick={doPrint}
-            >
-              <IconPrint />
-              Schussbild drucken
-            </button>
-          ) : null}
-          {showEndlessToggle ? (
-            <label
-              className="check-field endless-toggle"
-              title="Unbegrenzt schießen — wird nicht in der Statistik gespeichert"
-            >
-              <input
-                type="checkbox"
-                checked={endlessMode}
-                onChange={(e) => onEndlessModeChange(e.target.checked)}
-              />
-              Endlosmodus
-            </label>
-          ) : null}
+          <label
+            className="check-field endless-toggle"
+            title="Unbegrenzt schießen — wird nicht in der Statistik gespeichert"
+          >
+            <input
+              type="checkbox"
+              checked={endlessMode}
+              onChange={(e) => onEndlessModeChange(e.target.checked)}
+            />
+            Endlosmodus
+          </label>
         </div>
       ) : null}
     </section>
