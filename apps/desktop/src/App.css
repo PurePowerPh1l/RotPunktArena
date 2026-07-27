@@ -2375,6 +2375,70 @@ button.ghost:hover:not(:disabled) {
   --side-sheet-pad: 0.85rem 0.95rem 1rem;
 }
 
+/* Keep primary CTAs (e.g. Update installieren) above the fold on short screens. */
+@media (max-height: 900px) {
+  .side-sheet.settings-sheet {
+    --side-sheet-gap: 0.4rem;
+    --side-sheet-pad: 0.65rem 0.8rem 0.75rem;
+  }
+
+  .side-sheet.settings-sheet .settings-section + .settings-section {
+    margin-top: 0.2rem;
+  }
+
+  .side-sheet.settings-sheet .settings-section-toggle {
+    padding: 0.35rem 0.55rem;
+  }
+
+  .side-sheet.settings-sheet .settings-section-body {
+    gap: 0.4rem;
+    padding: 0 0.55rem 0.5rem;
+  }
+
+  .side-sheet.settings-sheet .settings-hint {
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+
+  .side-sheet.settings-sheet .settings-connection-actions,
+  .side-sheet.settings-sheet .settings-backup-actions {
+    gap: 0.3rem;
+  }
+
+  .side-sheet.settings-sheet .settings-action-primary,
+  .side-sheet.settings-sheet button.secondary.settings-action-secondary {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.84rem;
+  }
+}
+
+@media (max-height: 720px) {
+  .side-sheet.settings-sheet {
+    --side-sheet-gap: 0.3rem;
+    --side-sheet-pad: 0.5rem 0.7rem 0.6rem;
+    max-height: calc(100vh - 4.25rem);
+  }
+
+  .side-sheet.settings-sheet .settings-section-toggle {
+    padding: 0.3rem 0.5rem;
+  }
+
+  .side-sheet.settings-sheet .settings-section-body {
+    gap: 0.3rem;
+    padding: 0 0.5rem 0.4rem;
+  }
+
+  .side-sheet.settings-sheet .settings-section-peek {
+    display: none;
+  }
+
+  .side-sheet.settings-sheet .settings-action-primary,
+  .side-sheet.settings-sheet button.secondary.settings-action-secondary {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.8rem;
+  }
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
