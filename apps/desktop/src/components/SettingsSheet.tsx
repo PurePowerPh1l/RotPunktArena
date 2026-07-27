@@ -508,20 +508,34 @@ export function SettingsSheet({
         open={openSection === "darstellung"}
         onOpenChange={() => toggleSection("darstellung")}
       >
+        {uiPrefsStatus === "loading" ? (
+          <SettingsHint>Einstellungen werden geladen…</SettingsHint>
+        ) : null}
         <SettingsChoice
           label="Farbschema"
-          value="system"
+          value={uiPrefs.colorScheme}
+          disabled={!prefsReady}
           options={[
             { value: "system", label: "System" },
             { value: "light", label: "Hell" },
             { value: "dark", label: "Dunkel" },
           ]}
+          onChange={(value) =>
+            onUpdateUiPrefs({
+              colorScheme: value as UiPrefs["colorScheme"],
+            })
+          }
         />
         <SettingsToggle
           label="Reduzierte Bewegungen"
           hint="Weniger visuelle Bewegung und ruhigere Übergänge."
+          checked={uiPrefs.reducedMotion}
+          disabled={!prefsReady}
+          onChange={(on) => onUpdateUiPrefs({ reducedMotion: on })}
         />
-        <SettingsHint>Weitere Themes folgen später.</SettingsHint>
+        <SettingsHint>
+          Hell/Dunkel steuert Farben; System folgt der Betriebssystem-Einstellung.
+        </SettingsHint>
       </SettingsSection>
 
       <SettingsSection
