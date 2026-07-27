@@ -276,6 +276,13 @@ export default function App() {
             arenaHandoff={arenaHandoff}
             onArenaHandoffConsumed={() => setArenaHandoff(null)}
             setupRequestNonce={setupRequestNonce}
+            arenaPrefs={{
+              scoreDisplay: uiPrefs.prefs.scoreDisplay,
+              rememberScoreDisplay: uiPrefs.prefs.rememberScoreDisplay,
+              hitFeedback: uiPrefs.prefs.hitFeedback,
+              targetFit: uiPrefs.prefs.targetFit,
+              onUpdatePrefs: uiPrefs.updatePrefs,
+            }}
           />
         </div>
         {view === "bureau" ? (

@@ -3,7 +3,13 @@
  * UI sections live in ./live/* (score column, session controls, competition picker).
  * Top chrome lives in App (persistent across place switches).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  HitFeedbackPref,
+  ScoreDisplayPref,
+  TargetFitPref,
+  UiPrefs,
+} from "@rotpunktarena/domain";
 import { SlidingSeg } from "../components/SlidingSeg";
 import {
   TargetFace,
@@ -23,6 +29,12 @@ import {
   type PlayShotOpts,
 } from "../live/presenceContract";
 import { formatPersonName } from "../lib/format";
+import {
+  effectiveScoreDisplay,
+  hitFeedbackIntensityClass,
+  hitFeedbackShowsFlash,
+  targetFitMultiplier,
+} from "../lib/arenaPrefsLogic";
 import { xpPreviewForLiveSeries } from "../training/seriesPulse";
 import * as api from "../api/commands";
 import type { CompetitionCreateInput } from "./bureau/CompetitionCreateForm";
@@ -40,6 +52,14 @@ import { useCompetitionRoster } from "../hooks/useCompetitionRoster";
 import { useLiveTrainingPresence } from "../hooks/useLiveTrainingPresence";
 import { RedDotSetupSheet } from "../components/RedDotSetupSheet";
 import { RedDotWakeSheet } from "../components/RedDotWakeSheet";
+
+export type ArenaUiPrefsSlice = {
+  scoreDisplay: ScoreDisplayPref;
+  rememberScoreDisplay: boolean;
+  hitFeedback: HitFeedbackPref;
+  targetFit: TargetFitPref;
+  onUpdatePrefs: (patch: Partial<UiPrefs>) => void;
+};
 
 type Props = {
   trainingShooter: ShooterValue;
@@ -71,6 +91,8 @@ type Props = {
   onArenaHandoffConsumed?: () => void;
   /** Bumped from top-bar badge to (re)open first-setup sheet. */
   setupRequestNonce?: number;
+  /** Arena-related ui.prefs slice from App (sole prefs owner). */
+  arenaPrefs: ArenaUiPrefsSlice;
 };
 
 export function LiveStandView({
@@ -93,6 +115,7 @@ export function LiveStandView({
   arenaHandoff = null,
   onArenaHandoffConsumed,
   setupRequestNonce = 0,
+  arenaPrefs,
 }: Props) {
   const live = useLiveSession();
   const link = useLiveLinkStatus();
@@ -126,11 +149,42 @@ export function LiveStandView({
     running: live.running,
   });
   const [mode, setMode] = useState<"training" | "competition">("training");
-  const [displayMode, setDisplayMode] = useState<ScoreDisplayMode>("punkte");
+  /** Session-local training override; null → use pref via effectiveScoreDisplay. */
+  const [trainingDisplayOverride, setTrainingDisplayOverride] =
+    useState<ScoreDisplayMode | null>(null);
   const [faceLabels, setFaceLabels] = useState<FaceLabelMode>("value");
   const [endlessMode, setEndlessMode] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [stripFocus, setStripFocus] = useState<"xp" | "liga">("xp");
+
+  const prefDisplay = effectiveScoreDisplay({
+    mode,
+    competitionScoringMode: selectedComp?.scoringMode,
+    pref: arenaPrefs.scoreDisplay,
+  });
+  const displayMode: ScoreDisplayMode =
+    mode === "training" && trainingDisplayOverride != null
+      ? trainingDisplayOverride
+      : prefDisplay;
+
+  const onDisplayModeChange = (next: ScoreDisplayMode) => {
+    if (mode !== "training") return;
+    setTrainingDisplayOverride(next);
+    if (arenaPrefs.rememberScoreDisplay) {
+      arenaPrefs.onUpdatePrefs({ scoreDisplay: next });
+    }
+  };
+
+  useEffect(() => {
+    if (mode === "competition") setTrainingDisplayOverride(null);
+  }, [mode]);
+
+  const fitMult = useMemo(
+    () => targetFitMultiplier(arenaPrefs.targetFit),
+    [arenaPrefs.targetFit],
+  );
+  const feedbackClass = hitFeedbackIntensityClass(arenaPrefs.hitFeedback);
+  const showFlash = hitFeedbackShowsFlash(arenaPrefs.hitFeedback);
 
   useEffect(() => {
     onArenaModeChange?.(mode);
@@ -168,13 +222,6 @@ export function LiveStandView({
       cancelled = true;
     };
   }, [arenaHandoff]);
-
-  useEffect(() => {
-    if (live.running) return;
-    const c = competitions.find((x) => x.id === competitionId);
-    if (c?.scoringMode === "teiler") setDisplayMode("teiler");
-    else if (mode === "competition") setDisplayMode("punkte");
-  }, [competitionId, competitions, mode, live.running]);
 
   useEffect(() => {
     onNachkaufActiveChange?.(mode === "competition" && nachkaufEnabled);
@@ -462,7 +509,7 @@ export function LiveStandView({
           sessionShooterName={live.state?.session?.shooterName}
           selectedEntry={selectedEntry}
           displayMode={displayMode}
-          onDisplayModeChange={setDisplayMode}
+          onDisplayModeChange={onDisplayModeChange}
           scoreTick={scoreTick}
           primary={primary}
           secondary={secondary}
@@ -491,6 +538,7 @@ export function LiveStandView({
                 shotCount={shotCount}
                 maxShots={maxShots}
                 pulse={arenaProgress.pulse}
+                className={feedbackClass}
                 xpPreview={
                   arenaProgress.pulse
                     ? null
@@ -517,13 +565,15 @@ export function LiveStandView({
               onAimClick={(x, y) => void live.fireAt(x, y)}
               labelMode={faceLabels}
               displayMode={displayMode}
+              fitMultiplier={fitMult}
               allowInspect={canInspect}
             />
-            {trainingMode ? (
+            {trainingMode && showFlash ? (
               <MomentFlash
                 flashKind={moments.flashKind}
                 toast={moments.toast}
                 onDismissToast={moments.clearToast}
+                className={feedbackClass}
               />
             ) : null}
           </div>
