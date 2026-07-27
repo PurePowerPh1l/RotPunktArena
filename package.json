@@ -1,0 +1,21 @@
+{
+  "name": "reddot",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "desktop:dev": "npm run tauri --workspace=@reddot/desktop -- dev -- --features simulator,serial,rfcomm",
+    "desktop:build": "npm run tauri --workspace=@reddot/desktop -- build -- --features simulator,serial,rfcomm",
+    "dev": "npm run tauri --workspace=@reddot/desktop -- dev -- --features simulator,serial,rfcomm",
+    "build": "npm run tauri --workspace=@reddot/desktop -- build -- --features simulator,serial,rfcomm",
+    "protocol:test": "npm run test --workspace=@reddot/protocol",
+    "verify:ui-hardening": "node --experimental-strip-types tools/verify-ui-hardening.mts",
+    "icons:generate": "node --experimental-strip-types tools/generate-app-icon.mts"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

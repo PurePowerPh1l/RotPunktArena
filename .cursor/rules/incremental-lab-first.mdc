@@ -1,0 +1,52 @@
+---
+description: Feature work in small phases — lab scripts before app, less is more
+alwaysApply: true
+---
+
+# Incremental Features (Lab → App)
+
+Learned from RFCOMM Bond-Gate: big AI dumps and “more features” make the stack worse. Prefer fewer, proven paths.
+
+## Plan first — small slices
+
+When planning or implementing a feature:
+
+1. Split into **named functions / phases** (inputs, outputs, pass/fail).
+2. Order them so each phase is **independently testable**.
+3. Do **not** wire the full product path in the first pass.
+4. Only after slices pass: **compose** into Owner/UI.
+
+Bad: “Implement autoconnect + nuclear + UI + reconnect in one shot.”  
+Good: Soft-with-bond lab → Gate-without-bond lab → Nuclear lab → matrix → then Owner.
+
+## Lab before product
+
+- Prefer **standalone bins / scripts** (`cargo run --bin …`, `scripts/*.ps1`) that exercise one behavior.
+- Prove Happy + Negativ (and “what we thought would fail but didn’t”) **before** Owner/UI.
+- If a lab contradicts the design (e.g. Soft can still link without bond), **fix the gate** — don’t paper over it in the app.
+- Transport into the app only when the matrix row for that slice is green.
+
+## Architecture — less is more
+
+- Question every extra path (loops, hooks, forget, auto-retry). Default: **one clear path per situation**.
+- Prefer a **gate** (if bonded → Soft; else Nuclear) over “try everything and hope.”
+- Do not add Soft-Wake spam, dual stacks, or “helpful” background connects without a lab that justifies them.
+- Removing a path that fights another path is progress.
+
+## How the agent should work
+
+- Propose a **short phase list** before large edits; wait for go or implement one phase at a time when asked for a matrix/lab.
+- One concern per change set when feasible; avoid bundling unrelated refactors.
+- In plans: many small checkboxes > one epic “do the feature.”
+- After labs pass, a single focused wiring commit/PR into the product is enough.
+
+## Example shape
+
+```text
+P1 Nuclear establish     → bin
+P2 Soft when bond OK     → bin
+P3 Forget bond           → bin
+P4 Gate skips Soft       → bin (decision, not “Soft must fail physically”)
+P5 Nuclear recovery      → bin
+Then: Owner Start = P2/P4 gate; Verbinden = Nuclear
+```

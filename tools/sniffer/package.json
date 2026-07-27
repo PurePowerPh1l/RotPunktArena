@@ -1,0 +1,27 @@
+{
+  "name": "@reddot/sniffer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "reddot-sniffer": "./src/cli.ts"
+  },
+  "scripts": {
+    "sniffer": "tsx src/cli.ts",
+    "test": "tsx --test test/**/*.test.ts",
+    "selftest": "tsx src/cli.ts replay ../../docs/captures/synthetic-shot.hex"
+  },
+  "dependencies": {
+    "@reddot/protocol": "file:../../packages/protocol",
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  },
+  "allowScripts": {
+    "@serialport/bindings-cpp@13.0.0": true,
+    "esbuild@0.28.1": true
+  }
+}

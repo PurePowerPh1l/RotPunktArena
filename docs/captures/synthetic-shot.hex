@@ -1,0 +1,18 @@
+# synthetic-shot.hex — synthetischer RedDot-Capture (kein Live-Gerät)
+# Semantik: value=10.5 (raw 105), distance=12.30 (raw 1230), x=123, y=-45
+# Format: docs/captures/README.md
+
+# Host poll
+TX: 05
+
+# Ziel: kein Schuss
+RX: 15
+
+# Host poll
+TX: 05
+
+# Ziel: 59-Byte STX-Schussframe (Header/Trailer unbekannt → Space/Null)
+RX: 02 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 31 30 2E 35 00 30 31 32 2E 33 30 00 30 30 31 32 33 00 2D 30 30 34 35 00 00 00 00
+
+# Host bestätigt
+TX: 06

@@ -1,0 +1,8 @@
+# getvars.hex — TEMPLATE (Live-Hardware)
+# DC1 getvars = 11 0F B4, dann ACK, Index, 4-Byte Antwort.
+# Siehe docs/protocol.md § GetVars.
+
+# TX: 11 0F B4
+# RX: 06
+# TX: 00 01
+# RX: … … … …
