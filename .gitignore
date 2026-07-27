@@ -31,7 +31,5 @@ docs/decompiled/
 
 # IDE
 .idea/
-.cursor/*
-!.cursor/rules/
-!.cursor/rules/**
+.cursor/
 *.swp
