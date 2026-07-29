@@ -59,6 +59,10 @@ pub struct UiPrefs {
     pub last_view: Option<AppViewPref>,
     pub compact_ui: bool,
     pub large_text: bool,
+    /// Bigger type + controls for distance / hall readability.
+    /// `serde(default)` so older stored prefs without the field still load.
+    #[serde(default)]
+    pub extra_large_ui: bool,
     pub color_scheme: ColorSchemePref,
     pub reduced_motion: bool,
     pub score_display: ScoreDisplayPref,
@@ -76,6 +80,7 @@ impl Default for UiPrefs {
             last_view: None,
             compact_ui: false,
             large_text: false,
+            extra_large_ui: false,
             color_scheme: ColorSchemePref::System,
             reduced_motion: false,
             score_display: ScoreDisplayPref::Punkte,
@@ -146,6 +151,7 @@ mod tests {
         prefs.last_view = Some(AppViewPref::Bureau);
         prefs.compact_ui = true;
         prefs.large_text = true;
+        prefs.extra_large_ui = true;
         prefs.color_scheme = ColorSchemePref::Dark;
         prefs.reduced_motion = true;
         prefs.score_display = ScoreDisplayPref::Teiler;
@@ -185,6 +191,7 @@ mod tests {
             "lastView": null,
             "compactUi": false,
             "largeText": false,
+            "extraLargeUi": false,
             "colorScheme": "system",
             "reducedMotion": false,
             "scoreDisplay": "punkte",
@@ -207,6 +214,7 @@ mod tests {
             "lastView": null,
             "compactUi": false,
             "largeText": false,
+            "extraLargeUi": false,
             "colorScheme": "neon",
             "reducedMotion": false,
             "scoreDisplay": "punkte",
@@ -252,6 +260,7 @@ mod tests {
             "lastView",
             "compactUi",
             "largeText",
+            "extraLargeUi",
             "colorScheme",
             "reducedMotion",
             "scoreDisplay",
@@ -265,5 +274,28 @@ mod tests {
         assert_eq!(obj["scoreDisplay"], "punkte");
         assert_eq!(obj["colorScheme"], "system");
         assert_eq!(obj["lastView"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn legacy_prefs_without_extra_large_ui_still_load() {
+        let db = Database::open_in_memory().unwrap();
+        let legacy = json!({
+            "startView": "live",
+            "rememberLastView": false,
+            "lastView": null,
+            "compactUi": false,
+            "largeText": true,
+            "colorScheme": "dark",
+            "reducedMotion": false,
+            "scoreDisplay": "punkte",
+            "rememberScoreDisplay": false,
+            "hitFeedback": "normal",
+            "targetFit": "auto"
+        })
+        .to_string();
+        db.set_setting(UI_PREFS_KEY, &legacy).unwrap();
+        let prefs = load_ui_prefs(&db).unwrap();
+        assert!(prefs.large_text);
+        assert!(!prefs.extra_large_ui);
     }
 }

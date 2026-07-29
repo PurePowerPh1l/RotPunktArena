@@ -14,6 +14,7 @@ const expected: UiPrefs = {
   lastView: null,
   compactUi: false,
   largeText: false,
+  extraLargeUi: false,
   colorScheme: "system",
   reducedMotion: false,
   scoreDisplay: "punkte",
@@ -33,6 +34,7 @@ assert(
     [
       "colorScheme",
       "compactUi",
+      "extraLargeUi",
       "hitFeedback",
       "largeText",
       "lastView",
