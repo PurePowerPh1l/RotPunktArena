@@ -146,6 +146,12 @@ const MIGRATIONS: &[Migration] = &[
         sql: None,
         custom: Some(migrate_v13_session_max_shots),
     },
+    Migration {
+        version: 14,
+        name: "hot_path_indices",
+        sql: None,
+        custom: Some(migrate_v14_hot_path_indices),
+    },
 ];
 
 pub fn apply_migrations(conn: &Connection) -> Result<(), String> {
@@ -225,6 +231,16 @@ fn table_exists(conn: &Connection, table: &str) -> bool {
     conn.query_row(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1",
         [table],
+        |_| Ok(()),
+    )
+    .is_ok()
+}
+
+#[cfg(test)]
+fn index_exists(conn: &Connection, index: &str) -> bool {
+    conn.query_row(
+        "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?1",
+        [index],
         |_| Ok(()),
     )
     .is_ok()
@@ -535,6 +551,45 @@ fn migrate_v13_session_max_shots(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Indices for hot-path filters that previously fell back to table scans:
+/// results/series lookups by `entry_id`/`competition_id`, per-session shot
+/// filtering by `classification`, entry lists per competition, and the ingest
+/// dedupe probe on `(session_id, device_sequence)`. All `IF NOT EXISTS` and
+/// guarded by table presence so this is safe on partial legacy schemas.
+fn migrate_v14_hot_path_indices(conn: &Connection) -> Result<(), String> {
+    if table_exists(conn, "sessions") {
+        conn.execute_batch(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_sessions_entry ON sessions(entry_id);
+            CREATE INDEX IF NOT EXISTS idx_sessions_competition ON sessions(competition_id);
+            "#,
+        )
+        .map_err(|e| format!("v14 sessions indices: {e}"))?;
+    }
+    if table_exists(conn, "shots") {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_shots_session_classification
+             ON shots(session_id, classification);",
+        )
+        .map_err(|e| format!("v14 shots index: {e}"))?;
+    }
+    if table_exists(conn, "frames") {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_frames_session_devseq
+             ON frames(session_id, device_sequence);",
+        )
+        .map_err(|e| format!("v14 frames index: {e}"))?;
+    }
+    if table_exists(conn, "competition_entries") {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_competition_entries_competition
+             ON competition_entries(competition_id);",
+        )
+        .map_err(|e| format!("v14 entries index: {e}"))?;
+    }
+    Ok(())
+}
+
 /// Global teams (cross-competition) with person membership. Migrates legacy per-competition teams.
 fn migrate_v12_global_teams(conn: &Connection) -> Result<(), String> {
     if !table_exists(conn, "people") {
@@ -663,7 +718,7 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(v, 13);
+        assert_eq!(v, 14);
         assert!(table_has_column(&conn, "events", "sequence"));
         assert!(table_has_column(&conn, "sessions", "next_sequence"));
         assert!(table_has_column(&conn, "sessions", "competition_id"));
@@ -687,6 +742,11 @@ mod tests {
         assert!(table_exists(&conn, "teams"));
         assert!(table_exists(&conn, "team_members"));
         assert!(table_has_column(&conn, "people", "archived"));
+        assert!(index_exists(&conn, "idx_sessions_entry"));
+        assert!(index_exists(&conn, "idx_sessions_competition"));
+        assert!(index_exists(&conn, "idx_shots_session_classification"));
+        assert!(index_exists(&conn, "idx_frames_session_devseq"));
+        assert!(index_exists(&conn, "idx_competition_entries_competition"));
     }
 
     #[test]

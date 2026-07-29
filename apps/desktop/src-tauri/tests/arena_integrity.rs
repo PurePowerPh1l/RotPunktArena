@@ -561,11 +561,12 @@ fn hybrid_vacuum_snapshots_on_session_and_every_n_shots() {
     {
         let mut db = ArenaDb::open(&path).unwrap();
         let session = db.start_session("SnapTester", None, None, None).unwrap();
+        // Boundary snapshots now run on a background thread — poll for them.
+        let after_start = wait_for_snap_count(&snap_dir, &session.id, 1);
         assert!(
             snap_dir.is_dir(),
             "session start should create {SNAPSHOT_SUBDIR}/"
         );
-        let after_start = count_session_snap_files(&snap_dir, &session.id);
         assert!(
             after_start >= 1,
             "expected ≥1 session snapshot after start, got {after_start}"
@@ -600,7 +601,7 @@ fn hybrid_vacuum_snapshots_on_session_and_every_n_shots() {
         );
 
         db.end_session(&session.id).unwrap();
-        let after_end = count_session_snap_files(&snap_dir, &session.id);
+        let after_end = wait_for_snap_count(&snap_dir, &session.id, after_n + 1);
         assert!(
             after_end > after_n,
             "expected end-session snapshot (was {after_n}, now {after_end})"
@@ -608,6 +609,24 @@ fn hybrid_vacuum_snapshots_on_session_and_every_n_shots() {
     }
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Poll for background boundary snapshots up to a timeout, returning the final
+/// count. Boundary snapshots run on a separate thread, so a direct read can
+/// race ahead of the `VACUUM INTO`.
+fn wait_for_snap_count(
+    snap_dir: &std::path::Path,
+    session_id: &str,
+    at_least: usize,
+) -> usize {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        let count = count_session_snap_files(snap_dir, session_id);
+        if count >= at_least || std::time::Instant::now() >= deadline {
+            return count;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(25));
+    }
 }
 
 fn count_session_snap_files(snap_dir: &std::path::Path, session_id: &str) -> usize {
