@@ -128,7 +128,7 @@ impl Database {
             _ => "ringe",
         };
         let max_shots = if input.max_shots <= 0 {
-            40
+            10
         } else {
             input.max_shots
         };
@@ -334,7 +334,7 @@ impl Database {
             _ => "ringe",
         };
         let max_shots = if input.max_shots <= 0 {
-            40
+            10
         } else {
             input.max_shots
         };

@@ -39,7 +39,7 @@ function defaultsFrom(editing?: Competition | null, initialName = "") {
       compName: initialName,
       compDate: new Date().toISOString().slice(0, 10),
       discipline: "Luftgewehr",
-      maxShots: 40,
+      maxShots: 10,
       scoringMode: "ringe" as ScoringMode,
       nachkaufEnabled: false,
       teamScoringEnabled: false,
@@ -119,7 +119,6 @@ export function CompetitionCreateForm({
     const next: CompetitionKind = checked ? "training" : "competition";
     setKind(next);
     if (checked) {
-      setMaxShots((n) => (n === 40 ? 10 : n));
       setCompName((n) => (n.trim() ? n : "Trainingswettkampf"));
     }
   };
@@ -151,7 +150,7 @@ export function CompetitionCreateForm({
     if (!ok) return;
     setCompName("");
     setKind("competition");
-    setMaxShots(40);
+    setMaxShots(10);
     setNachkaufEnabled(false);
     setTenthsEnabled(false);
     setTeamScoringEnabled(false);
@@ -194,7 +193,7 @@ export function CompetitionCreateForm({
             type="number"
             min={1}
             value={maxShots}
-            onChange={(e) => setMaxShots(Number(e.target.value) || 40)}
+            onChange={(e) => setMaxShots(Number(e.target.value) || 10)}
           />
         </label>
         <label className="field">
