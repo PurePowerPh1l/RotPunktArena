@@ -6,6 +6,7 @@ import {
   hasCapability,
 } from "../access";
 import * as api from "../api/commands";
+import { alertDialog } from "../hooks/useAppDialog";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { SideSheetSection, SideSheetShell } from "./SideSheetShell";
 
@@ -67,7 +68,11 @@ export function DevPanel({
     await run(async () => {
       assertCapability("developer:diagnostics", getAppAccessSnapshot());
       const result = await api.exportDiagnostics();
-      window.alert(`Diagnose-Export gespeichert:\n${result.path}`);
+      await alertDialog({
+        title: "Diagnose-Export gespeichert",
+        body: result.path,
+        eyebrow: "Entwickler",
+      });
       await refresh();
     });
   };

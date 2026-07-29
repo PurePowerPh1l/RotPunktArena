@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent, type PointerEvent } from 
 import type { Competition, CompetitionEntry, CompetitionTeam, EntryStatus } from "@rotpunktarena/domain";
 import { OverflowMenu } from "../../components/OverflowMenu";
 import { SearchSelect } from "../../components/SearchSelect";
+import { confirmDialog } from "../../hooks/useAppDialog";
 import { formatPersonName } from "../../lib/format";
 import { peekReddotDrag } from "../../lib/reddotDnd";
 import { ENTRY_LABEL } from "./labels";
@@ -138,9 +139,13 @@ export function StartListPanel({
 
   const archiveEntry = async (e: CompetitionEntry) => {
     const name = formatPersonName(e.lastName, e.firstName, "");
-    const ok = window.confirm(
-      `„${name}“ archivieren?\n\nDer Schütze wird global ausgeblendet und aus dieser Startliste entfernt.`,
-    );
+    const ok = await confirmDialog({
+      title: "Schütze archivieren?",
+      body: `„${name}“ archivieren?\n\nDer Schütze wird global ausgeblendet und aus dieser Startliste entfernt.`,
+      confirmLabel: "Archivieren",
+      danger: true,
+      eyebrow: "Startliste",
+    });
     if (!ok) return;
     const archived = await onArchivePerson(e.personId);
     if (archived) await onRemoveEntry(e.id);

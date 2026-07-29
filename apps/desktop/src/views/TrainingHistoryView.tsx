@@ -14,6 +14,7 @@ import { TrainingTrendChart } from "../components/TrainingTrendChart";
 import { IconTraining, IconTrophy } from "../components/UiIcons";
 import { ExpandSlot } from "../components/ExpandSlot";
 import { usePrintHotkey } from "../hooks/usePrintHotkey";
+import { confirmDialog } from "../hooks/useAppDialog";
 import { evaluateAchievements } from "../training/achievements";
 import {
   evaluateGoals,
@@ -335,7 +336,13 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
   usePrintHotkey(section === "training" ? doPrint : null);
 
   const clearHistory = async () => {
-    const ok = window.confirm(trainingHistoryClearConfirmMessage(filterLabel));
+    const ok = await confirmDialog({
+      title: "Trainingsverlauf löschen?",
+      body: trainingHistoryClearConfirmMessage(filterLabel),
+      confirmLabel: "Löschen",
+      danger: true,
+      eyebrow: "Historie",
+    });
     if (!ok) return;
     const result = await runAction(async () => {
       setError(null);
