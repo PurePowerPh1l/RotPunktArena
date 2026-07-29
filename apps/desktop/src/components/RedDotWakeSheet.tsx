@@ -70,17 +70,14 @@ export function RedDotWakeSheet({
         type="button"
         className="reddot-setup-backdrop"
         aria-label="Schließen"
-        onClick={() => !busy && onClose()}
+        onClick={onClose}
       />
       <div className="reddot-setup-panel reddot-wake-panel">
         <header className="reddot-setup-head">
           <h2 id="reddot-wake-title">{title}</h2>
-          <button
-            type="button"
-            className="ghost"
-            disabled={busy}
-            onClick={onClose}
-          >
+          {/* Always dismissible — a running connect keeps going in the background.
+              Blocking dismiss also blocks the simulator start behind the sheet. */}
+          <button type="button" className="ghost" onClick={onClose}>
             Später
           </button>
         </header>
@@ -101,12 +98,7 @@ export function RedDotWakeSheet({
           >
             {busy ? "Verbinde…" : "Verbinden"}
           </MagicButton>
-          <button
-            type="button"
-            className="secondary nav-btn"
-            disabled={busy}
-            onClick={onClose}
-          >
+          <button type="button" className="secondary nav-btn" onClick={onClose}>
             Später
           </button>
         </div>
