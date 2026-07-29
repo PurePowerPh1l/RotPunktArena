@@ -7,11 +7,46 @@ use crate::db::Database;
 use crate::engine::StandEngine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use uuid::Uuid;
 
 pub const ADMIN_AUTH_KEY: &str = "admin.auth";
 const MIN_PASSWORD_LEN: usize = 4;
+
+/// Server-side admin unlock flag (managed Tauri state).
+///
+/// Defense in depth: the WebView-side capability gates can be bypassed by any
+/// IPC caller, so destructive commands additionally require this flag to be
+/// set. It is unlocked only by a successful password verify/setup in this
+/// process and never persisted across restarts.
+#[derive(Default)]
+pub struct AdminSession {
+    unlocked: AtomicBool,
+}
+
+impl AdminSession {
+    pub fn unlock(&self) {
+        self.unlocked.store(true, Ordering::SeqCst);
+    }
+
+    pub fn lock(&self) {
+        self.unlocked.store(false, Ordering::SeqCst);
+    }
+
+    pub fn is_unlocked(&self) -> bool {
+        self.unlocked.load(Ordering::SeqCst)
+    }
+
+    /// Gate for privileged commands. `Err` message is user-facing (German UI).
+    pub fn require(&self) -> Result<(), String> {
+        if self.is_unlocked() {
+            Ok(())
+        } else {
+            Err("Admin-Freigabe erforderlich. Bitte zuerst im Admin-Bereich entsperren.".into())
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -90,16 +125,17 @@ pub fn get_admin_auth_status(
     })
 }
 
-/// First-time setup only. Rejects if already configured.
+/// First-time setup only. Rejects if already configured. Unlocks the session.
 #[tauri::command]
 pub fn setup_admin_password(
     engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, AdminSession>,
     password: String,
 ) -> Result<AdminAuthStatus, String> {
     validate_password(&password)?;
-    engine.with_db(|db| {
+    let status = engine.with_db(|db| {
         if load_record(db)?.is_some() {
-            return Err("Admin-Passwort ist bereits gesetzt.".into());
+            return Err("Admin-Passwort ist bereits gesetzt.".to_string());
         }
         let salt = hex::encode(Uuid::new_v4().as_bytes());
         let hash = hash_password(&password, &salt)?;
@@ -112,22 +148,63 @@ pub fn setup_admin_password(
             },
         )?;
         Ok(AdminAuthStatus { configured: true })
-    })
+    })?;
+    session.unlock();
+    Ok(status)
 }
 
-/// Verify password against stored hash. Does not mutate unlock session (FE owns session).
+/// Verify password against stored hash. On success, unlocks the server-side
+/// admin session so privileged commands become callable.
 #[tauri::command]
 pub fn verify_admin_password(
     engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, AdminSession>,
     password: String,
 ) -> Result<bool, String> {
-    engine.with_db(|db| {
+    let ok = engine.with_db(|db| {
         let Some(record) = load_record(db)? else {
-            return Err("Kein Admin-Passwort eingerichtet.".into());
+            return Err("Kein Admin-Passwort eingerichtet.".to_string());
         };
         let candidate = hash_password(&password, &record.salt)?;
-        Ok(candidate == record.hash)
-    })
+        Ok(constant_time_eq(candidate.as_bytes(), record.hash.as_bytes()))
+    })?;
+    if ok {
+        session.unlock();
+    }
+    Ok(ok)
+}
+
+/// Lock the server-side admin session (called when the UI locks admin mode).
+#[tauri::command]
+pub fn lock_admin_session(session: tauri::State<'_, AdminSession>) {
+    session.lock();
+}
+
+/// DEV/TEST ONLY — unlock the server-side session without a password so the
+/// developer test-unlock stays usable. No-op in release builds (returns an
+/// error) so it can never bypass auth in shipped binaries.
+#[tauri::command]
+pub fn dev_unlock_admin_session(
+    session: tauri::State<'_, AdminSession>,
+) -> Result<(), String> {
+    if cfg!(debug_assertions) {
+        session.unlock();
+        Ok(())
+    } else {
+        Err("Nur in Entwicklungs-Builds verfügbar.".into())
+    }
+}
+
+/// Length-independent byte comparison to avoid leaking match progress via timing.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
 }
 
 #[cfg(test)]
