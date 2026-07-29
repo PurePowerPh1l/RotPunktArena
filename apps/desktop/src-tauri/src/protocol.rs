@@ -108,34 +108,39 @@ impl RedDotStreamParser {
 
     fn drain(&mut self) -> Vec<Incoming> {
         let mut out = Vec::new();
+        // Cursor over the buffer; consumed bytes are removed once at the end
+        // (single memmove instead of O(n²) `remove(0)` per noise/ACK byte).
+        let mut pos = 0;
         loop {
-            if self.buffer.is_empty() {
+            if pos >= self.buffer.len() {
                 break;
             }
-            let b = self.buffer[0];
+            let b = self.buffer[pos];
             match b {
                 NAK => {
-                    self.buffer.remove(0);
+                    pos += 1;
                     out.push(Incoming::Nak);
                 }
                 ACK => {
-                    self.buffer.remove(0);
+                    pos += 1;
                     out.push(Incoming::Ack);
                 }
                 STX => {
-                    if self.buffer.len() < SHOT_FRAME_LENGTH {
+                    if self.buffer.len() - pos < SHOT_FRAME_LENGTH {
                         out.push(Incoming::NeedMore);
                         break;
                     }
-                    let frame: Vec<u8> = self.buffer.drain(..SHOT_FRAME_LENGTH).collect();
+                    let frame = self.buffer[pos..pos + SHOT_FRAME_LENGTH].to_vec();
+                    pos += SHOT_FRAME_LENGTH;
                     out.push(Incoming::ShotFrame(frame));
                 }
                 _ => {
-                    self.buffer.remove(0);
+                    pos += 1;
                     out.push(Incoming::Skip);
                 }
             }
         }
+        self.buffer.drain(..pos);
         out
     }
 }

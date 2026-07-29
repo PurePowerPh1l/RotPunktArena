@@ -332,7 +332,7 @@ export function TargetFace({
     allowInspect &&
     (Math.abs(inspect.zoom - 1) > 0.02 || Math.hypot(inspect.panX, inspect.panY) > 0.5);
   const aria = interactive
-    ? "Scheibe — Klick zum Schießen"
+    ? "Scheibe — Klick zum Schießen, Enter: Schuss in die Mitte"
     : allowInspect
       ? "Scheibe — Schuss antippen, Mausrad zoomen, ziehen verschieben"
       : "Scheibe";

@@ -268,7 +268,7 @@ export interface EntryResultSummary {
   competitionId: string;
   personId: string;
   startOrder: number;
-  status: EntryStatus | string;
+  status: EntryStatus;
   firstName?: string | null;
   lastName?: string | null;
   club?: string | null;
@@ -307,7 +307,7 @@ export interface EntryResultDetail {
   /** Aggregates from the best series (by competition scoring mode). */
   summary: EntryResultSummary;
   competitionName: string;
-  scoringMode: ScoringMode | string;
+  scoringMode: ScoringMode;
   /** Competition maxShots per series. */
   maxShots: number;
   /** Shots of the best series (compat for existing UI). */

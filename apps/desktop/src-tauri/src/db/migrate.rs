@@ -140,6 +140,12 @@ const MIGRATIONS: &[Migration] = &[
         sql: None,
         custom: Some(migrate_v12_global_teams),
     },
+    Migration {
+        version: 13,
+        name: "session_max_shots",
+        sql: None,
+        custom: Some(migrate_v13_session_max_shots),
+    },
 ];
 
 pub fn apply_migrations(conn: &Connection) -> Result<(), String> {
@@ -514,6 +520,21 @@ fn migrate_v11_competition_kind(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Per-session shot limit so Arena ingest can enforce training series length
+/// in the same TX (NULL = unlimited / endless / legacy pre-v13 session).
+fn migrate_v13_session_max_shots(conn: &Connection) -> Result<(), String> {
+    if !table_exists(conn, "sessions") {
+        return Ok(());
+    }
+    ensure_column(
+        conn,
+        "sessions",
+        "max_shots",
+        "ALTER TABLE sessions ADD COLUMN max_shots INTEGER",
+    )?;
+    Ok(())
+}
+
 /// Global teams (cross-competition) with person membership. Migrates legacy per-competition teams.
 fn migrate_v12_global_teams(conn: &Connection) -> Result<(), String> {
     if !table_exists(conn, "people") {
@@ -642,7 +663,7 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(v, 12);
+        assert_eq!(v, 13);
         assert!(table_has_column(&conn, "events", "sequence"));
         assert!(table_has_column(&conn, "sessions", "next_sequence"));
         assert!(table_has_column(&conn, "sessions", "competition_id"));

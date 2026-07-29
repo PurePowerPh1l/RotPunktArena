@@ -91,6 +91,22 @@ impl Database {
         Ok(info)
     }
 
+    /// Persist the effective per-session shot limit (`NULL` = unlimited /
+    /// endless) so Arena ingest can enforce it inside the same TX.
+    pub fn set_session_max_shots(
+        &mut self,
+        session_id: &str,
+        max_shots: Option<i64>,
+    ) -> Result<(), String> {
+        self.conn
+            .execute(
+                "UPDATE sessions SET max_shots = ?1 WHERE id = ?2",
+                params![max_shots, session_id],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     pub fn end_session(&mut self, session_id: &str) -> Result<(), String> {
         self.end_session_with_state(session_id, recovery_state::CLEAN)
     }

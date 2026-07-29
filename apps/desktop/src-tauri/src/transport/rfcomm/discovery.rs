@@ -22,9 +22,27 @@ pub struct DiscoveredDevice {
 }
 
 /// Lower = better. `None` if name does not look like a RedDot target.
+///
+/// Hints match at token boundaries (token == hint or token starts with hint,
+/// e.g. "RDT203"), never as a raw substring — otherwise unrelated devices
+/// whose names merely contain "RDT" inside a word (e.g. "SMARDTV") would be
+/// treated as RedDot targets and Nuclear Forget could remove their bond.
 pub fn name_hint_rank(display_name: &str) -> Option<usize> {
     let upper = display_name.to_uppercase();
-    NAME_HINTS.iter().position(|h| upper.contains(*h))
+    let tokens: Vec<&str> = upper
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .collect();
+    NAME_HINTS.iter().position(|hint| {
+        let hint_tokens: Vec<&str> = hint.split_whitespace().collect();
+        if hint_tokens.is_empty() || tokens.len() < hint_tokens.len() {
+            return false;
+        }
+        tokens.windows(hint_tokens.len()).any(|window| {
+            let (last, head) = hint_tokens.split_last().expect("non-empty hint");
+            window[..head.len()] == *head && window[head.len()].starts_with(last)
+        })
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -908,5 +926,20 @@ mod tests {
     fn parse_addr_from_pnp_instance() {
         let id = r"BTHENUM\DEV_0018DA070564\C&B1ED653&0&BLUETOOTHDEVICE_0018DA070564";
         assert_eq!(parse_addr_from_dev_id(id), Some(0x0018_DA07_0564));
+    }
+
+    #[test]
+    fn name_hint_matches_reddot_names() {
+        assert_eq!(name_hint_rank("KT RDT ZIE 1 S/N 203"), Some(0));
+        assert!(name_hint_rank("RDT203").is_some());
+        assert!(name_hint_rank("DISAG RedDot").is_some());
+        assert!(name_hint_rank("reddot-stand").is_some());
+    }
+
+    #[test]
+    fn name_hint_rejects_substring_lookalikes() {
+        assert_eq!(name_hint_rank("SMARDTV Box"), None);
+        assert_eq!(name_hint_rank("HardTop Speaker"), None);
+        assert_eq!(name_hint_rank(""), None);
     }
 }

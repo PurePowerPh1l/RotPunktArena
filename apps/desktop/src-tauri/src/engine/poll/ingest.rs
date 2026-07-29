@@ -84,9 +84,9 @@ pub(super) fn handle_shot_frame(
                 }
             }
             engine.finish_series_if_needed(app, i64::from(accepted.shot_index));
-            // Hybrid snapshot after ACK + UI emit — a slow VACUUM INTO here no
-            // longer delays the device ACK or the shot event.
-            log.try_maybe_snapshot_after_shot(
+            // Hybrid snapshot on a background thread — the poll loop keeps
+            // draining the sink instead of blocking on VACUUM I/O.
+            log.spawn_maybe_snapshot_after_shot(
                 session_id,
                 accepted.shot_index,
                 accepted.session_sequence,

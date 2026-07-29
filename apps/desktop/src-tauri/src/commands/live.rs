@@ -153,11 +153,15 @@ pub fn rfcomm_status(
 /// - Target should be powered and discoverable if not already bonded.
 ///
 /// # Side effects
-/// - Sends `PauseForSetup` (aborts in-flight connect). Blocks during inquiry (~seconds).
-pub fn rfcomm_setup_scan(
+/// - Sends `PauseForSetup` (aborts in-flight connect). Inquiry (~seconds) runs
+///   on a blocking worker so the command thread / UI stay responsive.
+pub async fn rfcomm_setup_scan(
     handle: tauri::State<'_, crate::connection::ConnectionHandle>,
 ) -> Result<crate::connection::SetupCandidate, String> {
-    crate::connection::setup_scan(&handle)
+    let h = handle.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || crate::connection::setup_scan(&h))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -168,13 +172,19 @@ pub fn rfcomm_setup_scan(
 /// - Optional `display_name` avoids empty-name pairing UI.
 ///
 /// # Side effects
-/// - `PauseForSetup`; Owner `NuclearLink` (PIN 0000); persists known target; blocks up to ~90s.
-pub fn rfcomm_setup_connect(
+/// - `PauseForSetup`; Owner `NuclearLink` (PIN 0000); persists known target.
+///   Waits up to ~90s on a blocking worker (command thread stays responsive).
+pub async fn rfcomm_setup_connect(
     handle: tauri::State<'_, crate::connection::ConnectionHandle>,
     bt_addr_hex: String,
     display_name: Option<String>,
 ) -> Result<crate::connection::TargetSummary, String> {
-    let t = crate::connection::setup_connect(&handle, &bt_addr_hex, display_name.as_deref())?;
+    let h = handle.inner().clone();
+    let t = tauri::async_runtime::spawn_blocking(move || {
+        crate::connection::setup_connect(&h, &bt_addr_hex, display_name.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     Ok(t.summary())
 }
 

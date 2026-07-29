@@ -64,11 +64,9 @@ export function AppTopBar({
       </div>
 
       <div className="top-actions">
-        <div
-          className={`top-live-slot${view !== "live" ? " is-collapsed" : ""}`}
-          aria-hidden={view !== "live"}
-          inert={view !== "live" ? true : undefined}
-        >
+        {/* Link is app-lifetime — badge stays operable in every view
+            (collapsed to the dot; expands on hover/focus). */}
+        <div className="top-live-slot">
           <LiveLinkBadge onRequestSetup={onRequestSetup} />
           {nachkaufActive ? (
             <span
