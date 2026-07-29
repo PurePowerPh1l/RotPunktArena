@@ -146,8 +146,15 @@ export function LiveSessionControls({
     serial,
     linkReady,
   });
+  /** Why the start row is greyed out — shown as tooltip on both buttons. */
+  const startBlockedReason = !canStartCompetition
+    ? mode === "competition"
+      ? "Zuerst Starter aus der Startliste wählen"
+      : "Zuerst Schütze eintragen oder aus der Liste wählen"
+    : undefined;
   const hardwareTitle =
-    serial === "unknown"
+    startBlockedReason ??
+    (serial === "unknown"
       ? "Live-Status wird geladen…"
       : serial === "available"
         ? linkReady
@@ -155,7 +162,9 @@ export function LiveSessionControls({
             ? "Wettkampf starten — Schüsse am bestehenden Bluetooth-Link"
             : "Serie starten — Schüsse am bestehenden Bluetooth-Link"
           : "Zuerst RedDot einrichten (Setup-Hinweis) oder Simulator"
-        : undefined;
+        : undefined);
+  const simulatorTitle =
+    startBlockedReason ?? "Nur Simulator — ohne Hardware";
 
   const handleHardwareStart = () => {
     const decision = resolveLiveHardwareStart({ serial, linkReady });
@@ -259,7 +268,7 @@ export function LiveSessionControls({
                   type="button"
                   className="ghost nav-btn"
                   disabled={busy || !canStartCompetition}
-                  title="Nur Simulator — ohne Hardware"
+                  title={simulatorTitle}
                   onClick={handleExplicitSimulator}
                 >
                   <span className="nav-btn-text">Simulator</span>

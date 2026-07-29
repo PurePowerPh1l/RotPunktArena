@@ -151,18 +151,21 @@ export function LiveScoreColumn({
             { value: "teiler", label: "Teiler" },
           ]}
         />
-        {shotCount > 0 ? (
-          <button
-            type="button"
-            className="ghost score-print-btn nav-btn"
-            onClick={doPrint}
-            title="Schussbild drucken"
-            aria-label="Schussbild drucken"
-          >
-            <IconPrint size={14} />
-            Drucken
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="ghost score-print-btn nav-btn"
+          onClick={doPrint}
+          disabled={shotCount <= 0}
+          title={
+            shotCount > 0
+              ? "Schussbild drucken (Strg+P)"
+              : "Noch keine Schüsse zum Drucken"
+          }
+          aria-label="Schussbild drucken"
+        >
+          <IconPrint size={14} />
+          Drucken
+        </button>
       </div>
 
       <p className="value value-tick" key={scoreTick} aria-live="polite">
