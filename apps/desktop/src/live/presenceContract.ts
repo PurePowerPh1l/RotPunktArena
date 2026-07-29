@@ -2,12 +2,12 @@
  * Live Presence — parallel phase contract (do not edit LiveStandView from phase agents).
  *
  * Ownership (exclusive writes):
- *   A Halo      → components/TargetFace.tsx + App.css classes: .face-label-pill*
+ *   A Halo      → components/TargetFace.tsx + styles/live.css classes: .face-label-pill*
  *   B Moments   → hooks/useTrainingMoments.ts + components/live/MomentFlash.tsx
- *                 + App.css: .moment-*
- *   C Streak    → components/live/StreakChip.tsx + App.css: .streak-chip*
+ *                 + styles/live.css: .moment-*
+ *   C Streak    → components/live/StreakChip.tsx + styles/live.css: .streak-chip*
  *   D Audio     → hooks/useShotSound.ts only (extend playShot API)
- *   E Ceremony  → components/live/SeriesCeremony.tsx + App.css: .series-ceremony*
+ *   E Ceremony  → components/live/SeriesCeremony.tsx + styles/live.css: .series-ceremony*
  *
  * Integration (parent only): LiveStandView.tsx, LiveScoreColumn.tsx, App.tsx
  *
