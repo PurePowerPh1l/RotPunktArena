@@ -12,6 +12,11 @@ function printMarkRadius(emphasized: boolean): number {
   return emphasized ? 2.3 : 1.8;
 }
 
+/** Rounded whole value — matches the live target face labels. */
+function fmtLabel(v: number): string {
+  return String(Math.round(v));
+}
+
 /**
  * Scoring face + shot marks for HTML print.
  * Matches TargetFace contrast (brown fill + light stroke) so hits stay
@@ -23,19 +28,18 @@ export function printTargetSvg(
   sizePx = 320,
 ): string {
   const scale = fitFaceScale(shots);
-  const lastIdx = shots[shots.length - 1]?.shotIndex;
   const best = bestShotOf(shots, displayMode);
   const marks = shots
     .map((s) => {
       const { cx, cy } = shotCoordsToSvg(s.x, s.y);
-      const active = s.shotIndex === lastIdx;
       const isBest = best != null && s.shotIndex === best.shotIndex;
-      const hi = active || isBest;
-      const fill = active ? "#c0392b" : isBest ? "#b8860b" : "#4a3228";
-      const stroke = hi ? "#ffffff" : "#f5f0e6";
-      const strokeW = hi ? 0.45 : 0.55;
-      const r = printMarkRadius(hi);
-      const label = String(s.shotIndex);
+      const fill = isBest ? "#b8860b" : "#4a3228";
+      const stroke = isBest ? "#ffffff" : "#f5f0e6";
+      const strokeW = isBest ? 0.45 : 0.55;
+      const r = printMarkRadius(isBest);
+      const label = fmtLabel(
+        displayMode === "teiler" ? s.distanceDisplay : s.valueDisplay,
+      );
       const fontSize = 2.6;
       const charW = fontSize * 0.42;
       const padX = 0.55;

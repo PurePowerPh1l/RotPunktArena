@@ -2613,10 +2613,6 @@
     width: 100%;
   }
 
-  .score-toolbar:not(:has(.score-print-btn)) {
-    justify-content: center;
-  }
-
   .score-seg {
     align-self: center;
   }
