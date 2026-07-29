@@ -29,6 +29,10 @@ impl Database {
     }
 
     /// Best-effort snapshot at session boundary. Logs on failure; never returns Err.
+    ///
+    /// Synchronous — holds the caller (and the engine DB mutex) for the whole
+    /// `VACUUM INTO`. Prefer [`Database::spawn_session_boundary_snapshot`] on
+    /// lifecycle paths so session start/end never wait on VACUUM I/O.
     pub fn try_session_boundary_snapshot(&self, session_id: &str) {
         let seq = self.last_event_sequence(session_id).unwrap_or(0);
         if let Err(e) = self.write_session_snapshot(session_id, seq) {

@@ -27,6 +27,10 @@ pub struct Competition {
     /// How many best shooters count toward the team total (default 3).
     #[serde(default = "default_team_count")]
     pub team_count: i64,
+    /// When true, points are tenths (10.5); when false, whole rings (`floor`).
+    /// New competitions default false; existing DBs backfilled to true.
+    #[serde(default)]
+    pub tenths_enabled: bool,
 }
 
 fn default_team_count() -> i64 {
@@ -72,6 +76,9 @@ pub struct CreateCompetition {
     pub team_count: i64,
     #[serde(default = "default_competition_kind")]
     pub kind: String,
+    /// Default false = whole rings for new competitions.
+    #[serde(default)]
+    pub tenths_enabled: bool,
 }
 
 fn normalize_competition_kind(raw: &str) -> &'static str {
@@ -89,7 +96,7 @@ impl Database {
                 "SELECT id, name, date, discipline, max_shots, scoring_mode, status, created_at,
                         COALESCE(nachkauf_enabled, 0), COALESCE(nachkauf_shots, 0),
                         COALESCE(team_scoring_enabled, 0), COALESCE(team_count, 3),
-                        COALESCE(kind, 'competition')
+                        COALESCE(kind, 'competition'), COALESCE(tenths_enabled, 1)
                  FROM competitions
                  WHERE (?1 = 1 OR status != ?2)
                  ORDER BY date DESC, created_at DESC",
@@ -159,8 +166,9 @@ impl Database {
             .execute(
                 "INSERT INTO competitions
                  (id, name, date, discipline, max_shots, scoring_mode, status, created_at,
-                  nachkauf_enabled, nachkauf_shots, team_scoring_enabled, team_count, kind)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                  nachkauf_enabled, nachkauf_shots, team_scoring_enabled, team_count, kind,
+                  tenths_enabled)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                 params![
                     id,
                     name,
@@ -174,7 +182,8 @@ impl Database {
                     nachkauf_shots,
                     if team_scoring_enabled { 1 } else { 0 },
                     team_count,
-                    kind
+                    kind,
+                    if input.tenths_enabled { 1 } else { 0 }
                 ],
             )
             .map_err(|e| e.to_string())?;
@@ -192,6 +201,7 @@ impl Database {
             nachkauf_shots,
             team_scoring_enabled,
             team_count,
+            tenths_enabled: input.tenths_enabled,
         })
     }
 
@@ -253,6 +263,7 @@ impl Database {
             team_scoring_enabled: source.team_scoring_enabled,
             team_count: source.team_count,
             kind: source.kind.clone(),
+            tenths_enabled: source.tenths_enabled,
         })?;
         let created = if as_template {
             self.set_competition_status(&created.id, competition_status::TEMPLATE)?
@@ -360,8 +371,9 @@ impl Database {
                    nachkauf_shots = ?7,
                    team_scoring_enabled = ?8,
                    team_count = ?9,
-                   kind = ?10
-                 WHERE id = ?11",
+                   kind = ?10,
+                   tenths_enabled = ?11
+                 WHERE id = ?12",
                 params![
                     name,
                     date,
@@ -373,6 +385,7 @@ impl Database {
                     if team_scoring_enabled { 1 } else { 0 },
                     team_count,
                     kind,
+                    if input.tenths_enabled { 1 } else { 0 },
                     id
                 ],
             )
@@ -388,7 +401,7 @@ impl Database {
                 "SELECT id, name, date, discipline, max_shots, scoring_mode, status, created_at,
                         COALESCE(nachkauf_enabled, 0), COALESCE(nachkauf_shots, 0),
                         COALESCE(team_scoring_enabled, 0), COALESCE(team_count, 3),
-                        COALESCE(kind, 'competition')
+                        COALESCE(kind, 'competition'), COALESCE(tenths_enabled, 1)
                  FROM competitions WHERE id = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -715,6 +728,7 @@ impl Database {
 fn map_competition(row: &rusqlite::Row<'_>) -> rusqlite::Result<Competition> {
     let enabled: i64 = row.get(8)?;
     let team_enabled: i64 = row.get(10)?;
+    let tenths: i64 = row.get(13)?;
     Ok(Competition {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -729,6 +743,7 @@ fn map_competition(row: &rusqlite::Row<'_>) -> rusqlite::Result<Competition> {
         team_scoring_enabled: team_enabled != 0,
         team_count: row.get(11)?,
         kind: row.get(12)?,
+        tenths_enabled: tenths != 0,
     })
 }
 
@@ -822,4 +837,30 @@ pub fn count_scored_shots_for_limit(
         |r| r.get(0),
     )
     .map_err(|e| e.to_string())
+}
+
+/// Whether the session scores in tenths. Training (no competition) → always tenths.
+/// Missing / legacy competition column → tenths (preserve historical behaviour).
+pub fn session_tenths_enabled(
+    tx: &rusqlite::Transaction<'_>,
+    session_id: &str,
+) -> Result<bool, String> {
+    let competition_id: Option<String> = tx
+        .query_row(
+            "SELECT competition_id FROM sessions WHERE id = ?1",
+            params![session_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("session for tenths: {e}"))?;
+    let Some(cid) = competition_id else {
+        return Ok(true);
+    };
+    let tenths: i64 = tx
+        .query_row(
+            "SELECT COALESCE(tenths_enabled, 1) FROM competitions WHERE id = ?1",
+            params![cid],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("competition tenths: {e}"))?;
+    Ok(tenths != 0)
 }

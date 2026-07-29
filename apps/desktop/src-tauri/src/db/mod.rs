@@ -15,8 +15,8 @@ use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
 pub use competitions::{
-    count_scored_shots_for_limit, session_effective_max_shots, Competition, CompetitionEntry,
-    CreateCompetition,
+    count_scored_shots_for_limit, session_effective_max_shots, session_tenths_enabled,
+    Competition, CompetitionEntry, CreateCompetition,
 };
 pub use domain_constants::{competition_kind, competition_status, entry_status, event_kind};
 pub use people::{CreatePerson, Person, PromoteTrainingShooterResult};

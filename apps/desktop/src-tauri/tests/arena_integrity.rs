@@ -221,6 +221,7 @@ fn competition_max_shots_rejects_extra() {
             team_scoring_enabled: false,
             team_count: 3,
             kind: "competition".into(),
+            tenths_enabled: true,
         })
         .unwrap();
     let session = db
@@ -254,6 +255,83 @@ fn competition_max_shots_rejects_extra() {
         o => panic!("expected LimitReached, got {o:?}"),
     }
     assert_eq!(db.count_session_shots(&session.id).unwrap(), 5);
+}
+
+#[test]
+fn whole_rings_floors_score_at_ingest() {
+    use reddot_desktop_lib::CreateCompetition;
+
+    let mut db = ArenaDb::open_in_memory().unwrap();
+    let comp = db
+        .create_competition(CreateCompetition {
+            name: "LG Ganzring".into(),
+            date: "2026-07-29".into(),
+            discipline: "Luftgewehr".into(),
+            max_shots: 3,
+            scoring_mode: "ringe".into(),
+            nachkauf_enabled: false,
+            nachkauf_shots: 0,
+            team_scoring_enabled: false,
+            team_count: 3,
+            kind: "competition".into(),
+            tenths_enabled: false,
+        })
+        .unwrap();
+    assert!(!comp.tenths_enabled);
+    let session = db
+        .start_session("Ganzring", Some(&comp.id), None, None)
+        .unwrap();
+
+    // unique_frame encodes 10.5 → whole rings must persist 10.0
+    match db
+        .ingest_raw_frame(&session.id, &unique_frame(1), "test", None)
+        .unwrap()
+    {
+        IngestOutcome::Accepted(a) => {
+            assert!((a.score - 10.0).abs() < 1e-9, "score={}", a.score);
+            assert!((a.series_total - 10.0).abs() < 1e-9);
+        }
+        o => panic!("expected accepted, got {o:?}"),
+    }
+    match db
+        .ingest_raw_frame(&session.id, &unique_frame(2), "test", None)
+        .unwrap()
+    {
+        IngestOutcome::Accepted(a) => {
+            assert!((a.score - 10.0).abs() < 1e-9);
+            assert!((a.series_total - 20.0).abs() < 1e-9);
+        }
+        o => panic!("expected accepted, got {o:?}"),
+    }
+
+    // Same frame value with tenths competition keeps 10.5
+    let tenths_comp = db
+        .create_competition(CreateCompetition {
+            name: "LG Zehntel".into(),
+            date: "2026-07-29".into(),
+            discipline: "Luftgewehr".into(),
+            max_shots: 3,
+            scoring_mode: "ringe".into(),
+            nachkauf_enabled: false,
+            nachkauf_shots: 0,
+            team_scoring_enabled: false,
+            team_count: 3,
+            kind: "competition".into(),
+            tenths_enabled: true,
+        })
+        .unwrap();
+    let s2 = db
+        .start_session("Zehntel", Some(&tenths_comp.id), None, None)
+        .unwrap();
+    match db
+        .ingest_raw_frame(&s2.id, &unique_frame(7), "test", None)
+        .unwrap()
+    {
+        IngestOutcome::Accepted(a) => {
+            assert!((a.score - 10.5).abs() < 1e-9, "score={}", a.score);
+        }
+        o => panic!("expected accepted, got {o:?}"),
+    }
 }
 
 #[test]
@@ -417,6 +495,7 @@ fn competition_nachkauf_full_series_best_of() {
             team_scoring_enabled: false,
             team_count: 3,
             kind: "competition".into(),
+            tenths_enabled: true,
         })
         .unwrap();
     let entry = db.add_entry(&comp.id, &person.id).unwrap();
@@ -512,6 +591,7 @@ fn competition_nachkauf_full_series_best_of() {
             team_scoring_enabled: false,
             team_count: 3,
             kind: "competition".into(),
+            tenths_enabled: true,
         })
         .unwrap();
     let entry2 = db.add_entry(&comp2.id, &person.id).unwrap();

@@ -100,7 +100,7 @@ impl Database {
             device_sequence,
         )?;
 
-        let shot = match crate::protocol::parse_shot_frame(raw) {
+        let mut shot = match crate::protocol::parse_shot_frame(raw) {
             Ok(s) => s,
             Err(err) => {
                 let outcome =
@@ -109,6 +109,11 @@ impl Database {
                 return Ok(outcome);
             }
         };
+
+        // Whole-ring competitions: floor points before persist / series totals.
+        let tenths = crate::db::session_tenths_enabled(&tx, session_id)?;
+        shot.value_display =
+            crate::protocol::value_display_for_scoring(shot.value_raw, tenths);
 
         if let Some(outcome) = ingest::reject_limit(&tx, session_id, actor, &frame_id)? {
             tx.commit().map_err(|e| e.to_string())?;
