@@ -1,31 +1,69 @@
 /* Platz-Umschalter, Live-Link-Badge, Nachkauf-Dot */
 
-/* Primary place switcher — centered, slightly larger than inline segs. */
+/* Primary place switcher — centered stations, brand type, accent marker. */
 .top-nav-seg.sliding-seg {
-  padding: 0.22rem;
+  padding: 0.2rem;
+  background: rgba(0, 0, 0, 0.38);
+  border-color: rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.top-nav-seg .sliding-seg-pill {
+  top: 0.2rem;
+  bottom: 0.2rem;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 -2px 0 var(--accent),
+    0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .top-nav-seg .sliding-seg-btn {
-  padding: 0.52rem 1.05rem;
-  font-size: 0.92rem;
+  padding: 0.58rem 1.15rem;
+  font-family: var(--font-brand);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   white-space: nowrap;
+  color: var(--muted);
+}
+
+.top-nav-seg .sliding-seg-btn.on {
+  color: var(--ink);
+}
+
+.top-nav-seg .sliding-seg-btn:hover:not(:disabled):not(.on) {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.04) !important;
 }
 
 .top-nav-seg .seg-label {
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .top-nav-seg .seg-label svg {
-  width: 1.15em;
-  height: 1.15em;
-  opacity: 0.78;
+  width: 1.2em;
+  height: 1.2em;
+  opacity: 0.72;
   flex-shrink: 0;
+  transition: color 0.2s ease, opacity 0.2s ease;
 }
 
 .top-nav-seg .sliding-seg-btn.on .seg-label svg {
   opacity: 1;
-  /* Helleres Aprikot — bleibt orange, liest sich auf Accent-Pill klar */
-  color: #ffd0b0;
+  color: var(--accent);
+}
+
+html[data-color-scheme="light"] .top-nav-seg.sliding-seg {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+html[data-color-scheme="light"] .top-nav-seg .sliding-seg-pill {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 -2px 0 var(--accent),
+    0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* Compact live-link: centered dot, soft clip-reveal on hover/focus. */

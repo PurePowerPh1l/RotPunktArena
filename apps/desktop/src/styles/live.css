@@ -866,6 +866,54 @@
   min-width: 0;
   min-height: 0;
   overflow: visible;
+  transition:
+    border-color 0.4s var(--ease-out-expo),
+    box-shadow 0.45s var(--ease-out-expo),
+    background 0.4s ease;
+}
+
+.controls[data-mode="training"] {
+  border-color: rgba(63, 111, 143, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(63, 111, 143, 0.12),
+    0 10px 28px rgba(63, 111, 143, 0.1);
+}
+
+.controls[data-mode="competition"] {
+  border-color: rgba(226, 90, 40, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(226, 90, 40, 0.1),
+    0 10px 28px rgba(226, 90, 40, 0.12);
+}
+
+.controls-mode-stack {
+  /* Same grid cell → height = max(training, competition), no grow/shrink pop. */
+  display: grid;
+  flex: 1 1 14rem;
+  min-width: 0;
+  align-items: end;
+}
+
+.controls-mode-pane {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.4rem 0.45rem;
+  width: 100%;
+  min-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.32s var(--ease-out-expo);
+}
+
+.controls-mode-pane.is-active {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 1;
 }
 
 .controls-main {
