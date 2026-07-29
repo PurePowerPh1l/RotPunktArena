@@ -8,6 +8,7 @@ import type { ShooterValue } from "./components/ShooterAutocomplete";
 import { DevPanel } from "./components/DevPanel";
 import { RecoveryGate } from "./components/RecoveryGate";
 import { SettingsSheet } from "./components/SettingsSheet";
+import { UpdateNoticeOnStart } from "./components/UpdateNoticeOnStart";
 import { IconDev, IconMute, IconSettings, IconSound } from "./components/UiIcons";
 import { useAppAccess } from "./hooks/useAppAccess";
 import { useShotSound } from "./hooks/useShotSound";
@@ -225,6 +226,9 @@ export default function App() {
 
   return (
     <div className={frameClass}>
+      {/* Mounted after Recovery Gate resolution — the one-shot startup
+          update check must never sit on top of an interrupted session. */}
+      <UpdateNoticeOnStart />
       <AppTopBar
         subtitle={VIEW_SUBTITLE[view]}
         view={view}
