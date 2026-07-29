@@ -23,6 +23,7 @@ import {
   IconTrophy,
 } from "../../components/UiIcons";
 import type { CompetitionCreateInput } from "../bureau/CompetitionCreateForm";
+import { ControlsModeStack } from "./ControlsModeStack";
 import { LiveCompetitionPicker } from "./LiveCompetitionPicker";
 import {
   hardwareLiveStartBlocked,
@@ -197,7 +198,7 @@ export function LiveSessionControls({
         </p>
       ) : null}
 
-      <footer className="controls">
+      <footer className="controls" data-mode={mode}>
         <div className="controls-main">
           <SlidingSeg
             className="mode-row"
@@ -210,7 +211,7 @@ export function LiveSessionControls({
                 value: "training",
                 label: (
                   <span className="seg-label">
-                    <IconTraining size={14} /> Training
+                    <IconTraining size={16} /> Training
                   </span>
                 ),
               },
@@ -218,48 +219,52 @@ export function LiveSessionControls({
                 value: "competition",
                 label: (
                   <span className="seg-label">
-                    <IconTrophy size={14} /> Wettkampf
+                    <IconTrophy size={16} /> Wettkampf
                   </span>
                 ),
               },
             ]}
           />
 
-          {mode === "training" ? (
-            <label className="field field-shooter">
-              Schütze
-              <ShooterAutocomplete
-                value={trainingShooter}
-                onChange={onTrainingShooterChange}
-                disabled={running}
+          <ControlsModeStack
+            mode={mode}
+            training={
+              <label className="field field-shooter">
+                Schütze
+                <ShooterAutocomplete
+                  value={trainingShooter}
+                  onChange={onTrainingShooterChange}
+                  disabled={running}
+                />
+              </label>
+            }
+            competition={
+              <LiveCompetitionPicker
+                competitions={competitions}
+                competitionId={competitionId}
+                onCompetitionIdChange={onCompetitionIdChange}
+                entries={entries}
+                entryId={entryId}
+                onEntryIdChange={onEntryIdChange}
+                teams={teams}
+                teamId={teamId}
+                onTeamIdChange={onTeamIdChange}
+                selectedComp={selectedComp}
+                running={running}
+                createBusy={createBusy}
+                onCreateCompetition={onCreateCompetition}
+                onEnsureStarter={onEnsureStarter}
+                onEnsureTeam={onEnsureTeam}
               />
-            </label>
-          ) : (
-            <LiveCompetitionPicker
-              competitions={competitions}
-              competitionId={competitionId}
-              onCompetitionIdChange={onCompetitionIdChange}
-              entries={entries}
-              entryId={entryId}
-              onEntryIdChange={onEntryIdChange}
-              teams={teams}
-              teamId={teamId}
-              onTeamIdChange={onTeamIdChange}
-              selectedComp={selectedComp}
-              running={running}
-              createBusy={createBusy}
-              onCreateCompetition={onCreateCompetition}
-              onEnsureStarter={onEnsureStarter}
-              onEnsureTeam={onEnsureTeam}
-            />
-          )}
+            }
+          />
         </div>
 
         <div className="controls-actions">
           {!running && !sessionOpen ? (
             <>
               <MagicButton
-                className={`nav-btn${startNachkauf ? " is-nachkauf" : ""}`}
+                className={`nav-btn start-cta${startNachkauf ? " is-nachkauf" : ""}`}
                 disabled={busy || !canStartCompetition || hardwareBlocked}
                 title={hardwareTitle}
                 onClick={handleHardwareStart}
