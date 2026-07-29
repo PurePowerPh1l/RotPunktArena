@@ -621,6 +621,16 @@
   flex-shrink: 0;
   align-self: stretch;
   min-width: 0;
+  /* Keep Anzeige-Umschalter + Drucken reachable while the column scrolls
+     (e.g. ceremony + full shot list after a finished series). */
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  padding: 0.3rem 0.4rem;
+  margin-inline: -0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--elevated-sticky);
+  box-shadow: 0 4px 10px -6px rgba(0, 0, 0, 0.5);
 }
 
 .score-toolbar .score-seg {
@@ -632,8 +642,8 @@
   padding: 0.28rem 0.55rem;
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--muted);
-  border-color: transparent;
+  color: var(--ink);
+  border-color: var(--panel-border);
   align-self: center;
   flex-shrink: 0;
 }
@@ -642,6 +652,11 @@
   color: var(--ink);
   border-color: var(--panel-border);
   background: rgba(255, 255, 255, 0.06);
+}
+
+.score-print-btn:disabled {
+  color: var(--muted);
+  opacity: 0.55;
 }
 
 .score-print-btn svg {
