@@ -1,6 +1,6 @@
 [package]
 name = "reddot-desktop"
-version = "0.1.12"
+version = "0.1.13"
 description = "DISAG RotPunktArena (Phase 1 MVP)"
 authors = ["RedDot"]
 edition = "2021"
