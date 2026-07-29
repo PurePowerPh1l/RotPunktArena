@@ -65,6 +65,11 @@ export interface Competition {
   teamScoringEnabled?: boolean;
   /** How many best shooters count toward the team total. */
   teamCount?: number;
+  /**
+   * When true, points are tenths (10.5). When false, whole rings (`floor`).
+   * New competitions default false; existing DBs were backfilled to true.
+   */
+  tenthsEnabled?: boolean;
 }
 
 export interface CompetitionEntry {
