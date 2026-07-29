@@ -108,6 +108,29 @@ impl Database {
         Ok(())
     }
 
+    /// Persist the session phase (`probe` / `match`) so Arena ingest can
+    /// classify shots inside the same TX.
+    pub fn set_session_phase(&mut self, session_id: &str, phase: &str) -> Result<(), String> {
+        self.conn
+            .execute(
+                "UPDATE sessions SET phase = ?1 WHERE id = ?2",
+                params![phase, session_id],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// Current session phase; legacy rows without the column value → `match`.
+    pub fn get_session_phase(&self, session_id: &str) -> Result<String, String> {
+        self.conn
+            .query_row(
+                "SELECT COALESCE(phase, 'match') FROM sessions WHERE id = ?1",
+                params![session_id],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())
+    }
+
     pub fn end_session(&mut self, session_id: &str) -> Result<(), String> {
         self.end_session_with_state(session_id, recovery_state::CLEAN)
     }
@@ -206,6 +229,19 @@ impl Database {
         tx.commit().map_err(|e| e.to_string())?;
         Ok(event)
     }
+}
+
+/// Session phase inside an open transaction (Arena ingest classification).
+pub fn session_phase_in_tx(
+    tx: &rusqlite::Transaction<'_>,
+    session_id: &str,
+) -> Result<String, String> {
+    tx.query_row(
+        "SELECT COALESCE(phase, 'match') FROM sessions WHERE id = ?1",
+        params![session_id],
+        |r| r.get(0),
+    )
+    .map_err(|e| format!("session phase: {e}"))
 }
 
 /// Allocate the next session event sequence inside an open transaction.

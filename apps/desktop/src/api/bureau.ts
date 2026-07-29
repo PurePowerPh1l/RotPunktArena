@@ -68,6 +68,7 @@ export async function createCompetition(input: {
   teamCount?: number;
   kind?: import("@rotpunktarena/domain").CompetitionKind;
   tenthsEnabled?: boolean;
+  probeEnabled?: boolean;
 }): Promise<Competition> {
   return invoke("create_competition", { competition: input });
 }
@@ -86,6 +87,7 @@ export async function updateCompetition(
     teamCount?: number;
     kind?: import("@rotpunktarena/domain").CompetitionKind;
     tenthsEnabled?: boolean;
+    probeEnabled?: boolean;
   },
 ): Promise<Competition> {
   return invoke("update_competition", { id, competition: input });

@@ -862,6 +862,33 @@ body.is-app-fullscreen .app-frame {
   gap: 0.4rem;
 }
 
+/* Probephase (Probeschüsse vor der Wertung) */
+.probe-banner {
+  margin-top: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(72, 160, 90, 0.16);
+  border: 1px solid rgba(72, 160, 90, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.probe-banner-label {
+  color: var(--status-ok-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.probe-finish-btn {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .shot-list-wrap {
   margin-top: 0.65rem;
   /* Natural height from rows — column (.score-col) is the only scrollport */

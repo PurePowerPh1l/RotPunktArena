@@ -226,6 +226,7 @@ impl Database {
                           COALESCE(SUM(CAST(distance_raw AS REAL) / 10.0), 0) AS teiler_sum,
                           COALESCE(AVG(CAST(distance_raw AS REAL) / 10.0), 0) AS teiler_avg
                    FROM shots
+                   WHERE classification = 'scored'
                    GROUP BY session_id
                  ) agg ON agg.session_id = s.id
                  WHERE s.entry_id = ?1
@@ -282,7 +283,7 @@ impl Database {
             .prepare(
                 "SELECT shot_index, value_raw, distance_raw, x, y, score
                  FROM shots
-                 WHERE session_id = ?1
+                 WHERE session_id = ?1 AND classification = 'scored'
                  ORDER BY shot_index ASC, session_sequence ASC",
             )
             .map_err(|e| e.to_string())?;
@@ -348,6 +349,7 @@ fn list_results_sql(order: BestOrder) -> &'static str {
                         COUNT(*) AS shot_count,
                         COALESCE(SUM(score), 0) AS punkte_total
                  FROM shots
+                 WHERE classification = 'scored'
                  GROUP BY session_id
                ) a ON a.session_id = s2.id
                WHERE s2.entry_id = e.id
@@ -363,6 +365,7 @@ fn list_results_sql(order: BestOrder) -> &'static str {
                       COALESCE(SUM(CAST(distance_raw AS REAL) / 10.0), 0) AS teiler_sum,
                       COALESCE(AVG(CAST(distance_raw AS REAL) / 10.0), 0) AS teiler_avg
                FROM shots
+               WHERE classification = 'scored'
                GROUP BY session_id
              ) agg ON agg.session_id = s.id
              WHERE e.competition_id = ?1
@@ -385,6 +388,7 @@ fn list_results_sql(order: BestOrder) -> &'static str {
                         COUNT(*) AS shot_count,
                         COALESCE(AVG(CAST(distance_raw AS REAL) / 10.0), 0) AS teiler_avg
                  FROM shots
+                 WHERE classification = 'scored'
                  GROUP BY session_id
                ) a ON a.session_id = s2.id
                WHERE s2.entry_id = e.id
@@ -400,6 +404,7 @@ fn list_results_sql(order: BestOrder) -> &'static str {
                       COALESCE(SUM(CAST(distance_raw AS REAL) / 10.0), 0) AS teiler_sum,
                       COALESCE(AVG(CAST(distance_raw AS REAL) / 10.0), 0) AS teiler_avg
                FROM shots
+               WHERE classification = 'scored'
                GROUP BY session_id
              ) agg ON agg.session_id = s.id
              WHERE e.competition_id = ?1

@@ -49,6 +49,7 @@ pub fn run() {
             commands::start_training,
             commands::start_entry_session,
             commands::end_training,
+            commands::finish_probe,
             commands::queue_sim_shot,
             commands::fire_aim_shot,
             commands::set_auto_fire,
