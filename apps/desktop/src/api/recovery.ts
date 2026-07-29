@@ -26,8 +26,12 @@ export type EmergencyExportResult = {
   schemaVersion: number;
 };
 
+/**
+ * Export the diagnostics bundle. `fileName` only chooses the file name inside
+ * the app's `exports` directory — arbitrary paths are rejected by the backend.
+ */
 export async function exportDiagnostics(
-  path?: string | null,
+  fileName?: string | null,
 ): Promise<EmergencyExportResult> {
-  return invoke("export_diagnostics", { path: path ?? null });
+  return invoke("export_diagnostics", { fileName: fileName ?? null });
 }

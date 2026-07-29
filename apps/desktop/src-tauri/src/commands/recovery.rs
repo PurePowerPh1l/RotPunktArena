@@ -66,9 +66,9 @@ pub fn resume_session(
 pub fn export_diagnostics(
     app: tauri::AppHandle,
     engine: tauri::State<'_, Arc<StandEngine>>,
-    path: Option<String>,
+    file_name: Option<String>,
 ) -> Result<EmergencyExportResult, String> {
-    export_emergency_bundle_inner(app, engine, path)
+    export_emergency_bundle_inner(&app, &engine, file_name)
 }
 
 /// Legacy alias — same as `export_diagnostics`.
@@ -76,21 +76,21 @@ pub fn export_diagnostics(
 pub fn export_emergency_bundle(
     app: tauri::AppHandle,
     engine: tauri::State<'_, Arc<StandEngine>>,
-    path: Option<String>,
+    file_name: Option<String>,
 ) -> Result<EmergencyExportResult, String> {
-    export_emergency_bundle_inner(app, engine, path)
+    export_emergency_bundle_inner(&app, &engine, file_name)
 }
 
 fn export_emergency_bundle_inner(
-    app: tauri::AppHandle,
-    engine: tauri::State<'_, Arc<StandEngine>>,
-    path: Option<String>,
+    app: &tauri::AppHandle,
+    engine: &tauri::State<'_, Arc<StandEngine>>,
+    file_name: Option<String>,
 ) -> Result<EmergencyExportResult, String> {
     let unclean = engine.with_db(|db| db.list_unclean_sessions())?;
     let schema_version = engine.with_db(|db| db.schema_version())?;
     let db_path = engine.with_db(|db| db.path().to_path_buf());
 
-    let zip_path = resolve_export_path(&app, path)?;
+    let zip_path = resolve_export_path(app, file_name)?;
     if let Some(parent) = zip_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -128,19 +128,36 @@ fn export_emergency_bundle_inner(
     })
 }
 
-fn resolve_export_path(app: &tauri::AppHandle, path: Option<String>) -> Result<PathBuf, String> {
-    if let Some(p) = path.filter(|s| !s.trim().is_empty()) {
-        let pb = PathBuf::from(p);
-        if pb.extension().and_then(|e| e.to_str()) == Some("zip") {
-            return Ok(pb);
-        }
-        return Ok(pb.with_extension("zip"));
-    }
+/// Resolve the export ZIP path. The diagnostics bundle contains the full
+/// database (incl. PII), so it is always written inside `app_data/exports`.
+/// A caller-supplied `file_name` may only choose the file name within that
+/// directory — path separators, `..` and absolute paths are rejected so the
+/// WebView cannot write the DB to an arbitrary location.
+fn resolve_export_path(
+    app: &tauri::AppHandle,
+    file_name: Option<String>,
+) -> Result<PathBuf, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let exports = data_dir.join("exports");
     std::fs::create_dir_all(&exports).map_err(|e| e.to_string())?;
-    let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-    Ok(exports.join(format!("reddot-diagnostics-{stamp}.zip")))
+
+    let name = match file_name.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        Some(raw) => {
+            if raw.contains(['/', '\\']) || raw.contains("..") {
+                return Err("Ungültiger Exportname".into());
+            }
+            if raw.ends_with(".zip") {
+                raw
+            } else {
+                format!("{raw}.zip")
+            }
+        }
+        None => {
+            let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+            format!("reddot-diagnostics-{stamp}.zip")
+        }
+    };
+    Ok(exports.join(name))
 }
 
 fn write_emergency_zip(
