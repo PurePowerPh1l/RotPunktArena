@@ -420,6 +420,8 @@ export interface UiPrefs {
   lastView: AppViewPref | null;
   compactUi: boolean;
   largeText: boolean;
+  /** Stronger scale for text and controls (range / distance readability). */
+  extraLargeUi: boolean;
   colorScheme: ColorSchemePref;
   reducedMotion: boolean;
   scoreDisplay: ScoreDisplayPref;
@@ -438,6 +440,7 @@ export const UI_PREFS_LOAD_PLACEHOLDER: UiPrefs = {
   lastView: null,
   compactUi: false,
   largeText: false,
+  extraLargeUi: false,
   colorScheme: "system",
   reducedMotion: false,
   scoreDisplay: "punkte",

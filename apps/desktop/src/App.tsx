@@ -221,6 +221,7 @@ export default function App() {
     isAdminModeEnabled ? "is-admin-mode" : "",
     uiPrefs.prefs.compactUi ? "is-compact-ui" : "",
     uiPrefs.prefs.largeText ? "is-large-text" : "",
+    uiPrefs.prefs.extraLargeUi ? "is-extra-large-ui" : "",
   ]
     .filter(Boolean)
     .join(" ");
