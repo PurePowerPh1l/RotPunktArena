@@ -610,3 +610,66 @@
   text-transform: none;
 }
 
+/* Extra-large: settings controls grow via em against the sheet font root. */
+.app-frame.is-extra-large-ui .settings-sheet .settings-section-toggle {
+  padding: 0.55em 0.75em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-section-title {
+  font-size: 1.05em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-section-desc,
+.app-frame.is-extra-large-ui .settings-sheet .settings-hint {
+  font-size: 0.92em;
+  line-height: 1.4;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-choice-btn {
+  padding: 0.42em 0.75em;
+  font-size: 0.92em;
+  border-radius: 0.45em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-action-primary,
+.app-frame.is-extra-large-ui .settings-sheet button.secondary.settings-action-secondary,
+.app-frame.is-extra-large-ui .settings-sheet .settings-action-quiet,
+.app-frame.is-extra-large-ui .settings-sheet button {
+  padding: 0.72em 1.1em;
+  font-size: 1em;
+  border-radius: 0.55em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-action-primary {
+  padding: 0.8em 1.15em;
+  font-size: 1.05em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle {
+  font-size: 1em;
+  gap: 0.6em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle input {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-info-label,
+.app-frame.is-extra-large-ui .settings-sheet .settings-info-text {
+  font-size: 1em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-status-pill {
+  padding: 0.28em 0.65em;
+  font-size: 0.85em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .field input,
+.app-frame.is-extra-large-ui .settings-sheet .field select {
+  font-size: 1em;
+  min-height: 2.6em;
+  padding: 0.55em 0.75em;
+}
+
+
