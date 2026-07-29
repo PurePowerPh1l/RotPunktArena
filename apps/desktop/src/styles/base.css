@@ -1,0 +1,410 @@
+/* Tokens, Theme (dark/light), Reduced Motion, App-Shell/Topbar-Grundgeruest */
+
+:root {
+  color-scheme: dark;
+  --bg0: #12151a;
+  --bg1: #1a1f27;
+  --ink: #f2f0eb;
+  --muted: #9aa3b0;
+  --accent: #e25a28;
+  --accent-soft: rgba(226, 90, 40, 0.18);
+  --accent-line: rgba(226, 90, 40, 0.55);
+  --ok: #5ecf7a;
+  --warn: #e0b14a;
+  --bad: #e57368;
+  --panel: rgba(255, 255, 255, 0.035);
+  --panel-border: rgba(255, 255, 255, 0.09);
+  --panel-inset: rgba(0, 0, 0, 0.28);
+  /* Elevated surfaces — values match prior hardcoded dark look */
+  --elevated: rgba(16, 19, 24, 0.98);
+  --elevated-alt: rgba(18, 21, 26, 0.98);
+  --elevated-diag: rgba(18, 20, 24, 0.96);
+  --elevated-toast: rgba(24, 26, 30, 0.92);
+  --elevated-sticky: rgba(18, 21, 26, 0.96);
+  --elevated-recovery: rgba(18, 21, 26, 0.92);
+  --input-fill: rgba(0, 0, 0, 0.32);
+  --input-fill-muted: rgba(0, 0, 0, 0.18);
+  --input-fill-deep: rgba(0, 0, 0, 0.35);
+  --menu-border: rgba(255, 255, 255, 0.14);
+  --hairline: rgba(255, 255, 255, 0.06);
+  --hairline-strong: rgba(255, 255, 255, 0.08);
+  --btn-secondary-bg: rgba(255, 255, 255, 0.08);
+  --btn-secondary-hover: rgba(255, 255, 255, 0.12);
+  --btn-secondary-border-hover: rgba(255, 255, 255, 0.2);
+  --start-list-surface: color-mix(in srgb, var(--bg0) 72%, #000);
+  --start-list-border: rgba(255, 255, 255, 0.07);
+  /* Status / badge ink (pastel on dark) */
+  --status-ok-ink: #c8f0d2;
+  --status-bad-ink: #f0c0c0;
+  --status-warn-ink: #f0d78a;
+  --status-draft-ink: #ffe6a0;
+  --status-closed-ink: #ffc9c3;
+  --status-template-ink: #c8d4f5;
+  --status-promo-ink: #f0b49a;
+  --status-link-ink: #b8e6bb;
+  --banner-error-ink: #ffd5cf;
+  --hist-best-ink: #f0c4b0;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --font-ui: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --font-brand: "Syne", "Figtree", sans-serif;
+  --font-score: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-family: var(--font-ui);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Minimal light tokens — readability/contrast only, not a redesign. */
+html[data-color-scheme="light"] {
+  color-scheme: light;
+  --bg0: #f3f4f6;
+  --bg1: #e7e9ee;
+  --ink: #1a1f27;
+  --muted: #5a6472;
+  --accent-soft: rgba(226, 90, 40, 0.12);
+  --accent-line: rgba(226, 90, 40, 0.4);
+  --panel: rgba(0, 0, 0, 0.035);
+  --panel-border: rgba(0, 0, 0, 0.1);
+  --panel-inset: rgba(0, 0, 0, 0.05);
+  --elevated: #ffffff;
+  --elevated-alt: #ffffff;
+  --elevated-diag: #ffffff;
+  --elevated-toast: #ffffff;
+  --elevated-sticky: #eef0f4;
+  --elevated-recovery: #ffffff;
+  --input-fill: rgba(0, 0, 0, 0.06);
+  --input-fill-muted: rgba(0, 0, 0, 0.04);
+  --input-fill-deep: rgba(0, 0, 0, 0.08);
+  --menu-border: rgba(0, 0, 0, 0.12);
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hairline-strong: rgba(0, 0, 0, 0.1);
+  --btn-secondary-bg: rgba(0, 0, 0, 0.06);
+  --btn-secondary-hover: rgba(0, 0, 0, 0.1);
+  --btn-secondary-border-hover: rgba(0, 0, 0, 0.18);
+  --start-list-surface: color-mix(in srgb, var(--bg0) 82%, #fff);
+  --start-list-border: rgba(0, 0, 0, 0.1);
+  --status-ok-ink: #1f6b3a;
+  --status-bad-ink: #9a2f2f;
+  --status-warn-ink: #7a5a12;
+  --status-draft-ink: #7a5a12;
+  --status-closed-ink: #9a2f2f;
+  --status-template-ink: #3a4a8a;
+  --status-promo-ink: #b04520;
+  --status-link-ink: #1f6b3a;
+  --banner-error-ink: #9a2f2f;
+  --hist-best-ink: #9a4a2e;
+}
+
+html[data-color-scheme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+}
+
+body {
+  background:
+    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.14) 0%, transparent 55%),
+    radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.16) 0%, transparent 50%),
+    radial-gradient(640px 420px at 50% 108%, rgba(40, 48, 58, 0.55) 0%, transparent 55%),
+    linear-gradient(168deg, #0e1116 0%, var(--bg0) 45%, var(--bg1) 100%);
+  color: var(--ink);
+  overscroll-behavior: none;
+}
+
+html[data-color-scheme="light"] body {
+  background:
+    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.08) 0%, transparent 55%),
+    radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.08) 0%, transparent 50%),
+    linear-gradient(168deg, #fafbfc 0%, var(--bg0) 45%, var(--bg1) 100%);
+}
+
+/* Pref opt-in: structural reduced motion (OS media queries stay as-is). */
+html.is-reduced-motion *,
+html.is-reduced-motion *::before,
+html.is-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+body.is-app-fullscreen .app-frame {
+  padding-top: clamp(0.45rem, 0.9vmin, 0.75rem);
+}
+
+.app-frame {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: clamp(0.65rem, 1.2vmin, 1.1rem) clamp(0.85rem, 1.6vmin, 1.5rem)
+    clamp(0.55rem, 1vmin, 0.95rem);
+  gap: clamp(0.45rem, 1vmin, 0.9rem);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.app-frame.is-compact-ui {
+  padding: clamp(0.4rem, 0.85vmin, 0.75rem) clamp(0.55rem, 1.1vmin, 1rem)
+    clamp(0.35rem, 0.75vmin, 0.65rem);
+  gap: clamp(0.3rem, 0.7vmin, 0.55rem);
+}
+
+.app-frame.is-large-text {
+  font-size: 1.08rem;
+}
+
+.app-frame.is-large-text .top,
+.app-frame.is-large-text .settings-sheet {
+  font-size: 1.05em;
+}
+
+.app-frame-body {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-view-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-view-pane.is-hidden {
+  display: none;
+}
+
+.app-frame-body > .stand,
+.app-frame-body > .bureau,
+.app-frame-body > .training-hist,
+.app-view-pane > .stand {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+}
+
+.stand {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: clamp(0.45rem, 1vmin, 0.9rem);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.top-leading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  justify-self: start;
+}
+
+.top-tip {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: none;
+  white-space: pre-line;
+  overflow: hidden;
+  line-height: 1.35;
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 0 0.5rem 0 1.25rem;
+  animation: tip-fade 0.55s ease;
+}
+
+@media (max-width: 1100px) {
+  .top-tip {
+    display: none;
+  }
+}
+
+.top-nav-center {
+  justify-self: center;
+  z-index: 1;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  justify-self: end;
+  min-width: 0;
+}
+
+.top-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.18rem;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--panel-border);
+  flex-shrink: 0;
+}
+
+.top-tool {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  width: 2.05rem;
+  height: 2.05rem;
+  padding: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Dev entry — width reserved when policy hides it via unmount, not collapse */
+.top-tool.top-tool-dev {
+  min-width: 2.05rem;
+}
+
+.top-tool svg {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.top-tool:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+  filter: none;
+  transform: none;
+  box-shadow: none;
+}
+
+.top-tool.is-on {
+  background: var(--accent-soft);
+  color: var(--hist-best-ink);
+}
+
+.top-tool.is-on svg {
+  opacity: 1;
+}
+
+.top-live-slot {
+  --live-link-expanded-max: 20rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  max-width: 2.05rem;
+  min-width: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+  opacity: 1;
+  transition:
+    max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease,
+    margin 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.top-live-slot:has(.nachkauf-chip) {
+  --live-link-expanded-max: 24rem;
+  max-width: 9.5rem;
+}
+
+/* Hover/Focus oder Connecting (is-expanded) — Slot muss mit dem Badge mitwachsen */
+.top-live-slot:not(.is-collapsed):hover,
+.top-live-slot:not(.is-collapsed):focus-within,
+.top-live-slot:not(.is-collapsed):has(.live-link.is-expanded) {
+  max-width: var(--live-link-expanded-max);
+  transition:
+    max-width 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease,
+    margin 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.top-live-slot:has(.nachkauf-chip):not(.is-collapsed):hover,
+.top-live-slot:has(.nachkauf-chip):not(.is-collapsed):focus-within,
+.top-live-slot:has(.nachkauf-chip):not(.is-collapsed):has(.live-link.is-expanded) {
+  max-width: var(--live-link-expanded-max);
+}
+
+.top-live-slot.is-collapsed {
+  max-width: 0;
+  opacity: 0;
+  margin-inline-end: -0.65rem; /* cancel .top-actions gap */
+  pointer-events: none;
+}
+
+.nachkauf-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 168, 75, 0.55);
+  background: rgba(212, 168, 75, 0.18);
+  color: var(--status-warn-ink);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.top-tool:focus-visible {
+  outline: 2px solid rgba(226, 90, 40, 0.65);
+  outline-offset: 1px;
+}
+
