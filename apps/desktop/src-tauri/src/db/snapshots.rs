@@ -36,6 +36,27 @@ impl Database {
         }
     }
 
+    /// Async session-boundary snapshot: runs `VACUUM INTO` on a background
+    /// thread with a fresh connection (WAL-safe) so session start/end return
+    /// immediately. No single-flight guard — boundary events occur at most once
+    /// per session, so there is nothing to coalesce. No-op for in-memory DBs.
+    pub fn spawn_session_boundary_snapshot(&self, session_id: &str) {
+        if self.snapshot_dir().is_none() {
+            return;
+        }
+        let path = self.path().to_path_buf();
+        let sid = session_id.to_string();
+        std::thread::spawn(move || {
+            let result = Database::open(&path).and_then(|db| {
+                let seq = db.last_event_sequence(&sid).unwrap_or(0);
+                db.write_session_snapshot(&sid, seq).map(|_| ())
+            });
+            if let Err(e) = result {
+                eprintln!("[reddot] session boundary snapshot failed ({sid}): {e}");
+            }
+        });
+    }
+
     /// After an accepted shot (outside ingest TX): snapshot when `shot_index % N == 0`.
     /// Synchronous — prefer [`Database::spawn_maybe_snapshot_after_shot`] on
     /// live paths so device ACK / UI emit never wait on VACUUM I/O.
@@ -196,17 +217,13 @@ mod tests {
     fn write_session_snapshot_creates_file_and_latest() {
         let (dir, mut db) = temp_db();
         let session = db.start_session("Snap", None, None, None).unwrap();
-        // start_session already tried a boundary snapshot
+        // Boundary snapshot now runs on a background thread; exercise the
+        // synchronous writer directly so the test is deterministic.
+        let first = db.write_session_snapshot(&session.id, 1).unwrap();
+        assert!(first.is_file());
+
         let snap_dir = db.snapshot_dir().unwrap();
         assert!(snap_dir.is_dir());
-        let entries: Vec<_> = std::fs::read_dir(&snap_dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .collect();
-        assert!(
-            entries.len() >= 2,
-            "expected session-*.sqlite + latest.sqlite, got {entries:?}"
-        );
         assert!(snap_dir.join(SNAPSHOT_LATEST_NAME).is_file());
 
         let path = db.write_session_snapshot(&session.id, 42).unwrap();

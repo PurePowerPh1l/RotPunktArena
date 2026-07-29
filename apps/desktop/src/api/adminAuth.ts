@@ -21,3 +21,13 @@ export async function setupAdminPassword(
 export async function verifyAdminPassword(password: string): Promise<boolean> {
   return invoke("verify_admin_password", { password });
 }
+
+/** Clear the server-side admin unlock (mirror of UI lock). */
+export async function lockAdminSession(): Promise<void> {
+  await invoke("lock_admin_session");
+}
+
+/** DEV/TEST ONLY — unlock the server-side session without a password. */
+export async function devUnlockAdminSession(): Promise<void> {
+  await invoke("dev_unlock_admin_session");
+}

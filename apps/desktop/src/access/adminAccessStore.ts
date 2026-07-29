@@ -45,6 +45,8 @@ class AdminAccessStoreImpl implements AdminAccessController {
     const status = await adminAuthApi.getAdminAuthStatus();
     this.configured = status.configured;
     this.sessionUnlocked = false;
+    // Backend starts locked; keep the server-side flag in sync on (re)hydrate.
+    void adminAuthApi.lockAdminSession().catch(() => {});
     this.emit();
   }
 
@@ -66,12 +68,14 @@ class AdminAccessStoreImpl implements AdminAccessController {
 
   lock(): void {
     this.sessionUnlocked = false;
+    void adminAuthApi.lockAdminSession().catch(() => {});
     this.emit();
   }
 
   /** DEV/TEST ONLY — does not persist credentials. */
   enableAdminForTests(): void {
     this.sessionUnlocked = true;
+    void adminAuthApi.devUnlockAdminSession().catch(() => {});
     this.emit();
   }
 
