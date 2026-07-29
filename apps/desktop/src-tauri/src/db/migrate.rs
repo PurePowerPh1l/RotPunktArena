@@ -152,6 +152,12 @@ const MIGRATIONS: &[Migration] = &[
         sql: None,
         custom: Some(migrate_v14_hot_path_indices),
     },
+    Migration {
+        version: 15,
+        name: "competition_tenths",
+        sql: None,
+        custom: Some(migrate_v15_competition_tenths),
+    },
 ];
 
 pub fn apply_migrations(conn: &Connection) -> Result<(), String> {
@@ -590,6 +596,26 @@ fn migrate_v14_hot_path_indices(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Zehntelwertung: new competitions default to whole rings (`0`); existing
+/// rows are backfilled to `1` so historical results stay decimal.
+fn migrate_v15_competition_tenths(conn: &Connection) -> Result<(), String> {
+    if !table_exists(conn, "competitions") {
+        return Ok(());
+    }
+    ensure_column(
+        conn,
+        "competitions",
+        "tenths_enabled",
+        "ALTER TABLE competitions ADD COLUMN tenths_enabled INTEGER NOT NULL DEFAULT 0",
+    )?;
+    conn.execute(
+        "UPDATE competitions SET tenths_enabled = 1",
+        [],
+    )
+    .map_err(|e| format!("v15 tenths backfill: {e}"))?;
+    Ok(())
+}
+
 /// Global teams (cross-competition) with person membership. Migrates legacy per-competition teams.
 fn migrate_v12_global_teams(conn: &Connection) -> Result<(), String> {
     if !table_exists(conn, "people") {
@@ -747,6 +773,7 @@ mod tests {
         assert!(index_exists(&conn, "idx_shots_session_classification"));
         assert!(index_exists(&conn, "idx_frames_session_devseq"));
         assert!(index_exists(&conn, "idx_competition_entries_competition"));
+        assert!(table_has_column(&conn, "competitions", "tenths_enabled"));
     }
 
     #[test]

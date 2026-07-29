@@ -67,9 +67,19 @@ pub fn parse_shot_frame(frame: &[u8]) -> Result<Shot, String> {
         distance_raw,
         x,
         y,
-        value_display: value_raw as f64 / 10.0,
+        value_display: value_display_for_scoring(value_raw, true),
         distance_display: distance_raw as f64 / 10.0,
     })
+}
+
+/// Points from `value_raw` (e.g. 105 → 10.5). When `tenths` is false, whole rings (`floor`).
+pub fn value_display_for_scoring(value_raw: i32, tenths: bool) -> f64 {
+    let v = value_raw as f64 / 10.0;
+    if tenths {
+        v
+    } else {
+        v.floor()
+    }
 }
 
 /// Incremental byte-stream consumer. Emits raw frames; parsing is Arena Core's job.
@@ -264,6 +274,14 @@ mod tests {
         let ev2 = p.push(&frame[mid..]);
         assert!(matches!(ev2[..], [Incoming::ShotFrame(_)]));
         assert!(!p.has_incomplete_shot_frame());
+    }
+
+    #[test]
+    fn value_display_for_scoring_tenths_and_whole_rings() {
+        assert!((value_display_for_scoring(105, true) - 10.5).abs() < 1e-9);
+        assert!((value_display_for_scoring(105, false) - 10.0).abs() < 1e-9);
+        assert!((value_display_for_scoring(100, false) - 10.0).abs() < 1e-9);
+        assert!((value_display_for_scoring(99, false) - 9.0).abs() < 1e-9);
     }
 
     #[test]
