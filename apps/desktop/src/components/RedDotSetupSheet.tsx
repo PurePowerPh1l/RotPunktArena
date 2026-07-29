@@ -96,17 +96,14 @@ export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
         type="button"
         className="reddot-setup-backdrop"
         aria-label="Schließen"
-        onClick={() => !busy && onClose()}
+        onClick={onClose}
       />
       <div className="reddot-setup-panel">
         <header className="reddot-setup-head">
           <h2 id="reddot-setup-title">RedDot einrichten</h2>
-          <button
-            type="button"
-            className="ghost"
-            disabled={busy}
-            onClick={onClose}
-          >
+          {/* Always dismissible — scan/connect continue in the background.
+              Blocking dismiss also blocks the simulator start behind the sheet. */}
+          <button type="button" className="ghost" onClick={onClose}>
             Später
           </button>
         </header>
