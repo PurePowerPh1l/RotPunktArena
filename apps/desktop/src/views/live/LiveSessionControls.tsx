@@ -15,6 +15,7 @@ import {
   type ShooterValue,
 } from "../../components/ShooterAutocomplete";
 import { SlidingSeg } from "../../components/SlidingSeg";
+import { confirmDialog } from "../../hooks/useAppDialog";
 import {
   IconPlay,
   IconStop,
@@ -129,10 +130,17 @@ export function LiveSessionControls({
     const msg = endlessMode
       ? trainingEndlessResetConfirmMessage()
       : trainingResetConfirmMessage();
-    if (!window.confirm(msg)) {
-      return;
-    }
-    onReset();
+    void (async () => {
+      const ok = await confirmDialog({
+        title: "Serie zurücksetzen?",
+        body: msg,
+        confirmLabel: "Zurücksetzen",
+        danger: true,
+        eyebrow: "Training",
+      });
+      if (!ok) return;
+      onReset();
+    })();
   };
 
   const competitionStartLabel = startNachkauf
