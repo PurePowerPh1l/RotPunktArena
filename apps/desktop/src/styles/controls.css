@@ -125,10 +125,6 @@
   flex-shrink: 0;
 }
 
-.sliding-seg.mode-row {
-  padding: 0.22rem;
-}
-
 .sliding-seg-pill {
   position: absolute;
   top: 0.18rem;
@@ -148,9 +144,57 @@
     opacity 0.2s ease;
 }
 
+.sliding-seg.mode-row {
+  padding: 0.22rem;
+  border-radius: 9px;
+}
+
 .sliding-seg.mode-row .sliding-seg-pill {
   top: 0.22rem;
   bottom: 0.22rem;
+  border-radius: 6px;
+  transition:
+    transform 0.38s var(--ease-out-expo),
+    width 0.38s var(--ease-out-expo),
+    opacity 0.2s ease,
+    background 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+/* Training = cool steel; competition stays warm accent. */
+.sliding-seg.mode-row[data-value="training"] .sliding-seg-pill {
+  background: #3f6f8f;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 4px 14px rgba(63, 111, 143, 0.4);
+}
+
+.sliding-seg.mode-row[data-value="competition"] .sliding-seg-pill {
+  background: var(--accent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 4px 14px rgba(226, 90, 40, 0.35);
+}
+
+.sliding-seg.mode-row .sliding-seg-btn {
+  font-family: var(--font-brand);
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  padding: 0.42rem 0.9rem;
+  font-size: 0.84rem;
+}
+
+.sliding-seg.mode-row .seg-label svg {
+  width: 1.05em;
+  height: 1.05em;
+}
+
+.sliding-seg.mode-row .sliding-seg-btn.on .seg-label {
+  transform: scale(1.04);
+}
+
+.sliding-seg.mode-row .seg-label {
+  transition: transform 0.28s var(--ease-out-expo);
 }
 
 .sliding-seg-pill-on {
@@ -225,6 +269,40 @@
 .nav-btn svg {
   flex-shrink: 0;
   opacity: 0.88;
+}
+
+/* Live primary start — hero CTA, not another generic orange pill. */
+.controls-actions .magic-btn.start-cta {
+  padding: 0.82rem 1.4rem 0.82rem 1.05rem;
+  border-radius: 11px;
+  font-family: var(--font-brand);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  gap: 0.55rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 10px 26px rgba(226, 90, 40, 0.32);
+}
+
+.controls-actions .magic-btn.start-cta:hover:not(:disabled) {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 14px 32px rgba(226, 90, 40, 0.42);
+}
+
+.controls-actions .magic-btn.start-cta .magic-btn-label > svg:first-child {
+  width: 0.95em;
+  height: 0.95em;
+  padding: 0.32em;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  box-sizing: content-box;
+  opacity: 1;
+}
+
+.controls-actions .magic-btn.start-cta.is-nachkauf {
+  background: linear-gradient(135deg, #c47a22 0%, var(--accent) 55%, #e25a28 100%);
 }
 
 .magic-btn.is-nachkauf:not(:disabled) {

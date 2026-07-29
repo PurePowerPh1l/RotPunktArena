@@ -69,6 +69,7 @@ export function SlidingSeg<T extends string>({
     <div
       ref={root}
       className={`sliding-seg sliding-seg-${size} ${className}`.trim()}
+      data-value={value}
       role="group"
       aria-label={ariaLabel}
     >
