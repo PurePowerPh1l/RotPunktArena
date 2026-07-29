@@ -147,65 +147,65 @@
   --side-sheet-pad: 0.85rem 0.95rem 1rem;
 }
 
-/* Keep primary CTAs (e.g. Update installieren) above the fold on short screens. */
+/* Keep primary CTAs above the fold on short screens (non–extra-large only). */
 @media (max-height: 900px) {
-  .side-sheet.settings-sheet {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet {
     --side-sheet-gap: 0.4rem;
     --side-sheet-pad: 0.65rem 0.8rem 0.75rem;
   }
 
-  .side-sheet.settings-sheet .settings-section + .settings-section {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-section + .settings-section {
     margin-top: 0.2rem;
   }
 
-  .side-sheet.settings-sheet .settings-section-toggle {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-section-toggle {
     padding: 0.35rem 0.55rem;
   }
 
-  .side-sheet.settings-sheet .settings-section-body {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-section-body {
     gap: 0.4rem;
     padding: 0 0.55rem 0.5rem;
   }
 
-  .side-sheet.settings-sheet .settings-hint {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-hint {
     font-size: 0.72rem;
     line-height: 1.3;
   }
 
-  .side-sheet.settings-sheet .settings-connection-actions,
-  .side-sheet.settings-sheet .settings-backup-actions {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-connection-actions,
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-backup-actions {
     gap: 0.3rem;
   }
 
-  .side-sheet.settings-sheet .settings-action-primary,
-  .side-sheet.settings-sheet button.secondary.settings-action-secondary {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-action-primary,
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet button.secondary.settings-action-secondary {
     padding: 0.45rem 0.75rem;
     font-size: 0.84rem;
   }
 }
 
 @media (max-height: 720px) {
-  .side-sheet.settings-sheet {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet {
     --side-sheet-gap: 0.3rem;
     --side-sheet-pad: 0.5rem 0.7rem 0.6rem;
     max-height: calc(100vh - 4.25rem);
   }
 
-  .side-sheet.settings-sheet .settings-section-toggle {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-section-toggle {
     padding: 0.3rem 0.5rem;
   }
 
-  .side-sheet.settings-sheet .settings-section-body {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-section-body {
     gap: 0.3rem;
     padding: 0 0.5rem 0.4rem;
   }
 
-  .side-sheet.settings-sheet .settings-section-peek {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-section-peek {
     display: none;
   }
 
-  .side-sheet.settings-sheet .settings-action-primary,
-  .side-sheet.settings-sheet button.secondary.settings-action-secondary {
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-action-primary,
+  .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet button.secondary.settings-action-secondary {
     padding: 0.4rem 0.65rem;
     font-size: 0.8rem;
   }
@@ -612,47 +612,61 @@
 
 /* Extra-large: settings controls grow via em against the sheet font root. */
 .app-frame.is-extra-large-ui .settings-sheet .settings-section-toggle {
-  padding: 0.55em 0.75em;
+  padding: 0.48em 0.7em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-section-title {
-  font-size: 1.05em;
+  font-size: 1.02em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-section-desc,
 .app-frame.is-extra-large-ui .settings-sheet .settings-hint {
-  font-size: 0.92em;
-  line-height: 1.4;
+  font-size: 0.9em;
+  line-height: 1.35;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-choice-btn {
-  padding: 0.42em 0.75em;
-  font-size: 0.92em;
-  border-radius: 0.45em;
-}
-
-.app-frame.is-extra-large-ui .settings-sheet .settings-action-primary,
-.app-frame.is-extra-large-ui .settings-sheet button.secondary.settings-action-secondary,
-.app-frame.is-extra-large-ui .settings-sheet .settings-action-quiet,
-.app-frame.is-extra-large-ui .settings-sheet button {
-  padding: 0.72em 1.1em;
-  font-size: 1em;
-  border-radius: 0.55em;
+  padding: 0.38em 0.7em;
+  font-size: 0.9em;
+  border-radius: 0.4em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-action-primary {
-  padding: 0.8em 1.15em;
-  font-size: 1.05em;
+  padding: 0.55em 0.9em;
+  font-size: 1em;
+  border-radius: 0.4em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet button.secondary.settings-action-secondary {
+  padding: 0.48em 0.85em;
+  font-size: 0.95em;
+  border-radius: 0.4em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-action-quiet {
+  padding: 0.32em 0.65em;
+  font-size: 0.88em;
+  border-radius: 0.35em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .side-sheet-head > button.ghost {
+  padding: 0.35em 0.7em;
+  font-size: 0.85em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-connection-actions,
+.app-frame.is-extra-large-ui .settings-sheet .settings-backup-actions {
+  gap: 0.3em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle {
   font-size: 1em;
-  gap: 0.6em;
+  gap: 0.55em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle input {
-  width: 1.15em;
-  height: 1.15em;
+  width: 1.1em;
+  height: 1.1em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-info-label,
@@ -661,15 +675,26 @@
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-status-pill {
-  padding: 0.28em 0.65em;
-  font-size: 0.85em;
+  padding: 0.25em 0.6em;
+  font-size: 0.82em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .field input,
 .app-frame.is-extra-large-ui .settings-sheet .field select {
   font-size: 1em;
-  min-height: 2.6em;
-  padding: 0.55em 0.75em;
+  min-height: 2.4em;
+  padding: 0.48em 0.7em;
+}
+
+/* Short viewports: slightly tighter em while keeping XL sheet scale. */
+@media (max-height: 900px) {
+  .app-frame.is-extra-large-ui .settings-sheet .settings-action-primary {
+    padding: 0.48em 0.8em;
+  }
+
+  .app-frame.is-extra-large-ui .settings-sheet button.secondary.settings-action-secondary {
+    padding: 0.42em 0.75em;
+  }
 }
 
 
