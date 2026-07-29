@@ -1,6 +1,7 @@
 //! Developer / admin diagnostics — not for normal range operation.
 
 use crate::arena::PARSER_VERSION;
+use crate::commands::AdminSession;
 use crate::db::event_kind;
 use crate::engine::{LiveState, StandEngine};
 use std::sync::Arc;
@@ -58,12 +59,15 @@ pub fn dev_diagnostics(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<Dev
 }
 
 /// Inject a test shot through Arena ingest and verify it lands in SQLite + UI.
+/// Writes real shot data, so it requires the server-side admin unlock.
 #[tauri::command]
 pub fn dev_inject_test_shot(
     app: AppHandle,
     engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, AdminSession>,
     x: Option<i32>,
     y: Option<i32>,
 ) -> Result<LiveState, String> {
+    session.require()?;
     engine.fire_aim_shot(&app, f64::from(x.unwrap_or(40)), f64::from(y.unwrap_or(-25)))
 }

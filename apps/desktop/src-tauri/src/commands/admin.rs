@@ -1,5 +1,9 @@
-//! Admin: DB backup / restore / wipe — gated in the UI (admin + developer mode).
+//! Admin: DB backup / restore / wipe.
+//!
+//! Restore and wipe are irreversible, so they require the server-side
+//! [`AdminSession`] unlock in addition to the UI capability gate.
 
+use crate::commands::AdminSession;
 use crate::engine::StandEngine;
 use chrono::Local;
 use std::path::PathBuf;
@@ -79,8 +83,10 @@ pub fn list_db_backups(app: AppHandle) -> Result<Vec<DbBackupInfo>, String> {
 pub fn restore_db_backup(
     app: AppHandle,
     engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, AdminSession>,
     name: String,
 ) -> Result<String, String> {
+    session.require()?;
     let name = name.trim();
     if name.is_empty() || name.contains(['/', '\\']) || name.contains("..") {
         return Err("Ungültiger Backup-Name".into());
@@ -94,10 +100,12 @@ pub fn restore_db_backup(
 }
 
 /// Wipe all app data by replacing the DB with a fresh migrated file.
-/// UI must gate this behind admin + developer mode.
+/// Requires the server-side admin unlock in addition to the UI gate.
 #[tauri::command]
 pub fn reset_all_database(
     engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, AdminSession>,
 ) -> Result<(), String> {
+    session.require()?;
     engine.reset_database_to_empty()
 }

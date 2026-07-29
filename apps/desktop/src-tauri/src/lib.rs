@@ -6,6 +6,7 @@ mod engine;
 mod protocol;
 mod transport;
 
+use commands::AdminSession;
 use connection::{ConnectionCommand, ConnectionHandle, ConnectionManager};
 use db::Database;
 use engine::StandEngine;
@@ -31,6 +32,8 @@ pub fn run() {
             app.manage(handle);
             // Keep manager alive for process lifetime.
             app.manage(mgr);
+            // Server-side admin unlock flag (starts locked; UI unlock sets it).
+            app.manage(AdminSession::default());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -102,6 +105,8 @@ pub fn run() {
             commands::get_admin_auth_status,
             commands::setup_admin_password,
             commands::verify_admin_password,
+            commands::lock_admin_session,
+            commands::dev_unlock_admin_session,
             commands::reset_training_series,
             commands::set_training_endless,
             commands::save_training_session,
