@@ -115,11 +115,23 @@ impl Database {
         shot.value_display =
             crate::protocol::value_display_for_scoring(shot.value_raw, tenths);
 
-        if let Some(outcome) = ingest::reject_limit(&tx, session_id, actor, &frame_id)? {
-            tx.commit().map_err(|e| e.to_string())?;
-            return Ok(outcome);
+        // Probe phase: shots are unscored (`classification = 'probe'`),
+        // exempt from the series limit, and never appear in results.
+        let probe_phase = crate::db::session_phase_in_tx(&tx, session_id)?
+            == crate::db::session_phase::PROBE;
+
+        if !probe_phase {
+            if let Some(outcome) = ingest::reject_limit(&tx, session_id, actor, &frame_id)? {
+                tx.commit().map_err(|e| e.to_string())?;
+                return Ok(outcome);
+            }
         }
 
+        let classification = if probe_phase {
+            crate::db::shot_classification::PROBE
+        } else {
+            crate::db::shot_classification::SCORED
+        };
         let accepted = ingest::accept(
             &tx,
             session_id,
@@ -129,6 +141,7 @@ impl Database {
             &received_at,
             device_sequence,
             &shot,
+            classification,
         )?;
         tx.commit()
             .map_err(|e| format!("commit ingest: {e}"))?;

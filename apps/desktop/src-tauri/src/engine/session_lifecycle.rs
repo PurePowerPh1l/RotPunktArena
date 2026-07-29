@@ -72,6 +72,21 @@ impl StandEngine {
         // (closes the race between last accepted shot and series finish).
         self.with_db_mut(|db| db.set_session_max_shots(&session.id, max_shots))?;
 
+        // Probeschüsse: competition opt-in — session starts in the probe
+        // phase (unscored shots) until `finish_probe` switches to scoring.
+        let probe = match &args.competition_id {
+            Some(cid) => self
+                .with_db(|db| db.get_competition(cid))?
+                .map(|c| c.probe_enabled)
+                .unwrap_or(false),
+            None => false,
+        };
+        if probe {
+            self.with_db_mut(|db| {
+                db.set_session_phase(&session.id, crate::db::session_phase::PROBE)
+            })?;
+        }
+
         {
             let mut g = self.inner.lock();
             g.session = Some(session.clone());
@@ -89,6 +104,7 @@ impl StandEngine {
             g.max_shots = max_shots;
             g.series_complete = false;
             g.endless_mode = endless;
+            g.probe_active = probe;
             // Fresh session — clear prior end-of-series save outcome
             // (reset_training_series re-applies it after start).
             g.last_training_save = None;
@@ -154,7 +170,16 @@ impl StandEngine {
 
         self.with_db_mut(|db| db.mark_session_recovered(session_id))?;
 
-        let stored = self.with_db(|db| db.load_session_ui_shots(session_id))?;
+        // Resume in the persisted phase: probe rehydrates probe shots,
+        // match rehydrates only scored shots.
+        let probe = self.with_db(|db| db.get_session_phase(session_id))?
+            == crate::db::session_phase::PROBE;
+        let classification = if probe {
+            crate::db::shot_classification::PROBE
+        } else {
+            crate::db::shot_classification::SCORED
+        };
+        let stored = self.with_db(|db| db.load_session_ui_shots(session_id, classification))?;
         let shots: Vec<UiShot> = stored
             .into_iter()
             .map(|s| UiShot {
@@ -184,7 +209,7 @@ impl StandEngine {
             None => Some(crate::db::TRAINING_SERIES_SHOTS),
         };
         self.with_db_mut(|db| db.set_session_max_shots(session_id, max_shots))?;
-        let series_complete = max_shots.is_some_and(|m| shots.len() as i64 >= m);
+        let series_complete = !probe && max_shots.is_some_and(|m| shots.len() as i64 >= m);
 
         {
             let mut g = self.inner.lock();
@@ -203,6 +228,7 @@ impl StandEngine {
             g.max_shots = max_shots;
             g.series_complete = series_complete;
             g.endless_mode = false;
+            g.probe_active = probe;
             g.last_training_save = None;
         }
         self.sim_control.set_auto_fire(false);
@@ -244,6 +270,48 @@ impl StandEngine {
             .map_err(|e| e.to_string())?;
 
         *self.worker.lock() = Some(handle);
+        Ok(self.snapshot())
+    }
+
+    /// End the probe phase ("Wertung beginnen"): persist `match` phase,
+    /// clear probe shots from the live UI, and start the scored series.
+    pub fn finish_probe(&self, app: &AppHandle) -> Result<LiveState, String> {
+        let (session_id, probe_shots, shooter) = {
+            let g = self.inner.lock();
+            let s = g
+                .session
+                .as_ref()
+                .filter(|s| s.ended_at.is_none())
+                .ok_or_else(|| "Keine offene Session".to_string())?;
+            if !g.probe_active {
+                return Err("Keine Probephase aktiv".into());
+            }
+            (s.id.clone(), g.shots.len() as i64, s.shooter_name.clone())
+        };
+
+        self.with_db_mut(|db| {
+            db.set_session_phase(&session_id, crate::db::session_phase::MATCH)?;
+            db.append_event(
+                &session_id,
+                crate::db::event_kind::PROBE_FINISHED,
+                "operator",
+                serde_json::json!({ "probeShots": probe_shots }),
+            )?;
+            Ok::<(), String>(())
+        })?;
+
+        {
+            let mut g = self.inner.lock();
+            g.probe_active = false;
+            g.shots.clear();
+            g.series_total = 0.0;
+            g.series_teiler_total = 0.0;
+            g.series_complete = false;
+        }
+        let _ = app.emit(
+            "probe_finished",
+            serde_json::json!({ "probeShots": probe_shots, "shooterName": shooter }),
+        );
         Ok(self.snapshot())
     }
 

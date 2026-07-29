@@ -90,6 +90,7 @@ export function createBureauMutations(ctx: BureauMutationCtx) {
     teamCount?: number;
     kind?: import("@rotpunktarena/domain").CompetitionKind;
     tenthsEnabled?: boolean;
+    probeEnabled?: boolean;
     activateOnCreate?: boolean;
   }): Promise<string | null> => {
     let createdId: string | null = null;
@@ -120,6 +121,7 @@ export function createBureauMutations(ctx: BureauMutationCtx) {
       teamCount?: number;
       kind?: import("@rotpunktarena/domain").CompetitionKind;
       tenthsEnabled?: boolean;
+      probeEnabled?: boolean;
       activateOnCreate?: boolean;
     },
   ): Promise<boolean> =>

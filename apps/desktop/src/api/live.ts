@@ -30,6 +30,11 @@ export async function endTraining(): Promise<LiveState> {
   return invoke("end_training");
 }
 
+/** „Wertung beginnen“ — Probephase beenden, gewertete Serie starten. */
+export async function finishProbe(): Promise<LiveState> {
+  return invoke("finish_probe");
+}
+
 export async function queueSimShot(pick: {
   valueAscii: string;
   distanceAscii: string;
