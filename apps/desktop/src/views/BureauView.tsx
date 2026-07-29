@@ -411,7 +411,20 @@ export function BureauView({
                       }
                       onSetEntryTeam={setEntryTeam}
                       onCloneFrom={b.cloneFrom}
-                      onOpenLive={(handoff) => onOpenLive?.(handoff)}
+                      onOpenLive={(handoff) => {
+                        if (!handoff || b.selected?.status === "active") {
+                          onOpenLive?.(handoff);
+                          return;
+                        }
+                        // Draft → erst aktivieren, sonst scheitert der
+                        // Arena-Handoff still am Status-Check.
+                        void (async () => {
+                          const ok = await b.setStatus("active");
+                          if (!ok) return;
+                          onActivateIntoArena?.(handoff.competitionId);
+                          onOpenLive?.(handoff);
+                        })();
+                      }}
                       onBeginEntryDrag={entryDnD.beginEntryDrag}
                       onOpenEntryResults={(entryId) => {
                         setWettkampfTab("results");

@@ -44,9 +44,20 @@ export function useLiveSession() {
 
   useEffect(() => {
     void refresh();
-    let unsubs: Array<() => void> = [];
+    let alive = true;
+    const unsubs: Array<() => void> = [];
+    // `listen()` resolves async: if the effect was cleaned up before the
+    // handle arrives (Strict Mode double-invoke, fast unmount), unlisten
+    // immediately instead of leaking the subscription.
+    const track = (unlisten: () => void) => {
+      if (alive) {
+        unsubs.push(unlisten);
+      } else {
+        unlisten();
+      }
+    };
     (async () => {
-      unsubs.push(
+      track(
         await listen<ConnectionUpdate>("connection", (e) => {
           setDetail(e.payload.detail ?? null);
           setState((prev) =>
@@ -61,7 +72,7 @@ export function useLiveSession() {
           );
         }),
       );
-      unsubs.push(
+      track(
         await listen<UiShot>("shot", (e) => {
           setState((prev) => {
             if (!prev) return prev;
@@ -79,7 +90,7 @@ export function useLiveSession() {
           });
         }),
       );
-      unsubs.push(
+      track(
         await listen<SeriesCompletePayload>("series_complete", async (e) => {
           const s = await api.getLiveState();
           setState(s);
@@ -92,7 +103,9 @@ export function useLiveSession() {
       );
     })();
     return () => {
+      alive = false;
       unsubs.forEach((u) => u());
+      unsubs.length = 0;
     };
   }, [refresh]);
 
@@ -252,9 +265,14 @@ export function useLiveSession() {
     });
   }, [runExclusive, state?.autoFire]);
 
+  const notify = useCallback((message: string | null) => {
+    setDetail(message);
+  }, []);
+
   return {
     state,
     detail,
+    notify,
     busy,
     running: isRunning(state?.status ?? "disconnected"),
     refresh,

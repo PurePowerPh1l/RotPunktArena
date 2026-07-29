@@ -12,6 +12,13 @@ use crate::transport::rfcomm::error::TransportError;
 use std::sync::mpsc::TrySendError;
 use std::time::{Duration, Instant};
 
+/// Bounded backpressure when the session sink is full: retry instead of
+/// silently dropping RX bytes (the poll worker usually drains within ms;
+/// longer stalls come from snapshot I/O). Window stays well below the ENQ
+/// interval so the keepalive cadence survives.
+const SINK_FULL_RETRY_WINDOW: Duration = Duration::from_millis(500);
+const SINK_FULL_RETRY_SLICE: Duration = Duration::from_millis(5);
+
 impl Owner {
     pub(crate) fn pump_linked(&mut self) {
         let now = Instant::now();
@@ -85,7 +92,10 @@ impl Owner {
                 }
                 match self.sink_tx.try_send(chunk) {
                     Ok(()) => shot_latency::record_try_send_ok(),
-                    Err(TrySendError::Full(_)) => shot_latency::record_try_send_full(),
+                    Err(TrySendError::Full(returned)) => {
+                        shot_latency::record_try_send_full();
+                        self.retry_sink_send(returned);
+                    }
                     Err(TrySendError::Disconnected(_)) => {
                         shot_latency::record_try_send_disconnected()
                     }
@@ -105,6 +115,40 @@ impl Owner {
                 }
             }
             FanoutApply::Idle => {}
+        }
+    }
+
+    /// Bounded retry after a full sink; drops (with diag) only when the
+    /// window elapses so RX bytes are not lost silently on transient stalls.
+    fn retry_sink_send(&mut self, chunk: super::sink::SinkChunk) {
+        let deadline = Instant::now() + SINK_FULL_RETRY_WINDOW;
+        let mut pending = chunk;
+        loop {
+            std::thread::sleep(SINK_FULL_RETRY_SLICE);
+            match self.sink_tx.try_send(pending) {
+                Ok(()) => {
+                    shot_latency::record_try_send_ok();
+                    return;
+                }
+                Err(TrySendError::Full(returned)) => {
+                    shot_latency::record_try_send_full();
+                    if Instant::now() >= deadline {
+                        self.diag(
+                            "sink_full_drop",
+                            ConnectionStatus::Linked,
+                            "RX-Chunk verworfen — Session-Sink dauerhaft voll",
+                            None,
+                            None,
+                        );
+                        return;
+                    }
+                    pending = returned;
+                }
+                Err(TrySendError::Disconnected(_)) => {
+                    shot_latency::record_try_send_disconnected();
+                    return;
+                }
+            }
         }
     }
 

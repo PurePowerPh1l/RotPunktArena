@@ -54,7 +54,10 @@ impl StandEngine {
 
         let accepted = self.with_db_mut(|db| {
             match db.ingest_raw_frame(&session_id, &frame, "dev", None)? {
-                IngestOutcome::Accepted(a) => Ok(a),
+                IngestOutcome::Accepted(a) => {
+                    db.try_maybe_snapshot_after_shot(&session_id, a.shot_index, a.session_sequence);
+                    Ok(a)
+                }
                 IngestOutcome::Duplicate { .. } => {
                     Err("Unerwartetes Duplikat — nochmal versuchen".into())
                 }

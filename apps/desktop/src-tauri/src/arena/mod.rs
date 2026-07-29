@@ -128,16 +128,12 @@ impl Database {
         tx.commit()
             .map_err(|e| format!("commit ingest: {e}"))?;
 
-        // DIAGNOSE-ONLY: stamp commit Instant before VACUUM (poll may take it).
+        // DIAGNOSE-ONLY: stamp commit Instant (poll may take it).
         crate::connection::shot_latency::note_sqlite_committed_at(std::time::Instant::now());
 
-        // Outside the ingest TX — hybrid snapshot every N accepted shots (VACUUM INTO).
-        self.try_maybe_snapshot_after_shot(
-            session_id,
-            accepted.shot_index,
-            accepted.session_sequence,
-        );
-
+        // Hybrid snapshot (VACUUM INTO) is the caller's responsibility
+        // (`try_maybe_snapshot_after_shot`) so device ACK / UI emit are not
+        // delayed by a multi-second VACUUM on the ingest path.
         Ok(IngestOutcome::Accepted(accepted))
     }
 

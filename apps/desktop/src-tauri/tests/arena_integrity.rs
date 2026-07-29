@@ -579,7 +579,15 @@ fn hybrid_vacuum_snapshots_on_session_and_every_n_shots() {
                 .ingest_raw_frame(&session.id, &frame, "test", None)
                 .unwrap()
             {
-                IngestOutcome::Accepted(_) => {}
+                // Cadence snapshot is the caller's job since the ACK/emit
+                // decoupling (mirrors engine poll + synthetic inject).
+                IngestOutcome::Accepted(a) => {
+                    db.try_maybe_snapshot_after_shot(
+                        &session.id,
+                        a.shot_index,
+                        a.session_sequence,
+                    );
+                }
                 o => panic!("expected Accepted at shot {}, got {o:?}", i + 1),
             }
         }

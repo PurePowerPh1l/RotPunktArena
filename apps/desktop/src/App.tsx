@@ -82,6 +82,8 @@ export default function App() {
     RecoverySessionInfo[] | null
   >(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  /** Bumped by the boot error screen's retry button. */
+  const [recoveryBootNonce, setRecoveryBootNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,6 +104,7 @@ export default function App() {
           api.listTrainingShooters().catch(() => []),
         ]);
         if (cancelled) return;
+        setRecoveryError(null);
         setRecoverySessions(list);
         const last = lastShooters[0];
         if (last?.shooterName.trim()) {
@@ -112,15 +115,16 @@ export default function App() {
         }
       } catch (e) {
         if (!cancelled) {
+          // Keep sessions at null so the boot screen shows the error with a
+          // retry instead of silently starting without recovery.
           setRecoveryError(String(e));
-          setRecoverySessions([]);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [recoveryBootNonce]);
 
   /** Apply start/last view once prefs leave loading. */
   useEffect(() => {
@@ -181,9 +185,24 @@ export default function App() {
 
   if (recoverySessions === null) {
     return (
-      <div className="recovery-boot" aria-busy="true">
-        <p>Prüfe offene Sessions…</p>
-        {recoveryError ? <p className="banner-error">{recoveryError}</p> : null}
+      <div className="recovery-boot" aria-busy={recoveryError === null}>
+        {recoveryError === null ? (
+          <p>Prüfe offene Sessions…</p>
+        ) : (
+          <>
+            <p>Offene Sessions konnten nicht geprüft werden.</p>
+            <p className="banner-error">{recoveryError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setRecoveryError(null);
+                setRecoveryBootNonce((n) => n + 1);
+              }}
+            >
+              Erneut versuchen
+            </button>
+          </>
+        )}
       </div>
     );
   }
@@ -267,6 +286,7 @@ export default function App() {
         <div
           className={view === "live" ? "app-view-pane" : "app-view-pane is-hidden"}
           aria-hidden={view !== "live"}
+          inert={view !== "live"}
         >
           <LiveStandView
             trainingShooter={trainingShooter}
