@@ -86,8 +86,9 @@ impl Database {
             entry_id: entry_id.map(str::to_string),
             person_id: person_id.map(str::to_string),
         };
-        // WAL-safe VACUUM INTO snapshot (best-effort; never blocks session start).
-        self.try_session_boundary_snapshot(&info.id);
+        // WAL-safe VACUUM INTO snapshot on a background thread so session start
+        // returns immediately (best-effort; never blocks on VACUUM I/O).
+        self.spawn_session_boundary_snapshot(&info.id);
         Ok(info)
     }
 
@@ -133,8 +134,9 @@ impl Database {
             "system",
             serde_json::json!({}),
         )?;
-        // WAL-safe VACUUM INTO snapshot after clean close (best-effort).
-        self.try_session_boundary_snapshot(session_id);
+        // WAL-safe VACUUM INTO snapshot after close on a background thread
+        // (best-effort; never blocks session end on VACUUM I/O).
+        self.spawn_session_boundary_snapshot(session_id);
         Ok(())
     }
 
