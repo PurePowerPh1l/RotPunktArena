@@ -217,17 +217,13 @@ mod tests {
     fn write_session_snapshot_creates_file_and_latest() {
         let (dir, mut db) = temp_db();
         let session = db.start_session("Snap", None, None, None).unwrap();
-        // start_session already tried a boundary snapshot
+        // Boundary snapshot now runs on a background thread; exercise the
+        // synchronous writer directly so the test is deterministic.
+        let first = db.write_session_snapshot(&session.id, 1).unwrap();
+        assert!(first.is_file());
+
         let snap_dir = db.snapshot_dir().unwrap();
         assert!(snap_dir.is_dir());
-        let entries: Vec<_> = std::fs::read_dir(&snap_dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .collect();
-        assert!(
-            entries.len() >= 2,
-            "expected session-*.sqlite + latest.sqlite, got {entries:?}"
-        );
         assert!(snap_dir.join(SNAPSHOT_LATEST_NAME).is_file());
 
         let path = db.write_session_snapshot(&session.id, 42).unwrap();
