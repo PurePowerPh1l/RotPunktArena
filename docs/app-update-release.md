@@ -71,6 +71,20 @@ Erwartete Artefakte (u. a.):
 
 ---
 
+## 4b. Windows-Install-Modus (quiet)
+
+In `tauri.conf.json` unter `plugins.updater`:
+
+```json
+"windows": { "installMode": "quiet" }
+```
+
+- `quiet` → NSIS `/S /R`: kein Windows-Installer-Fenster; App beendet sich beim Install-Start und wird neu gestartet.
+- Default ohne Eintrag wäre `passive` (`/P /R`) mit sichtbarer Installer-UI — nicht gewünscht.
+- In-App-Progressbar deckt nur den **Download** ab; Install selbst läuft nach App-Exit im stillen Setup.
+
+---
+
 ## 5. Manifest `latest.json`
 
 Statisches JSON für öffentliche GitHub Releases (Tauri Static JSON):
@@ -123,10 +137,9 @@ Vor Produktiv-Vertrauen einmal durchspielen:
 2. Neuversion bauen/signieren (`0.2.0`), Manifest zeigt auf Neu-Installer + korrekte Signature.
 3. Manifest unter dem Endpoint erreichbar (Prod: HTTPS; Lab-HTTP nur mit explizit dokumentierter unsicherer Dev-Config — nicht in Prod-Config belassen).
 4. In der **installierten** Alt-App: „Nach Updates suchen“ → verfügbar.
-5. Confirm → Download/Progress → Install.
-6. „Jetzt neu starten“ (oder manueller Neustart bei Fallback).
-7. Nach Start: neue Version sichtbar.
-8. Negativ mindestens einmal: offline / kaputtes Manifest / falsche Sig.
+5. Confirm → In-App-Progress-Sheet (Download-Balken) → stille NSIS-Installation (`installMode: quiet`); App schließt sich und startet neu.
+6. Nach Start: neue Version sichtbar (kein separates „Jetzt neu starten“ nötig unter Windows mit quiet+`/R`).
+7. Negativ mindestens einmal: offline / kaputtes Manifest / falsche Sig.
 
 Meta notieren: Commit, Dirty-Tree, OS — Baseline nicht mit Patches überschreiben.
 
@@ -134,6 +147,7 @@ Meta notieren: Commit, Dirty-Tree, OS — Baseline nicht mit Patches überschrei
 
 ## 8. Kurz-Checkliste (Release-Tag)
 
+- [ ] `plugins.updater.windows.installMode` = `quiet` (kein Passive-Installer-Fenster)
 - [ ] SemVer in `tauri.conf.json` + Cargo.toml + beiden package.json synchron
 - [ ] `createUpdaterArtifacts: true` für diesen Build
 - [ ] `TAURI_SIGNING_PRIVATE_KEY*` gesetzt; Key nicht im Repo

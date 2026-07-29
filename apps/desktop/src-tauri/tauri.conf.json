@@ -40,7 +40,10 @@
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI5QTRBQkRBMzg0MjBERjMKUldUekRVSTQycXVrS1dlM0wxUEQzZTc2UGZ0dWMxK3pUbUNaT2VzRmNaK1g3UTFBNWlZd0RlWTkK",
       "endpoints": [
         "https://github.com/PurePowerPh1l/RotPunktArena/releases/latest/download/latest.json"
-      ]
+      ],
+      "windows": {
+        "installMode": "quiet"
+      }
     }
   }
 }
