@@ -31,7 +31,8 @@ export type EventKind =
   | "session_ended"
   | "shot_received"
   | "frame_parse_error"
-  | "shot_rejected_limit";
+  | "shot_rejected_limit"
+  | "probe_finished";
 
 export interface Person {
   id: string;
@@ -70,6 +71,8 @@ export interface Competition {
    * New competitions default false; existing DBs were backfilled to true.
    */
   tenthsEnabled?: boolean;
+  /** Probeschüsse allowed at series start (unscored, ended manually). */
+  probeEnabled?: boolean;
 }
 
 export interface CompetitionEntry {
@@ -176,6 +179,8 @@ export interface LiveState {
   trainingSave?: TrainingSaveInfo | null;
   /** Training endless mode — no series limit, not written to history/stats. */
   endlessMode?: boolean;
+  /** Probe phase active — shots are Probeschüsse (unscored, no limit). */
+  probeActive?: boolean;
 }
 
 /** Outcome of smart training auto-save (Rust is source of truth). */

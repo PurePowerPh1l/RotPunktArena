@@ -18,11 +18,14 @@ pub use competitions::{
     count_scored_shots_for_limit, session_effective_max_shots, session_tenths_enabled,
     Competition, CompetitionEntry, CreateCompetition,
 };
-pub use domain_constants::{competition_kind, competition_status, entry_status, event_kind};
+pub use domain_constants::{
+    competition_kind, competition_status, entry_status, event_kind, session_phase,
+    shot_classification,
+};
 pub use people::{CreatePerson, Person, PromoteTrainingShooterResult};
 pub use recovery::{RecoverySessionInfo, StoredUiShot};
 pub use results::{EntryResultDetail, EntryResultSummary, SeriesResultSummary};
-pub use sessions::{append_event_in_tx, touch_autosave_in_tx, SessionInfo};
+pub use sessions::{append_event_in_tx, session_phase_in_tx, touch_autosave_in_tx, SessionInfo};
 pub use snapshots::{SNAPSHOT_EVERY_N_SHOTS, SNAPSHOT_SUBDIR};
 pub use teams::{CompetitionTeam, TeamResultSummary};
 pub use training::{

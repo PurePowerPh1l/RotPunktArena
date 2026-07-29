@@ -61,6 +61,8 @@ pub struct LiveState {
     pub training_save: Option<TrainingSaveInfo>,
     /// Training endless mode — no series limit, never written to history/stats.
     pub endless_mode: bool,
+    /// Probe phase active — shots are Probeschüsse (unscored, no limit).
+    pub probe_active: bool,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -86,6 +88,8 @@ struct SharedInner {
     last_training_save: Option<TrainingSaveInfo>,
     /// Preference + active session flag for training endless mode.
     endless_mode: bool,
+    /// Current session is in the probe phase (Probeschüsse before scoring).
+    probe_active: bool,
 }
 
 pub struct StandEngine {
@@ -125,6 +129,7 @@ impl StandEngine {
                 series_complete: false,
                 last_training_save: None,
                 endless_mode: false,
+                probe_active: false,
             }),
             sim_control: SimulatorControl::default(),
             stop: Arc::new(AtomicBool::new(false)),
@@ -155,6 +160,7 @@ impl StandEngine {
         g.auto_fire = false;
         g.status = ConnectionStatus::Disconnected;
         g.port = None;
+        g.probe_active = false;
     }
 
     /// Replace the on-disk DB with `source` (backup). Live session must be idle.
@@ -244,6 +250,7 @@ impl StandEngine {
             series_complete: g.series_complete,
             training_save: g.last_training_save.clone(),
             endless_mode: g.endless_mode,
+            probe_active: g.probe_active,
         }
     }
 

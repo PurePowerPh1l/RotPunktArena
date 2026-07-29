@@ -237,6 +237,7 @@ export function LiveStandView({
   const last = live.state?.lastShot ?? null;
   const shots = live.state?.shots ?? [];
   const sessionOpen = Boolean(live.state?.session && !live.state.session.endedAt);
+  const probeActive = Boolean(live.state?.probeActive) && sessionOpen;
   const maxShots = live.state?.maxShots ?? null;
   const shotCount = shots.length;
   const seriesComplete = Boolean(live.state?.seriesComplete);
@@ -277,7 +278,10 @@ export function LiveStandView({
     rivalEnabled,
   });
   clearPulseRef.current = arenaProgress.clearPulse;
-  const canAim = sessionOpen && !seriesComplete && (maxShots == null || shotCount < maxShots);
+  const canAim =
+    sessionOpen &&
+    !seriesComplete &&
+    (probeActive || maxShots == null || shotCount < maxShots);
   // Preference (checkbox) may stay true; effect requires developerMode. Sheet open ≠ feature on.
   const mouseAimActive = canAim && developerMode && mouseAimEnabled;
   const isTraining = mode === "training" && !live.state?.session?.competitionId;
@@ -536,6 +540,8 @@ export function LiveStandView({
           nachkaufPurchased={selectedEntry?.nachkaufPurchased ?? 0}
           endlessMode={endlessMode}
           onEndlessModeChange={onEndlessModeChange}
+          probeActive={probeActive}
+          onFinishProbe={() => void live.finishProbe()}
           rivalTarget={trainingMode ? arenaProgress.rivalTarget : null}
           ceremony={
             trainingMode ? (

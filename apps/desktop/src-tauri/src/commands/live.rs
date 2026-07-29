@@ -64,6 +64,15 @@ pub fn end_training(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<LiveSt
 }
 
 #[tauri::command]
+/// „Wertung beginnen“ — end the probe phase and start the scored series.
+pub fn finish_probe(
+    app: tauri::AppHandle,
+    engine: tauri::State<'_, Arc<StandEngine>>,
+) -> Result<LiveState, String> {
+    engine.finish_probe(&app)
+}
+
+#[tauri::command]
 pub fn queue_sim_shot(
     app: tauri::AppHandle,
     engine: tauri::State<'_, Arc<StandEngine>>,

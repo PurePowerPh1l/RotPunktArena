@@ -15,6 +15,7 @@ export type CompetitionCreateInput = {
   kind: CompetitionKind;
   /** Zehntelwertung; default false = ganze Ringe. */
   tenthsEnabled: boolean;
+  probeEnabled: boolean;
   /** After create, set status to active (UI-only; not sent to create_competition). */
   activateOnCreate: boolean;
 };
@@ -39,13 +40,14 @@ function defaultsFrom(editing?: Competition | null, initialName = "") {
       compName: initialName,
       compDate: new Date().toISOString().slice(0, 10),
       discipline: "Luftgewehr",
-      maxShots: 40,
+      maxShots: 10,
       scoringMode: "ringe" as ScoringMode,
       nachkaufEnabled: false,
       teamScoringEnabled: false,
       teamCount: 3,
       kind: "competition" as CompetitionKind,
       tenthsEnabled: false,
+      probeEnabled: false,
     };
   }
   return {
@@ -59,6 +61,7 @@ function defaultsFrom(editing?: Competition | null, initialName = "") {
     teamCount: editing.teamCount ?? 3,
     kind: (editing.kind === "training" ? "training" : "competition") as CompetitionKind,
     tenthsEnabled: Boolean(editing.tenthsEnabled),
+    probeEnabled: Boolean(editing.probeEnabled),
   };
 }
 
@@ -79,6 +82,7 @@ export function CompetitionCreateForm({
   const [scoringMode, setScoringMode] = useState<ScoringMode>(initial.scoringMode);
   const [nachkaufEnabled, setNachkaufEnabled] = useState(initial.nachkaufEnabled);
   const [tenthsEnabled, setTenthsEnabled] = useState(initial.tenthsEnabled);
+  const [probeEnabled, setProbeEnabled] = useState(initial.probeEnabled);
   const [teamScoringEnabled, setTeamScoringEnabled] = useState(
     initial.teamScoringEnabled,
   );
@@ -98,6 +102,7 @@ export function CompetitionCreateForm({
     setScoringMode(next.scoringMode);
     setNachkaufEnabled(next.nachkaufEnabled);
     setTenthsEnabled(next.tenthsEnabled);
+    setProbeEnabled(next.probeEnabled);
     setTeamScoringEnabled(next.teamScoringEnabled);
     setTeamCount(next.teamCount);
     setKind(next.kind);
@@ -110,6 +115,7 @@ export function CompetitionCreateForm({
     editing?.scoringMode,
     editing?.nachkaufEnabled,
     editing?.tenthsEnabled,
+    editing?.probeEnabled,
     editing?.teamScoringEnabled,
     editing?.teamCount,
     editing?.kind,
@@ -119,7 +125,6 @@ export function CompetitionCreateForm({
     const next: CompetitionKind = checked ? "training" : "competition";
     setKind(next);
     if (checked) {
-      setMaxShots((n) => (n === 40 ? 10 : n));
       setCompName((n) => (n.trim() ? n : "Trainingswettkampf"));
     }
   };
@@ -136,6 +141,7 @@ export function CompetitionCreateForm({
     teamCount: teamScoringEnabled ? teamCount : 3,
     kind: allowTrainingKind ? kind : "competition",
     tenthsEnabled,
+    probeEnabled,
     activateOnCreate: editingId ? false : activateOnCreate,
   });
 
@@ -151,9 +157,10 @@ export function CompetitionCreateForm({
     if (!ok) return;
     setCompName("");
     setKind("competition");
-    setMaxShots(40);
+    setMaxShots(10);
     setNachkaufEnabled(false);
     setTenthsEnabled(false);
+    setProbeEnabled(false);
     setTeamScoringEnabled(false);
     setTeamCount(3);
     setActivateOnCreate(defaultActivateOnCreate);
@@ -194,7 +201,7 @@ export function CompetitionCreateForm({
             type="number"
             min={1}
             value={maxShots}
-            onChange={(e) => setMaxShots(Number(e.target.value) || 40)}
+            onChange={(e) => setMaxShots(Number(e.target.value) || 10)}
           />
         </label>
         <label className="field">
@@ -241,6 +248,20 @@ export function CompetitionCreateForm({
           </span>
         </label>
       ) : null}
+      <label
+        className="check-field"
+        title="Ungewertete Probeschüsse vor der Serie — Wertung startet auf Knopfdruck"
+      >
+        <input
+          type="checkbox"
+          checked={probeEnabled}
+          onChange={(e) => setProbeEnabled(e.target.checked)}
+        />
+        <span className="check-field-copy">
+          Probeschüsse
+          <span className="field-hint">ungewertet, Wertung auf Knopfdruck</span>
+        </span>
+      </label>
       <label
         className="check-field"
         title="Nach Fertig darf eine weitere Serie gestartet werden"

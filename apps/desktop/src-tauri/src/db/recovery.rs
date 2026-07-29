@@ -70,7 +70,8 @@ impl Database {
             .prepare(
                 "SELECT s.id, s.shooter_name, s.started_at,
                         s.competition_id, s.entry_id, s.person_id,
-                        (SELECT COUNT(*) FROM shots sh WHERE sh.session_id = s.id),
+                        (SELECT COUNT(*) FROM shots sh
+                         WHERE sh.session_id = s.id AND sh.classification = 'scored'),
                         s.last_autosave_sequence, s.last_autosave_at, s.recovery_state
                  FROM sessions s
                  WHERE s.ended_at IS NULL
@@ -126,18 +127,24 @@ impl Database {
         Ok(out)
     }
 
-    /// Load scored shots ascending for engine rehydration (running series_total).
-    pub fn load_session_ui_shots(&self, session_id: &str) -> Result<Vec<StoredUiShot>, String> {
+    /// Load shots of one classification ascending for engine rehydration
+    /// (running series_total). Pass `scored` for the series, `probe` when
+    /// resuming inside the probe phase.
+    pub fn load_session_ui_shots(
+        &self,
+        session_id: &str,
+        classification: &str,
+    ) -> Result<Vec<StoredUiShot>, String> {
         let mut stmt = self
             .conn
             .prepare(
                 "SELECT shot_index, score, value_raw, distance_raw, x, y
-                 FROM shots WHERE session_id = ?1
+                 FROM shots WHERE session_id = ?1 AND classification = ?2
                  ORDER BY shot_index ASC",
             )
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map(params![session_id], |r| {
+            .query_map(params![session_id, classification], |r| {
                 Ok((
                     r.get::<_, i32>(0)?,
                     r.get::<_, f64>(1)?,
@@ -180,7 +187,17 @@ impl Database {
         if session.ended_at.is_some() {
             return Ok(());
         }
-        let shot_count = self.count_session_shots(session_id)?;
+        // Only scored shots decide the entry outcome — a probe-only session
+        // sends the starter back to `waiting`.
+        let shot_count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM shots
+                 WHERE session_id = ?1 AND classification = 'scored'",
+                params![session_id],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
         self.end_session_with_state(session_id, recovery_state::SAFELY_CLOSED)?;
         if let Some(ref entry_id) = session.entry_id {
             let status = if shot_count > 0 {

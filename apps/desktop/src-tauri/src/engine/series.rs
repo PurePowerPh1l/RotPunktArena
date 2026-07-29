@@ -35,9 +35,12 @@ impl StandEngine {
             if g.series_complete {
                 return Err("Serie bereits beendet".into());
             }
-            if let Some(max) = g.max_shots {
-                if g.shots.len() as i64 >= max {
-                    return Err(format!("Maximal {max} Schüsse erreicht"));
+            // Probe phase: unlimited shots, limit applies to the scored series only.
+            if !g.probe_active {
+                if let Some(max) = g.max_shots {
+                    if g.shots.len() as i64 >= max {
+                        return Err(format!("Maximal {max} Schüsse erreicht"));
+                    }
                 }
             }
         }
@@ -101,9 +104,13 @@ impl StandEngine {
     }
 
     /// After the last competition shot: close session, mark entry done, notify UI.
+    /// No-op during the probe phase (Probeschüsse never finish the series).
     pub fn finish_series_if_needed(&self, app: &AppHandle, shot_index: i64) {
         let (max, shooter, total) = {
             let g = self.inner.lock();
+            if g.probe_active {
+                return;
+            }
             (
                 g.max_shots,
                 g.session

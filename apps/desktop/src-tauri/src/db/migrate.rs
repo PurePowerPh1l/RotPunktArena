@@ -158,6 +158,12 @@ const MIGRATIONS: &[Migration] = &[
         sql: None,
         custom: Some(migrate_v15_competition_tenths),
     },
+    Migration {
+        version: 16,
+        name: "probe_phase",
+        sql: None,
+        custom: Some(migrate_v16_probe_phase),
+    },
 ];
 
 pub fn apply_migrations(conn: &Connection) -> Result<(), String> {
@@ -616,6 +622,29 @@ fn migrate_v15_competition_tenths(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Probeschüsse: per-competition opt-in + per-session phase (`probe` before
+/// scoring starts, `match` afterwards). Probe shots are stored with
+/// `shots.classification = 'probe'` and never count toward limits or results.
+fn migrate_v16_probe_phase(conn: &Connection) -> Result<(), String> {
+    if table_exists(conn, "competitions") {
+        ensure_column(
+            conn,
+            "competitions",
+            "probe_enabled",
+            "ALTER TABLE competitions ADD COLUMN probe_enabled INTEGER NOT NULL DEFAULT 0",
+        )?;
+    }
+    if table_exists(conn, "sessions") {
+        ensure_column(
+            conn,
+            "sessions",
+            "phase",
+            "ALTER TABLE sessions ADD COLUMN phase TEXT NOT NULL DEFAULT 'match'",
+        )?;
+    }
+    Ok(())
+}
+
 /// Global teams (cross-competition) with person membership. Migrates legacy per-competition teams.
 fn migrate_v12_global_teams(conn: &Connection) -> Result<(), String> {
     if !table_exists(conn, "people") {
@@ -744,7 +773,7 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(v, 14);
+        assert_eq!(v, 16);
         assert!(table_has_column(&conn, "events", "sequence"));
         assert!(table_has_column(&conn, "sessions", "next_sequence"));
         assert!(table_has_column(&conn, "sessions", "competition_id"));
@@ -774,6 +803,8 @@ mod tests {
         assert!(index_exists(&conn, "idx_frames_session_devseq"));
         assert!(index_exists(&conn, "idx_competition_entries_competition"));
         assert!(table_has_column(&conn, "competitions", "tenths_enabled"));
+        assert!(table_has_column(&conn, "competitions", "probe_enabled"));
+        assert!(table_has_column(&conn, "sessions", "phase"));
     }
 
     #[test]

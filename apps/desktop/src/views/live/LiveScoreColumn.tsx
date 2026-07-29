@@ -35,6 +35,10 @@ type Props = {
   nachkaufPurchased: number;
   endlessMode: boolean;
   onEndlessModeChange: (endless: boolean) => void;
+  /** Probephase aktiv — Schüsse sind ungewertete Probeschüsse. */
+  probeActive?: boolean;
+  /** „Wertung beginnen“ — Probephase beenden. */
+  onFinishProbe?: () => void;
   /** Training series-complete ceremony slot. */
   ceremony?: ReactNode;
   /** Optional rival target (training only) — shown as Ziel next to Serie. */
@@ -66,6 +70,8 @@ export function LiveScoreColumn({
   nachkaufPurchased,
   endlessMode,
   onEndlessModeChange,
+  probeActive = false,
+  onFinishProbe,
   ceremony = null,
   rivalTarget = null,
 }: Props) {
@@ -104,7 +110,7 @@ export function LiveScoreColumn({
   const entryDone =
     mode === "competition" && selectedEntry?.status === "done";
   const seriesHint =
-    mode === "competition" && nachkaufEnabled
+    mode === "competition" && nachkaufEnabled && !probeActive
       ? seriesNumber > 1
         ? `Serie ${seriesNumber} (Nachkauf)`
         : "Serie 1"
@@ -166,15 +172,22 @@ export function LiveScoreColumn({
         {displayMode === "teiler" ? "Teiler" : "Punkte"}
       </p>
       <p className="meta">
-        Schuss {last?.shotIndex ?? 0}
-        {maxShots != null ? ` / ${maxShots}` : endlessMode ? " · Endlos" : null}
+        {probeActive ? "Probeschuss " : "Schuss "}
+        {last?.shotIndex ?? 0}
+        {probeActive
+          ? " · ungewertet"
+          : maxShots != null
+            ? ` / ${maxShots}`
+            : endlessMode
+              ? " · Endlos"
+              : null}
         {seriesHint ? ` · ${seriesHint}` : null}
         {secondary != null
           ? ` · ${displayMode === "teiler" ? "Punkte" : "Teiler"} ${formatScoreDe(secondary)}`
           : null}
       </p>
       <p className="total">
-        Serie{" "}
+        {probeActive ? "Probe" : "Serie"}{" "}
         <strong key={`serie-${scoreTick}`} className="serie-tick">
           {formatScoreDe(seriesPrimary)}
         </strong>
@@ -189,6 +202,20 @@ export function LiveScoreColumn({
           <strong>{formatScoreDe(rivalTarget.punkte)}</strong>
           <span className="rival-target-label"> · {rivalTarget.label}</span>
         </p>
+      ) : null}
+      {probeActive ? (
+        <div className="probe-banner" aria-live="polite">
+          <span className="probe-banner-label">Probe</span>
+          <button
+            type="button"
+            className="probe-finish-btn"
+            onClick={onFinishProbe}
+            disabled={!onFinishProbe}
+            title="Probeschüsse beenden — die gewertete Serie beginnt"
+          >
+            Wertung beginnen
+          </button>
+        </div>
       ) : null}
       <div className="series-done-slot" aria-live="polite">
         {ceremony}
