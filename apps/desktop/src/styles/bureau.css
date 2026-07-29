@@ -1,0 +1,726 @@
+/* Buero: Panels, Wettkampf-Leiste, Picker */
+
+/* ?? Büro ?? */
+.bureau {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 1rem;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.bureau button.dabei-btn {
+  opacity: 1;
+  cursor: pointer;
+  background: rgba(96, 180, 120, 0.22) !important;
+  border: 1px solid rgba(96, 180, 120, 0.55);
+  color: var(--status-ok-ink);
+  filter: none;
+}
+
+.bureau button.dabei-btn:hover:not(:disabled) {
+  background: rgba(96, 180, 120, 0.32) !important;
+  border-color: rgba(96, 180, 120, 0.7);
+  filter: none;
+}
+
+.bureau button.dabei-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.bureau button.fertig-btn,
+.bureau button.fertig-btn:disabled {
+  opacity: 1;
+  cursor: default;
+  background: rgba(200, 72, 72, 0.22) !important;
+  border: 1px solid rgba(200, 72, 72, 0.55);
+  color: var(--status-bad-ink);
+  filter: none;
+}
+
+.bureau button.fertig-btn:hover:disabled {
+  background: rgba(200, 72, 72, 0.22) !important;
+  filter: none;
+}
+
+.bureau button.nachkauf-btn,
+.bureau button.nachkauf-btn:disabled {
+  opacity: 1;
+  cursor: default;
+  background: rgba(212, 168, 75, 0.2) !important;
+  border: 1px solid rgba(212, 168, 75, 0.55);
+  color: var(--status-warn-ink);
+  filter: none;
+}
+
+.bureau button.nachkauf-btn:hover:disabled {
+  background: rgba(212, 168, 75, 0.2) !important;
+  filter: none;
+}
+
+.banner-error {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: rgba(229, 115, 104, 0.16);
+  border: 1px solid rgba(229, 115, 104, 0.3);
+  color: var(--banner-error-ink);
+  font-size: 0.9rem;
+}
+
+.bureau-main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.bureau-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.95fr) minmax(360px, 1.25fr);
+  align-items: stretch;
+  gap: 1rem;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.bureau-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bureau-zone-head {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.bureau-zone-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bureau-zone-body > .panel,
+.bureau-zone-body > .bureau-slot-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.bureau-slot-panel > .stack-form,
+.bureau-slot-panel > .field,
+.bureau-slot-panel > .check-field,
+.bureau-slot-panel > .panel-lead,
+.bureau-slot-panel > .bureau-panel-head,
+.bureau-slot-panel > .clone-row,
+.bureau-slot-panel > .people-filter,
+.bureau-slot-panel > .people-list-head,
+.bureau-slot-panel > .panel-lead {
+  flex-shrink: 0;
+}
+
+.bureau-slot-panel > .people-list-box {
+  flex: 1 1 auto;
+  min-height: 22rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.people-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.15rem 0 0.85rem;
+}
+
+.people-filter > .field {
+  margin: 0;
+}
+
+.people-archiv-check {
+  margin: 0;
+}
+
+.people-list-box {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.55rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  font-size: 0.88rem;
+}
+
+.people-list-heading {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.people-list-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.15rem 0 0.45rem;
+}
+
+.people-list-hint {
+  margin: 0;
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+.bureau-slot-panel > .people-list-heading {
+  margin-top: 0.25rem;
+}
+
+.check-field-copy {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  line-height: 1.25;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.check-field-copy .field-hint {
+  margin-top: 0;
+}
+
+.people-list-box .list-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.people-list-box .list-meta {
+  font-size: 0.72rem;
+}
+
+.people-list-box .person-row-actions button {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.bureau-slot-panel > .entity-list,
+.bureau-slot-panel > .entity-list.compact,
+.bureau-slot-panel > .people-entity-list,
+.people-list-box > .people-entity-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none !important;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin-bottom: 0;
+}
+
+.people-list-box > .people-entity-list {
+  min-height: 0;
+}
+
+.bureau-stammdaten-seg,
+.bureau-wettkampf-seg {
+  width: 100%;
+}
+
+.bureau-stammdaten-seg .sliding-seg-btn,
+.bureau-wettkampf-seg .sliding-seg-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.bureau-slot-panel {
+  min-height: 0;
+}
+
+.bureau-wettkampf-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.bureau-wettkampf-slot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bureau-wettkampf-slot > .panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bureau-fill-head {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.bureau-fill-head h2 {
+  margin: 0;
+}
+
+.bureau-fill-head .panel-lead {
+  margin: 0.15rem 0 0;
+}
+
+.bureau-fill-head.trend-head {
+  flex-direction: row;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.bureau-wettkampf-empty {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.bureau-empty-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+/* Wettkampf-Leiste + Picker */
+.competition-chrome {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.competition-chrome-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.competition-chrome-title {
+  position: relative;
+  flex: 1;
+  min-width: 12rem;
+  z-index: 1;
+}
+
+.competition-chrome-title.is-picking {
+  z-index: 50;
+}
+
+.competition-chrome-pick {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 0.5rem;
+  align-items: center;
+  text-align: left;
+  padding: 0.35rem 0.55rem;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.18s var(--ease-soft), background 0.18s ease;
+}
+
+.competition-chrome-title.is-picking .competition-chrome-pick {
+  border-color: rgba(226, 90, 40, 0.45);
+  background: var(--accent-soft);
+}
+
+.competition-chrome-name {
+  grid-column: 1;
+  grid-row: 1;
+  font-weight: 650;
+  font-size: 1rem;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.competition-chrome-meta {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.competition-chrome-caret {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  color: var(--muted);
+  font-size: 0.85rem;
+  transition: transform 0.22s var(--ease-out-expo);
+}
+
+.competition-chrome-caret.is-open {
+  transform: rotate(180deg);
+}
+
+.competition-chrome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.competition-status-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--panel-border);
+}
+
+.competition-status-seg .competition-status-chip {
+  cursor: pointer;
+  opacity: 0.55;
+  border: 1px solid transparent;
+  background: transparent !important;
+  color: var(--muted);
+  box-shadow: none;
+  min-height: 0;
+  padding: 0.2rem 0.55rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  filter: none !important;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.competition-status-seg .competition-status-chip:hover:not(:disabled) {
+  opacity: 0.9;
+  filter: none !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.competition-status-seg .competition-status-chip:active:not(:disabled) {
+  opacity: 1;
+  filter: none !important;
+}
+
+.competition-status-seg .competition-status-chip:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.competition-status-seg .competition-status-chip.status-draft.is-current {
+  opacity: 1;
+  border-color: rgba(224, 177, 74, 0.65);
+  background: rgba(224, 177, 74, 0.22) !important;
+  color: var(--status-draft-ink);
+}
+
+.competition-status-seg .competition-status-chip.status-active.is-current {
+  opacity: 1;
+  border-color: rgba(96, 180, 120, 0.55);
+  background: rgba(96, 180, 120, 0.22) !important;
+  color: var(--status-ok-ink);
+}
+
+.competition-status-seg .competition-status-chip.status-closed.is-current {
+  opacity: 1;
+  border-color: rgba(229, 115, 104, 0.6);
+  background: rgba(229, 115, 104, 0.22) !important;
+  color: var(--status-closed-ink);
+}
+
+.competition-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.competition-status-chip.status-active {
+  border-color: rgba(96, 180, 120, 0.55);
+  background: rgba(96, 180, 120, 0.22);
+  color: var(--status-ok-ink);
+}
+
+.competition-status-chip.status-nachkauf {
+  border-color: rgba(212, 168, 75, 0.55);
+  background: rgba(212, 168, 75, 0.18);
+  color: var(--status-warn-ink);
+  cursor: default;
+}
+
+.competition-status-chip.status-draft {
+  border-color: rgba(224, 177, 74, 0.65);
+  background: rgba(224, 177, 74, 0.22);
+  color: var(--status-draft-ink);
+}
+
+.competition-status-chip.status-closed {
+  border-color: rgba(229, 115, 104, 0.6);
+  background: rgba(229, 115, 104, 0.22);
+  color: var(--status-closed-ink);
+}
+
+.competition-status-chip.status-archived {
+  border-color: rgba(154, 163, 176, 0.4);
+  background: rgba(154, 163, 176, 0.12);
+  color: var(--muted);
+}
+
+.competition-status-chip.status-template {
+  border-color: rgba(140, 160, 220, 0.45);
+  background: rgba(140, 160, 220, 0.14);
+  color: var(--status-template-ink);
+}
+
+.competition-picker-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.competition-picker-row-top .list-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.competition-picker .list-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+}
+
+.competition-picker .competition-status-chip {
+  font-size: 0.68rem;
+  padding: 0.12rem 0.45rem;
+}
+
+.competition-picker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 60;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0.65rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--menu-border);
+  /* --panel is translucent; picker must be opaque over content below */
+  background: var(--bg1);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 18px 48px rgba(0, 0, 0, 0.62);
+  animation: competition-picker-in 0.22s var(--ease-out-expo) both;
+}
+
+@keyframes competition-picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.4rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .competition-picker {
+    animation: none;
+  }
+
+  .competition-chrome-caret {
+    transition: none;
+  }
+}
+
+.competition-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.competition-picker-archiv {
+  margin: 0;
+}
+
+.competition-picker-list {
+  max-height: none;
+}
+
+.competition-form-slot {
+  /* ExpandSlot already animates; keep chrome gap tidy when collapsed */
+  margin: 0;
+}
+
+.competition-chrome-form {
+  margin: 0;
+  padding: 0.85rem 0.9rem;
+  background: color-mix(in srgb, var(--bg1) 88%, var(--bg0));
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+}
+
+.competition-more-menu {
+  min-width: 11rem;
+}
+
+.bureau-wettkampf-slot .start-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.start-list-box {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--start-list-surface);
+  border: 1px solid var(--start-list-border);
+  border-radius: var(--radius);
+  padding: 0;
+}
+
+.start-list-box .start-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: transparent;
+}
+
+.start-list-box .start-table {
+  margin-top: 0;
+}
+
+.start-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--start-list-surface, var(--panel));
+  box-shadow: 0 1px 0 var(--hairline);
+}
+
+.start-list-box .start-table thead th {
+  background: var(--start-list-surface);
+}
+
+.start-list-box .start-table th:first-child,
+.start-list-box .start-table td:first-child {
+  padding-left: 0.65rem;
+}
+
+.start-list-box .start-table th:last-child,
+.start-list-box .start-table td:last-child {
+  padding-right: 0.65rem;
+}
+
+.start-status-select {
+  max-width: 7.5rem;
+}
+
+.results-panel {
+  position: relative;
+}
+
+.bureau-wettkampf-slot .results-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.bureau-wettkampf-slot .results-scroll .hist-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+  box-shadow: 0 1px 0 var(--panel-border);
+}
+
+.result-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: flex-end;
+  min-height: 18rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s var(--ease-out-expo);
+}
+
+.result-sheet.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+

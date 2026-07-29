@@ -1,0 +1,361 @@
+/* Recovery Gate, Update-Notice, First-Setup-Sheet */
+
+/* ?? Recovery Gate ?? */
+.recovery-boot {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+/* Startup update notice — modal above the app, below dev overlays. */
+.update-notice-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(6, 8, 11, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.update-notice-card {
+  width: min(480px, 100%);
+  padding: 1.5rem 1.4rem 1.25rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: var(--elevated-recovery);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  animation: recovery-in 0.45s var(--ease-out-expo) both;
+}
+
+.update-notice-eyebrow {
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.update-notice-card h2 {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-brand);
+  font-size: clamp(1.25rem, 2.6vw, 1.55rem);
+  font-weight: 700;
+}
+
+.update-notice-versions {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.update-notice-current {
+  color: var(--muted);
+}
+
+.update-notice-body {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.update-notice-progress {
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+
+.update-notice-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.update-notice-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.recovery-gate {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(720px 420px at 20% 0%, rgba(226, 90, 40, 0.2) 0%, transparent 55%),
+    radial-gradient(640px 380px at 90% 80%, rgba(70, 96, 130, 0.18) 0%, transparent 50%),
+    linear-gradient(168deg, #0e1116 0%, var(--bg0) 50%, var(--bg1) 100%);
+}
+
+html[data-color-scheme="light"] .recovery-gate {
+  background:
+    radial-gradient(720px 420px at 20% 0%, rgba(226, 90, 40, 0.1) 0%, transparent 55%),
+    radial-gradient(640px 380px at 90% 80%, rgba(70, 96, 130, 0.08) 0%, transparent 50%),
+    linear-gradient(168deg, #fafbfc 0%, var(--bg0) 50%, var(--bg1) 100%);
+}
+
+.recovery-card {
+  width: min(640px, 100%);
+  padding: 1.5rem 1.4rem 1.25rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: var(--elevated-recovery);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  animation: recovery-in 0.45s var(--ease-out-expo) both;
+}
+
+@keyframes recovery-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.recovery-eyebrow {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.recovery-card h1 {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-brand);
+  font-size: clamp(1.45rem, 3.2vw, 1.85rem);
+  font-weight: 700;
+}
+
+.recovery-lead {
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.recovery-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.recovery-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+
+.recovery-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.recovery-item-main strong {
+  font-size: 1.02rem;
+}
+
+.recovery-item-main span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.recovery-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.recovery-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.recovery-export-ok {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: rgba(94, 207, 122, 0.12);
+  color: var(--ok);
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+.recovery-export-ok code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+/* �� RedDot first-setup sheet (proximity ? connect) �� */
+.reddot-setup {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.reddot-setup-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+
+.reddot-setup-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 26rem);
+  padding: 1.25rem 1.35rem 1.4rem;
+  border-radius: var(--radius, 12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg1, #12151a);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.reddot-setup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.reddot-setup-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.reddot-setup-lead {
+  margin: 0 0 1rem;
+  color: var(--muted, #9aa3ad);
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.reddot-setup-status {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.reddot-setup-status.is-ok {
+  color: var(--ok, #5ecf7a);
+}
+
+.reddot-setup-hint {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.reddot-setup-error {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(232, 88, 88, 0.12);
+  color: var(--danger, #e85858);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.reddot-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reddot-setup-panel {
+    transition: none !important;
+  }
+}
+
+.reddot-setup-reopen {
+  position: fixed;
+  right: 1.1rem;
+  bottom: 1.1rem;
+  z-index: 40;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  background: var(--bg1, #12151a);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.reddot-setup-reopen:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.reddot-wake-panel {
+  width: min(100%, 22rem);
+  padding: 1.1rem 1.2rem 1.25rem;
+}
+
+.reddot-wake .reddot-setup-lead {
+  font-size: 0.9rem;
+}
+
+.reddot-setup-status.is-busy {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reddot-setup-status.is-busy::before {
+  content: "";
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--accent, #7eb8ff);
+  animation: reddot-setup-spin 0.7s linear infinite;
+}
+
+.reddot-setup-actions .is-busy {
+  opacity: 0.85;
+}
+
+@keyframes reddot-setup-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reddot-setup-status.is-busy::before {
+    animation: none;
+    border-top-color: rgba(255, 255, 255, 0.45);
+  }
+}

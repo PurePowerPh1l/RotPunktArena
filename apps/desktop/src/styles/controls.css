@@ -1,0 +1,266 @@
+/* Quiet Surfaces, Magic CTA, Sliding Segment */
+
+/* Quiet surfaces: B?ro & Historie ? almost no motion */
+.bureau button,
+.training-hist button {
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.bureau button:hover:not(:disabled),
+.training-hist button:hover:not(:disabled) {
+  filter: none;
+}
+
+.bureau button:active:not(:disabled),
+.training-hist button:active:not(:disabled) {
+  filter: none;
+  opacity: 0.88;
+}
+
+.bureau .chip:hover:not(:disabled),
+.training-hist .chip:hover:not(:disabled) {
+  transform: none;
+}
+
+.bureau .chip-on,
+.training-hist .chip-on {
+  animation: none;
+  box-shadow: none;
+}
+
+/* ?? Magic CTA (only primary live actions) ?? */
+.magic-btn {
+  will-change: transform;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+  transition:
+    transform 0.4s var(--ease-spring),
+    box-shadow 0.35s var(--ease-soft),
+    background 0.2s ease,
+    filter 0.2s ease;
+}
+
+.magic-btn:hover:not(:disabled) {
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 8px 20px rgba(226, 90, 40, 0.26);
+  filter: brightness(1.05);
+}
+
+.magic-btn:active:not(:disabled) {
+  transform: translateY(0.5px) scale(0.97);
+  transition-duration: 0.1s;
+}
+
+.magic-btn-magnetic {
+  transition:
+    transform 0.5s var(--ease-spring),
+    box-shadow 0.35s var(--ease-soft),
+    background 0.2s ease,
+    filter 0.2s ease;
+}
+
+.magic-btn-magnetic:hover:not(:disabled) {
+  /* transform driven by JS magnetism */
+  filter: brightness(1.05);
+}
+
+.magic-btn-label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.magic-btn-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 28%,
+    rgba(255, 255, 255, 0.28) 48%,
+    transparent 68%
+  );
+  transform: translateX(-130%) skewX(-14deg);
+  transition: transform 0.01s linear;
+  pointer-events: none;
+}
+
+.magic-btn-shimmer:hover:not(:disabled)::before {
+  transform: translateX(130%) skewX(-14deg);
+  transition: transform 0.7s var(--ease-out-expo);
+}
+
+.magic-btn-ripples {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.btn-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0);
+  animation: ripple-expand 0.55s var(--ease-out-expo) forwards;
+  pointer-events: none;
+}
+
+/* ?? Sliding segment (iOS pill) ?? */
+.sliding-seg {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0.18rem;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--panel-border);
+  flex-shrink: 0;
+}
+
+.sliding-seg.mode-row {
+  padding: 0.22rem;
+}
+
+.sliding-seg-pill {
+  position: absolute;
+  top: 0.18rem;
+  bottom: 0.18rem;
+  left: 0;
+  border-radius: 5px;
+  background: var(--accent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 4px 14px rgba(226, 90, 40, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    transform 0.38s var(--ease-out-expo),
+    width 0.38s var(--ease-out-expo),
+    opacity 0.2s ease;
+}
+
+.sliding-seg.mode-row .sliding-seg-pill {
+  top: 0.22rem;
+  bottom: 0.22rem;
+}
+
+.sliding-seg-pill-on {
+  opacity: 1;
+}
+
+.sliding-seg-btn {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  border: none !important;
+  border-radius: 5px;
+  background: transparent !important;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: none !important;
+  overflow: visible;
+}
+
+.sliding-seg-md .sliding-seg-btn {
+  padding: 0.55rem 0.95rem;
+  font-size: 0.88rem;
+}
+
+.sliding-seg-sm .sliding-seg-btn {
+  padding: 0.28rem 0.55rem;
+  font-size: 0.72rem;
+}
+
+.sliding-seg-btn:hover:not(:disabled):not(.on) {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.05) !important;
+  transform: none;
+  filter: none;
+  box-shadow: none !important;
+}
+
+.sliding-seg-btn.on {
+  color: #fff;
+  background: transparent !important;
+  transform: none;
+  filter: none;
+  box-shadow: none !important;
+}
+
+.sliding-seg-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.score-seg {
+  margin: 0.1rem 0 0.4rem;
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.hint {
+  margin: 0.1rem 0 0;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.nav-btn svg {
+  flex-shrink: 0;
+  opacity: 0.88;
+}
+
+.magic-btn.is-nachkauf:not(:disabled) {
+  background: linear-gradient(165deg, #c9963a 0%, #a67828 100%);
+  border-color: rgba(240, 215, 138, 0.45);
+  color: #1a1408;
+}
+
+.magic-btn.is-nachkauf:hover:not(:disabled) {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 8px 20px rgba(212, 168, 75, 0.35);
+  filter: brightness(1.06);
+}
+
+.magic-btn.secondary:hover:not(:disabled),
+.magic-btn.danger:hover:not(:disabled) {
+  box-shadow: none;
+}
+
+.controls .field {
+  min-width: 0;
+}
+
+.controls .field input,
+.controls .field select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.controls .mode-row {
+  flex: 0 0 auto;
+}
+
+.controls-actions > button,
+.controls-actions > .magic-btn {
+  flex-shrink: 0;
+}
+
