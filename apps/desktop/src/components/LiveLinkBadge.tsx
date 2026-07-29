@@ -111,7 +111,11 @@ export function LiveLinkBadge({ onRequestSetup }: Props) {
   const canRepair = Boolean(
     rfcommFeature && !needsSetup && hasTarget && !linked && !connecting,
   );
-  const canCancel = Boolean(rfcommFeature && connecting);
+  // Cancel only while reconnecting to a known device — not during first-setup
+  // ("Gerät einrichten"), where Abbrechen next to that label is meaningless.
+  const canCancel = Boolean(
+    rfcommFeature && connecting && hasTarget && !needsSetup,
+  );
 
   const detail = [label, targetName, reason, lastError]
     .filter(Boolean)
@@ -155,9 +159,8 @@ export function LiveLinkBadge({ onRequestSetup }: Props) {
         ? () => void onRepair()
         : undefined;
 
-  // Only force-expand while connecting so „Abbrechen“ sichtbar bleibt.
-  // Idle/setup/fault: kompakter Punkt, Status per Hover (Slot + Badge).
-  const expanded = connecting;
+  // Only force-expand while cancellable reconnect is in flight.
+  const expanded = canCancel;
 
   return (
     <div className="live-link-wrap">
