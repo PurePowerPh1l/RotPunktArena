@@ -31,6 +31,9 @@ pub struct Competition {
     /// New competitions default false; existing DBs backfilled to true.
     #[serde(default)]
     pub tenths_enabled: bool,
+    /// Probeschüsse allowed at series start (unscored, ended manually).
+    #[serde(default)]
+    pub probe_enabled: bool,
 }
 
 fn default_team_count() -> i64 {
@@ -79,6 +82,8 @@ pub struct CreateCompetition {
     /// Default false = whole rings for new competitions.
     #[serde(default)]
     pub tenths_enabled: bool,
+    #[serde(default)]
+    pub probe_enabled: bool,
 }
 
 fn normalize_competition_kind(raw: &str) -> &'static str {
@@ -96,7 +101,8 @@ impl Database {
                 "SELECT id, name, date, discipline, max_shots, scoring_mode, status, created_at,
                         COALESCE(nachkauf_enabled, 0), COALESCE(nachkauf_shots, 0),
                         COALESCE(team_scoring_enabled, 0), COALESCE(team_count, 3),
-                        COALESCE(kind, 'competition'), COALESCE(tenths_enabled, 1)
+                        COALESCE(kind, 'competition'), COALESCE(tenths_enabled, 1),
+                        COALESCE(probe_enabled, 0)
                  FROM competitions
                  WHERE (?1 = 1 OR status != ?2)
                  ORDER BY date DESC, created_at DESC",
@@ -128,7 +134,7 @@ impl Database {
             _ => "ringe",
         };
         let max_shots = if input.max_shots <= 0 {
-            40
+            10
         } else {
             input.max_shots
         };
@@ -167,8 +173,8 @@ impl Database {
                 "INSERT INTO competitions
                  (id, name, date, discipline, max_shots, scoring_mode, status, created_at,
                   nachkauf_enabled, nachkauf_shots, team_scoring_enabled, team_count, kind,
-                  tenths_enabled)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                  tenths_enabled, probe_enabled)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
                 params![
                     id,
                     name,
@@ -183,7 +189,8 @@ impl Database {
                     if team_scoring_enabled { 1 } else { 0 },
                     team_count,
                     kind,
-                    if input.tenths_enabled { 1 } else { 0 }
+                    if input.tenths_enabled { 1 } else { 0 },
+                    if input.probe_enabled { 1 } else { 0 }
                 ],
             )
             .map_err(|e| e.to_string())?;
@@ -202,6 +209,7 @@ impl Database {
             team_scoring_enabled,
             team_count,
             tenths_enabled: input.tenths_enabled,
+            probe_enabled: input.probe_enabled,
         })
     }
 
@@ -264,6 +272,7 @@ impl Database {
             team_count: source.team_count,
             kind: source.kind.clone(),
             tenths_enabled: source.tenths_enabled,
+            probe_enabled: source.probe_enabled,
         })?;
         let created = if as_template {
             self.set_competition_status(&created.id, competition_status::TEMPLATE)?
@@ -334,7 +343,7 @@ impl Database {
             _ => "ringe",
         };
         let max_shots = if input.max_shots <= 0 {
-            40
+            10
         } else {
             input.max_shots
         };
@@ -372,8 +381,9 @@ impl Database {
                    team_scoring_enabled = ?8,
                    team_count = ?9,
                    kind = ?10,
-                   tenths_enabled = ?11
-                 WHERE id = ?12",
+                   tenths_enabled = ?11,
+                   probe_enabled = ?12
+                 WHERE id = ?13",
                 params![
                     name,
                     date,
@@ -386,6 +396,7 @@ impl Database {
                     team_count,
                     kind,
                     if input.tenths_enabled { 1 } else { 0 },
+                    if input.probe_enabled { 1 } else { 0 },
                     id
                 ],
             )
@@ -401,7 +412,8 @@ impl Database {
                 "SELECT id, name, date, discipline, max_shots, scoring_mode, status, created_at,
                         COALESCE(nachkauf_enabled, 0), COALESCE(nachkauf_shots, 0),
                         COALESCE(team_scoring_enabled, 0), COALESCE(team_count, 3),
-                        COALESCE(kind, 'competition'), COALESCE(tenths_enabled, 1)
+                        COALESCE(kind, 'competition'), COALESCE(tenths_enabled, 1),
+                        COALESCE(probe_enabled, 0)
                  FROM competitions WHERE id = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -729,6 +741,7 @@ fn map_competition(row: &rusqlite::Row<'_>) -> rusqlite::Result<Competition> {
     let enabled: i64 = row.get(8)?;
     let team_enabled: i64 = row.get(10)?;
     let tenths: i64 = row.get(13)?;
+    let probe_enabled: i64 = row.get(14)?;
     Ok(Competition {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -744,6 +757,7 @@ fn map_competition(row: &rusqlite::Row<'_>) -> rusqlite::Result<Competition> {
         team_count: row.get(11)?,
         kind: row.get(12)?,
         tenths_enabled: tenths != 0,
+        probe_enabled: probe_enabled != 0,
     })
 }
 
@@ -819,7 +833,7 @@ fn count_entry_shots_in_tx_conn(
         "SELECT COUNT(*)
          FROM shots sh
          JOIN sessions s ON s.id = sh.session_id
-         WHERE s.entry_id = ?1",
+         WHERE s.entry_id = ?1 AND sh.classification = 'scored'",
         params![entry_id],
         |r| r.get(0),
     )
@@ -827,12 +841,13 @@ fn count_entry_shots_in_tx_conn(
 }
 
 /// Shot count for the session limit — always this session only (each series has its own cap).
+/// Probeschüsse (`classification = 'probe'`) never count toward the limit.
 pub fn count_scored_shots_for_limit(
     tx: &rusqlite::Transaction<'_>,
     session_id: &str,
 ) -> Result<i64, String> {
     tx.query_row(
-        "SELECT COUNT(*) FROM shots WHERE session_id = ?1",
+        "SELECT COUNT(*) FROM shots WHERE session_id = ?1 AND classification = 'scored'",
         params![session_id],
         |r| r.get(0),
     )

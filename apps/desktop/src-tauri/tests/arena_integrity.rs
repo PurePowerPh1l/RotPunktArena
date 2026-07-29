@@ -222,6 +222,7 @@ fn competition_max_shots_rejects_extra() {
             team_count: 3,
             kind: "competition".into(),
             tenths_enabled: true,
+            probe_enabled: false,
         })
         .unwrap();
     let session = db
@@ -275,6 +276,7 @@ fn whole_rings_floors_score_at_ingest() {
             team_count: 3,
             kind: "competition".into(),
             tenths_enabled: false,
+            probe_enabled: false,
         })
         .unwrap();
     assert!(!comp.tenths_enabled);
@@ -318,6 +320,7 @@ fn whole_rings_floors_score_at_ingest() {
             team_count: 3,
             kind: "competition".into(),
             tenths_enabled: true,
+            probe_enabled: false,
         })
         .unwrap();
     let s2 = db
@@ -332,6 +335,95 @@ fn whole_rings_floors_score_at_ingest() {
         }
         o => panic!("expected accepted, got {o:?}"),
     }
+}
+
+#[test]
+fn probe_phase_shots_unscored_and_excluded_from_limit_and_results() {
+    use reddot_desktop_lib::CreateCompetition;
+
+    let mut db = ArenaDb::open_in_memory().unwrap();
+    let person = db
+        .create_person(reddot_desktop_lib::CreatePerson {
+            first_name: "Pia".into(),
+            last_name: "Probe".into(),
+            club: None,
+        })
+        .unwrap();
+    let comp = db
+        .create_competition(CreateCompetition {
+            name: "LG Probe".into(),
+            date: "2026-07-29".into(),
+            discipline: "Luftgewehr".into(),
+            max_shots: 3,
+            scoring_mode: "ringe".into(),
+            nachkauf_enabled: false,
+            nachkauf_shots: 0,
+            team_scoring_enabled: false,
+            team_count: 3,
+            kind: "competition".into(),
+            tenths_enabled: true,
+            probe_enabled: true,
+        })
+        .unwrap();
+    assert!(comp.probe_enabled);
+    let entry = db.add_entry(&comp.id, &person.id).unwrap();
+    db.activate_entry(&entry.id).unwrap();
+    let session = db
+        .start_session("Pia Probe", Some(&comp.id), Some(&entry.id), None)
+        .unwrap();
+    db.set_session_phase(&session.id, "probe").unwrap();
+
+    // Probe phase: more shots than max_shots, all classified probe, no limit.
+    for i in 0..5u32 {
+        match db
+            .ingest_raw_frame(&session.id, &unique_frame(i), "test", None)
+            .unwrap()
+        {
+            IngestOutcome::Accepted(a) => {
+                assert_eq!(a.classification, "probe");
+                assert_eq!(a.shot_index, i as i32 + 1);
+            }
+            o => panic!("expected accepted probe #{}, got {o:?}", i + 1),
+        }
+    }
+
+    // Switch to scoring: fresh index/total, limit enforced on scored only.
+    db.set_session_phase(&session.id, "match").unwrap();
+    for i in 0..3u32 {
+        match db
+            .ingest_raw_frame(&session.id, &unique_frame(100 + i), "test", None)
+            .unwrap()
+        {
+            IngestOutcome::Accepted(a) => {
+                assert_eq!(a.classification, "scored");
+                assert_eq!(a.shot_index, i as i32 + 1);
+            }
+            o => panic!("expected accepted scored #{}, got {o:?}", i + 1),
+        }
+    }
+    match db
+        .ingest_raw_frame(&session.id, &unique_frame(199), "test", None)
+        .unwrap()
+    {
+        IngestOutcome::LimitReached {
+            max_shots,
+            current_shots,
+        } => {
+            assert_eq!(max_shots, 3);
+            assert_eq!(current_shots, 3);
+        }
+        o => panic!("expected LimitReached, got {o:?}"),
+    }
+
+    db.end_session(&session.id).unwrap();
+    db.set_entry_status(&entry.id, "done").unwrap();
+
+    // Results only count scored shots; rehydration is per classification.
+    let results = db.list_competition_results(&comp.id).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].shot_count, 3);
+    assert_eq!(db.load_session_ui_shots(&session.id, "probe").unwrap().len(), 5);
+    assert_eq!(db.load_session_ui_shots(&session.id, "scored").unwrap().len(), 3);
 }
 
 #[test]
@@ -369,7 +461,7 @@ fn recovery_autosave_list_close_and_rehydrate_shots() {
         let seq = list[0].last_autosave_sequence.unwrap();
         assert!(seq >= 3, "expected autosave sequence >= 3, got {seq}");
 
-        let shots = db.load_session_ui_shots(&session.id).unwrap();
+        let shots = db.load_session_ui_shots(&session.id, "scored").unwrap();
         assert_eq!(shots.len(), 3);
         assert_eq!(shots[0].shot_index, 1);
         assert_eq!(shots[2].shot_index, 3);
@@ -387,7 +479,7 @@ fn recovery_autosave_list_close_and_rehydrate_shots() {
     {
         let mut db = ArenaDb::open(&path).unwrap();
         assert_eq!(db.list_recovery_sessions().unwrap().len(), 1);
-        let shots = db.load_session_ui_shots(&session_id).unwrap();
+        let shots = db.load_session_ui_shots(&session_id, "scored").unwrap();
         assert_eq!(shots.len(), 3);
 
         db.close_interrupted_session(&session_id).unwrap();
@@ -496,6 +588,7 @@ fn competition_nachkauf_full_series_best_of() {
             team_count: 3,
             kind: "competition".into(),
             tenths_enabled: true,
+            probe_enabled: false,
         })
         .unwrap();
     let entry = db.add_entry(&comp.id, &person.id).unwrap();
@@ -592,6 +685,7 @@ fn competition_nachkauf_full_series_best_of() {
             team_count: 3,
             kind: "competition".into(),
             tenths_enabled: true,
+            probe_enabled: false,
         })
         .unwrap();
     let entry2 = db.add_entry(&comp2.id, &person.id).unwrap();

@@ -100,6 +100,15 @@ export function useLiveSession() {
         }),
       );
       track(
+        await listen<{ probeShots: number }>("probe_finished", async (e) => {
+          const s = await api.getLiveState();
+          setState(s);
+          setDetail(
+            `Wertung läuft — Probe beendet (${e.payload.probeShots} Probeschüsse)`,
+          );
+        }),
+      );
+      track(
         await listen<SeriesCompletePayload>("series_complete", async (e) => {
           const s = await api.getLiveState();
           setState(s);
@@ -208,6 +217,18 @@ export function useLiveSession() {
     });
   }, [runExclusive]);
 
+  /** „Wertung beginnen“ — Probephase beenden, Scheibe leeren, gewertete Serie starten. */
+  const finishProbe = useCallback(async () => {
+    await runExclusive(async () => {
+      try {
+        const s = await api.finishProbe();
+        setState(s);
+      } catch (e) {
+        setDetail(String(e));
+      }
+    });
+  }, [runExclusive]);
+
   const resetSeries = useCallback(async () => {
     await runExclusive(async () => {
       try {
@@ -290,6 +311,7 @@ export function useLiveSession() {
     startEntryPrepared,
     stopThenStartEntry,
     stop,
+    finishProbe,
     resetSeries,
     setEndlessMode,
     fireOnce,

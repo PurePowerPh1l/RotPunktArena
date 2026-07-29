@@ -6,6 +6,19 @@ pub mod event_kind {
     pub const SHOT_RECEIVED: &str = "shot_received";
     pub const FRAME_PARSE_ERROR: &str = "frame_parse_error";
     pub const SHOT_REJECTED_LIMIT: &str = "shot_rejected_limit";
+    pub const PROBE_FINISHED: &str = "probe_finished";
+}
+
+/// `sessions.phase` — probe (Probeschüsse, unscored) before the scored series.
+pub mod session_phase {
+    pub const PROBE: &str = "probe";
+    pub const MATCH: &str = "match";
+}
+
+/// `shots.classification` values.
+pub mod shot_classification {
+    pub const SCORED: &str = "scored";
+    pub const PROBE: &str = "probe";
 }
 
 pub mod competition_status {
