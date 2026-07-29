@@ -15,7 +15,7 @@ export async function closeInterruptedSession(
 
 export async function resumeSession(
   sessionId: string,
-  useSimulator = true,
+  useSimulator: boolean,
 ): Promise<LiveState> {
   return invoke("resume_session", { sessionId, useSimulator });
 }

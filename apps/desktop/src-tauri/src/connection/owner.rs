@@ -51,6 +51,9 @@ pub(crate) struct Owner {
     pub(crate) diag_rx_seq: u64,
     /// DIAGNOSE-ONLY: last successful ENQ write Instant.
     pub(crate) diag_last_enq_sent_at: Option<Instant>,
+    /// Set when Shutdown arrives while a Nuclear run pumps the command
+    /// channel inline — `run()` must exit its loop afterwards.
+    pub(crate) shutdown_requested: bool,
 }
 
 impl Owner {
@@ -81,6 +84,7 @@ impl Owner {
             connect_origin: ConnectOrigin::None,
             diag_rx_seq: 0,
             diag_last_enq_sent_at: None,
+            shutdown_requested: false,
         }
     }
 
@@ -100,6 +104,11 @@ impl Owner {
                 }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => break,
+            }
+
+            // Shutdown consumed inside run_nuclear's inline command pump.
+            if self.shutdown_requested {
+                break;
             }
 
             if self.status == ConnectionStatus::Linked {
@@ -346,6 +355,7 @@ impl Owner {
                     self.bump_generation();
                     self.socket = None;
                     spp_com::restore_all();
+                    self.shutdown_requested = true;
                     let _ = rx.recv_timeout(Duration::from_secs(2));
                     return;
                 }

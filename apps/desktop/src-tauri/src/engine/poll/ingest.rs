@@ -38,12 +38,18 @@ pub(super) fn handle_shot_frame(
         return !still_active();
     }
 
-    // ACK after we attempt persist; duplicate still ACKs (device may resend).
-    let _ = transport.write_all(&encode_ack());
-
     let ingest_started = Instant::now();
     let mode = engine.session_mode_label();
-    match log.ingest_raw_frame(session_id, &raw, "device", None) {
+    let result = log.ingest_raw_frame(session_id, &raw, "device", None);
+
+    // ACK only after the persist attempt succeeded (any Ok outcome, incl.
+    // Duplicate — device may resend). On persist Err we intentionally do NOT
+    // ACK so the device retransmits and the shot gets another chance.
+    if result.is_ok() {
+        let _ = transport.write_all(&encode_ack());
+    }
+
+    match result {
         Ok(IngestOutcome::Accepted(accepted)) => {
             if !still_active() {
                 return true;
@@ -78,6 +84,13 @@ pub(super) fn handle_shot_frame(
                 }
             }
             engine.finish_series_if_needed(app, i64::from(accepted.shot_index));
+            // Hybrid snapshot after ACK + UI emit — a slow VACUUM INTO here no
+            // longer delays the device ACK or the shot event.
+            log.try_maybe_snapshot_after_shot(
+                session_id,
+                accepted.shot_index,
+                accepted.session_sequence,
+            );
             false
         }
         Ok(IngestOutcome::Duplicate { .. }) => {

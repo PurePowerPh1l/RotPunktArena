@@ -213,6 +213,9 @@ export function LiveStandView({
       if (cancelled) return;
       const active = list.find((c) => c.id === cid && c.status === "active");
       if (!active) {
+        live.notify(
+          "Wettkampf ist nicht aktiv — in der Verwaltung aktivieren, dann erneut „Zur Arena“.",
+        );
         onArenaHandoffConsumed?.();
         return;
       }

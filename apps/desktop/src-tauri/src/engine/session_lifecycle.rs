@@ -28,6 +28,18 @@ impl StandEngine {
             return Ok(self.snapshot());
         }
 
+        // A dead poll worker leaves the previous session open in the DB
+        // (status Disconnected, ended_at IS NULL). Close it via the normal
+        // end path so it does not linger as a recovery orphan next to the
+        // new session.
+        let stale_open = {
+            let g = self.inner.lock();
+            g.session.as_ref().is_some_and(|s| s.ended_at.is_none())
+        };
+        if stale_open {
+            let _ = self.end_session();
+        }
+
         self.stop_worker();
 
         let name = if args.shooter_name.trim().is_empty() {
