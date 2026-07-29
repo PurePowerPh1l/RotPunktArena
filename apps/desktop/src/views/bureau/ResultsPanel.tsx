@@ -30,6 +30,10 @@ import {
   printEntryResultSheet,
   printResultsSheet,
 } from "../../print/printSheets";
+import {
+  countCertificatePages,
+  printCertificates,
+} from "../../print/printCertificates";
 import { ENTRY_LABEL } from "./labels";
 
 type Props = {
@@ -194,6 +198,26 @@ export function ResultsPanel({
 
   usePrintHotkey(printCurrent);
 
+  const certificateCount = useMemo(
+    () =>
+      countCertificatePages({
+        competition: selected,
+        results,
+        teamResults: teamsActive ? teamResults : undefined,
+        sortMode,
+      }),
+    [selected, results, teamResults, teamsActive, sortMode],
+  );
+
+  const printUrkunden = useCallback(() => {
+    printCertificates({
+      competition: selected,
+      results,
+      teamResults: teamsActive ? teamResults : undefined,
+      sortMode,
+    });
+  }, [selected, results, teamResults, teamsActive, sortMode]);
+
   return (
     <section className="panel results-panel">
       <div className="bureau-fill-head trend-head">
@@ -237,6 +261,16 @@ export function ResultsPanel({
           <button type="button" className="secondary" onClick={printCurrent}>
             <IconPrint /> Drucken
           </button>
+          {certificateCount > 0 && !sheetDetail ? (
+            <button
+              type="button"
+              className="secondary"
+              onClick={printUrkunden}
+              title="Urkunden für Platz 1–3 (Einzel und Teams)"
+            >
+              <IconPrint /> Urkunden
+            </button>
+          ) : null}
           <button type="button" className="secondary" onClick={onReload}>
             Aktualisieren
           </button>

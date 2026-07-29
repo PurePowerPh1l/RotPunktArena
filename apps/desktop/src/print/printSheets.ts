@@ -6,18 +6,11 @@ import type {
   SeriesResultSummary,
   TeamResultSummary,
   TrainingSessionSummary,
-  UiShot,
 } from "@rotpunktarena/domain";
-import { type ScoreDisplayMode } from "../components/TargetFace";
-import {
-  fitFaceScale,
-  scoringFaceChromeSvg,
-  shotCoordsToSvg,
-} from "../components/targetFaceGeometry";
-import { bestShotOf } from "../hooks/useScoreDisplay";
 import { formatPersonName, formatScoreCompact } from "../lib/format";
 import { ENTRY_LABEL } from "../views/bureau/labels";
 import { escapeHtml, openPrintHtml, PRINT_BASE_CSS } from "./printHtml";
+import { printTargetSvg } from "./printTargetSvg";
 
 export type ResultsSheetInput = {
   competition: Competition;
@@ -49,34 +42,6 @@ function seriesLabel(s: SeriesResultSummary): string {
 
 function fmtShot(v: number): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
-}
-
-function markSvg(shots: UiShot[], displayMode: ScoreDisplayMode): string {
-  const scale = fitFaceScale(shots);
-  const lastIdx = shots[shots.length - 1]?.shotIndex;
-  const best = bestShotOf(shots, displayMode);
-  const marks = shots
-    .map((s) => {
-      const { cx, cy } = shotCoordsToSvg(s.x, s.y);
-      const active = s.shotIndex === lastIdx;
-      const isBest = best != null && s.shotIndex === best.shotIndex;
-      const hi = active || isBest;
-      const fill = active ? "#b33" : isBest ? "#b8860b" : "#111";
-      return (
-        `<g>` +
-        `<circle cx="${cx}" cy="${cy}" r="${hi ? 1.7 : 1.2}" fill="${fill}" stroke="${hi ? "#fff" : "none"}" stroke-width="0.35"/>` +
-        `<text x="${cx + 2.2}" y="${cy - 1.5}" font-size="2.4" fill="#222" font-family="Segoe UI,sans-serif">${s.shotIndex}</text>` +
-        `</g>`
-      );
-    })
-    .join("");
-  return `
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="220" height="220">
-  <g transform="translate(50 50) scale(${scale}) translate(-50 -50)">
-  ${scoringFaceChromeSvg()}
-  ${marks}
-  </g>
-</svg>`;
 }
 
 function buildResultsHtml(input: ResultsSheetInput): string {
@@ -217,7 +182,7 @@ function buildEntryResultHtml(input: EntryResultSheetInput): string {
       return `<section class="series-block${s.isBest ? " best" : ""}">
   <h2>${escapeHtml(seriesLabel(s))}${s.isBest ? " — Beste Serie" : ""}</h2>
   <div class="grid">
-    <div>${markSvg(shots, teilerMode ? "teiler" : "punkte")}</div>
+    <div>${printTargetSvg(shots, teilerMode ? "teiler" : "punkte", 300)}</div>
     <div>
       <table>
         <thead><tr><th>#</th><th>Wert</th><th>Teiler</th><th>Σ</th></tr></thead>

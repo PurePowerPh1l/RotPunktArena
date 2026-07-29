@@ -13,6 +13,8 @@ export type CompetitionCreateInput = {
   teamScoringEnabled: boolean;
   teamCount: number;
   kind: CompetitionKind;
+  /** Zehntelwertung; default false = ganze Ringe. */
+  tenthsEnabled: boolean;
   /** After create, set status to active (UI-only; not sent to create_competition). */
   activateOnCreate: boolean;
 };
@@ -43,6 +45,7 @@ function defaultsFrom(editing?: Competition | null, initialName = "") {
       teamScoringEnabled: false,
       teamCount: 3,
       kind: "competition" as CompetitionKind,
+      tenthsEnabled: false,
     };
   }
   return {
@@ -55,6 +58,7 @@ function defaultsFrom(editing?: Competition | null, initialName = "") {
     teamScoringEnabled: Boolean(editing.teamScoringEnabled),
     teamCount: editing.teamCount ?? 3,
     kind: (editing.kind === "training" ? "training" : "competition") as CompetitionKind,
+    tenthsEnabled: Boolean(editing.tenthsEnabled),
   };
 }
 
@@ -74,6 +78,7 @@ export function CompetitionCreateForm({
   const [maxShots, setMaxShots] = useState(initial.maxShots);
   const [scoringMode, setScoringMode] = useState<ScoringMode>(initial.scoringMode);
   const [nachkaufEnabled, setNachkaufEnabled] = useState(initial.nachkaufEnabled);
+  const [tenthsEnabled, setTenthsEnabled] = useState(initial.tenthsEnabled);
   const [teamScoringEnabled, setTeamScoringEnabled] = useState(
     initial.teamScoringEnabled,
   );
@@ -92,6 +97,7 @@ export function CompetitionCreateForm({
     setMaxShots(next.maxShots);
     setScoringMode(next.scoringMode);
     setNachkaufEnabled(next.nachkaufEnabled);
+    setTenthsEnabled(next.tenthsEnabled);
     setTeamScoringEnabled(next.teamScoringEnabled);
     setTeamCount(next.teamCount);
     setKind(next.kind);
@@ -103,6 +109,7 @@ export function CompetitionCreateForm({
     editing?.maxShots,
     editing?.scoringMode,
     editing?.nachkaufEnabled,
+    editing?.tenthsEnabled,
     editing?.teamScoringEnabled,
     editing?.teamCount,
     editing?.kind,
@@ -128,6 +135,7 @@ export function CompetitionCreateForm({
     teamScoringEnabled,
     teamCount: teamScoringEnabled ? teamCount : 3,
     kind: allowTrainingKind ? kind : "competition",
+    tenthsEnabled,
     activateOnCreate: editingId ? false : activateOnCreate,
   });
 
@@ -145,6 +153,7 @@ export function CompetitionCreateForm({
     setKind("competition");
     setMaxShots(40);
     setNachkaufEnabled(false);
+    setTenthsEnabled(false);
     setTeamScoringEnabled(false);
     setTeamCount(3);
     setActivateOnCreate(defaultActivateOnCreate);
@@ -202,6 +211,20 @@ export function CompetitionCreateForm({
           />
         </label>
       </div>
+      <label
+        className="check-field"
+        title="Punkte als Zehntel (10,5) statt ganze Ringe (10) werten"
+      >
+        <input
+          type="checkbox"
+          checked={tenthsEnabled}
+          onChange={(e) => setTenthsEnabled(e.target.checked)}
+        />
+        <span className="check-field-copy">
+          Zehntelwertung
+          <span className="field-hint">sonst ganze Ringe</span>
+        </span>
+      </label>
       {allowTrainingKind ? (
         <label
           className="check-field"
