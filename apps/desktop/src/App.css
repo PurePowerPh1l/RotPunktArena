@@ -7075,6 +7075,78 @@ button.ghost:hover:not(:disabled) {
   font-size: 1.05rem;
 }
 
+/* Startup update notice — modal above the app, below dev overlays. */
+.update-notice-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(6, 8, 11, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.update-notice-card {
+  width: min(480px, 100%);
+  padding: 1.5rem 1.4rem 1.25rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: var(--elevated-recovery);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  animation: recovery-in 0.45s var(--ease-out-expo) both;
+}
+
+.update-notice-eyebrow {
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.update-notice-card h2 {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-brand);
+  font-size: clamp(1.25rem, 2.6vw, 1.55rem);
+  font-weight: 700;
+}
+
+.update-notice-versions {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.update-notice-current {
+  color: var(--muted);
+}
+
+.update-notice-body {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.update-notice-progress {
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+
+.update-notice-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.update-notice-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .recovery-gate {
   min-height: 100%;
   display: grid;
