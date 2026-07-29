@@ -68,6 +68,9 @@ impl StandEngine {
             None if endless => None,
             None => Some(crate::db::TRAINING_SERIES_SHOTS),
         };
+        // Persist so Arena ingest enforces the limit inside its TX
+        // (closes the race between last accepted shot and series finish).
+        self.with_db_mut(|db| db.set_session_max_shots(&session.id, max_shots))?;
 
         {
             let mut g = self.inner.lock();
@@ -180,6 +183,7 @@ impl StandEngine {
             }
             None => Some(crate::db::TRAINING_SERIES_SHOTS),
         };
+        self.with_db_mut(|db| db.set_session_max_shots(session_id, max_shots))?;
         let series_complete = max_shots.is_some_and(|m| shots.len() as i64 >= m);
 
         {
@@ -368,7 +372,7 @@ impl StandEngine {
         app: &AppHandle,
         endless: bool,
     ) -> Result<LiveState, String> {
-        let finish_at = {
+        let (finish_at, persist) = {
             let mut g = self.inner.lock();
             if g.session
                 .as_ref()
@@ -380,21 +384,26 @@ impl StandEngine {
             let open =
                 g.session.as_ref().is_some_and(|s| s.ended_at.is_none()) && !g.series_complete;
             if !open {
-                None
-            } else if endless {
-                g.max_shots = None;
-                None
+                (None, None)
             } else {
-                let max = crate::db::TRAINING_SERIES_SHOTS;
-                g.max_shots = Some(max);
-                let n = g.shots.len() as i64;
-                if n >= max {
-                    Some(n)
+                let session_id = g.session.as_ref().map(|s| s.id.clone());
+                if endless {
+                    g.max_shots = None;
+                    (None, session_id.map(|id| (id, None)))
                 } else {
-                    None
+                    let max = crate::db::TRAINING_SERIES_SHOTS;
+                    g.max_shots = Some(max);
+                    let n = g.shots.len() as i64;
+                    let finish = if n >= max { Some(n) } else { None };
+                    (finish, session_id.map(|id| (id, Some(max))))
                 }
             }
         };
+        // Keep the persisted per-session limit in sync so Arena ingest
+        // enforces the same cap as the live engine.
+        if let Some((session_id, max)) = persist {
+            self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
+        }
         if let Some(shot_index) = finish_at {
             self.finish_series_if_needed(app, shot_index);
         }

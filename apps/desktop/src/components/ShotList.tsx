@@ -84,16 +84,22 @@ export function ShotList({
               ]
                 .filter(Boolean)
                 .join(" ");
+              const toggleFocus = () =>
+                onFocusShot?.(focusShot === s.shotIndex ? null : s.shotIndex);
               return (
                 <tr
                   key={s.shotIndex}
                   className={cls || undefined}
-                  onClick={
+                  onClick={selectable ? toggleFocus : undefined}
+                  tabIndex={selectable ? 0 : undefined}
+                  onKeyDown={
                     selectable
-                      ? () =>
-                          onFocusShot?.(
-                            focusShot === s.shotIndex ? null : s.shotIndex,
-                          )
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleFocus();
+                          }
+                        }
                       : undefined
                   }
                 >

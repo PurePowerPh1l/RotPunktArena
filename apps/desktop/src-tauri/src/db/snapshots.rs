@@ -5,7 +5,11 @@
 
 use super::Database;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Single-flight guard for background cadence snapshots.
+static CADENCE_SNAPSHOT_RUNNING: AtomicBool = AtomicBool::new(false);
 
 /// Accepted-shot cadence for hybrid snapshots (event-count, not wall-clock).
 pub const SNAPSHOT_EVERY_N_SHOTS: i64 = 100;
@@ -33,6 +37,8 @@ impl Database {
     }
 
     /// After an accepted shot (outside ingest TX): snapshot when `shot_index % N == 0`.
+    /// Synchronous — prefer [`Database::spawn_maybe_snapshot_after_shot`] on
+    /// live paths so device ACK / UI emit never wait on VACUUM I/O.
     pub fn try_maybe_snapshot_after_shot(
         &self,
         session_id: &str,
@@ -47,6 +53,38 @@ impl Database {
                 "[reddot] shot-cadence snapshot failed ({session_id} @ {shot_index}): {e}"
             );
         }
+    }
+
+    /// Async cadence snapshot for live ingest paths: runs `VACUUM INTO` on a
+    /// background thread with a fresh connection (WAL-safe). Single-flight —
+    /// a still-running snapshot skips the new request (best-effort cadence).
+    pub fn spawn_maybe_snapshot_after_shot(
+        &self,
+        session_id: &str,
+        shot_index: i32,
+        session_sequence: i64,
+    ) {
+        if i64::from(shot_index) % SNAPSHOT_EVERY_N_SHOTS != 0 {
+            return;
+        }
+        if self.snapshot_dir().is_none() {
+            return;
+        }
+        if CADENCE_SNAPSHOT_RUNNING.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let path = self.path().to_path_buf();
+        let sid = session_id.to_string();
+        std::thread::spawn(move || {
+            let result = Database::open(&path)
+                .and_then(|db| db.write_session_snapshot(&sid, session_sequence).map(|_| ()));
+            CADENCE_SNAPSHOT_RUNNING.store(false, Ordering::SeqCst);
+            if let Err(e) = result {
+                eprintln!(
+                    "[reddot] shot-cadence snapshot failed ({sid} @ {shot_index}): {e}"
+                );
+            }
+        });
     }
 
     /// Consistent snapshot via [`Database::vacuum_into`], then retention + `latest.sqlite`.

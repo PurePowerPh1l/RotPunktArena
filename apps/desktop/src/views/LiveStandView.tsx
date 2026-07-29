@@ -312,8 +312,8 @@ export function LiveStandView({
         try {
           await api.setCompetitionStatus(created.id, "active");
         } catch (e) {
-          window.alert(
-            `Wettkampf angelegt, aber Status konnte nicht auf Aktiv gesetzt werden:\n${String(e)}`,
+          live.notify(
+            `Wettkampf angelegt, aber Status konnte nicht auf Aktiv gesetzt werden: ${String(e)}`,
           );
           await reloadCompetitions();
           onBureauCompetitionIdChange?.(created.id);
@@ -329,7 +329,7 @@ export function LiveStandView({
       onBureauCompetitionIdChange?.(created.id);
       return true;
     } catch (e) {
-      window.alert(`Wettkampf konnte nicht angelegt werden:\n${String(e)}`);
+      live.notify(`Wettkampf konnte nicht angelegt werden: ${String(e)}`);
       return false;
     } finally {
       setCreateBusy(false);
@@ -396,7 +396,7 @@ export function LiveStandView({
       setTeamId(created.id);
       return true;
     } catch (e) {
-      window.alert(`Team konnte nicht angelegt werden:\n${String(e)}`);
+      live.notify(`Team konnte nicht angelegt werden: ${String(e)}`);
       return false;
     }
   };
@@ -439,7 +439,7 @@ export function LiveStandView({
         }
         await ensureStarter(trainingShooter);
       } catch (e) {
-        window.alert(`Starter konnte nicht übernommen werden:\n${String(e)}`);
+        live.notify(`Starter konnte nicht übernommen werden: ${String(e)}`);
       }
     })();
   };

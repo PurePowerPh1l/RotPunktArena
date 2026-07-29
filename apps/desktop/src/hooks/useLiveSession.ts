@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { ConnectionUpdate, LiveState, SeriesCompletePayload, UiShot } from "@rotpunktarena/domain";
 import { trainingSaveUiMessage } from "@rotpunktarena/domain";
@@ -36,9 +36,12 @@ export function useLiveSession() {
   const [state, setState] = useState<LiveState | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
   const { busy, run: runExclusive } = useAsyncAction();
+  /** Mirrors whether a snapshot exists — event handlers must not rely on stale closures. */
+  const hasStateRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const s = await api.getLiveState();
+    hasStateRef.current = true;
     setState(s);
   }, []);
 
@@ -60,6 +63,12 @@ export function useLiveSession() {
       track(
         await listen<ConnectionUpdate>("connection", (e) => {
           setDetail(e.payload.detail ?? null);
+          if (!hasStateRef.current) {
+            // Event arrived before the first snapshot — pull the full state
+            // instead of silently dropping the update.
+            void refresh();
+            return;
+          }
           setState((prev) =>
             prev
               ? {

@@ -771,20 +771,25 @@ pub fn effective_max_shots_in_tx(
     Ok(compute_effective_max_shots(max_shots))
 }
 
-/// Session → competition → effective max (Arena ingest).
-/// Training has no DB limit here — series length is enforced by the live engine
-/// (`TRAINING_SERIES_SHOTS`) so Arena integrity tests can stress-ingest freely.
+/// Session → effective max (Arena ingest).
+/// Prefers the persisted `sessions.max_shots` (set by the engine at session
+/// start, incl. training series) so the limit holds inside the ingest TX.
+/// `NULL` column: endless training, legacy pre-v13 sessions, or direct DB
+/// test sessions → fall back to the competition limit (training: no limit).
 pub fn session_effective_max_shots(
     tx: &rusqlite::Transaction<'_>,
     session_id: &str,
 ) -> Result<Option<i64>, String> {
-    let competition_id: Option<String> = tx
+    let (session_max, competition_id): (Option<i64>, Option<String>) = tx
         .query_row(
-            "SELECT competition_id FROM sessions WHERE id = ?1",
+            "SELECT max_shots, competition_id FROM sessions WHERE id = ?1",
             params![session_id],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .map_err(|e| format!("session for max_shots: {e}"))?;
+    if let Some(max) = session_max {
+        return Ok(compute_effective_max_shots(max));
+    }
     let Some(cid) = competition_id else {
         return Ok(None);
     };

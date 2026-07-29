@@ -1010,6 +1010,11 @@ body.is-app-fullscreen .app-frame {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.shot-list tbody tr.shot-row-selectable:focus-visible {
+  outline: 2px solid rgba(226, 90, 40, 0.65);
+  outline-offset: -2px;
+}
+
 .shot-focus-tag {
   color: #6ea8fe;
   font-size: 0.72em;
@@ -1594,9 +1599,14 @@ body.is-app-fullscreen .app-frame {
   outline: none;
 }
 
-.face:focus,
-.face:focus-visible {
+.face:focus {
   outline: none;
+}
+
+/* Keyboard focus stays visible (mouse focus is handled by the wrap ring). */
+.face:focus-visible {
+  outline: 2px solid rgba(226, 90, 40, 0.75);
+  outline-offset: -2px;
 }
 
 /* Auto-zoom when impacts land outside the face (far misses). */
