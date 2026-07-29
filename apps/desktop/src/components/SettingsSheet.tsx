@@ -12,6 +12,10 @@ import * as liveApi from "../api/live";
 import type { DbBackupInfo } from "../api/admin";
 import { useLiveLinkStatus } from "../hooks/useLiveLinkStatus";
 import {
+  alertDialog,
+  confirmDialog,
+} from "../hooks/useAppDialog";
+import {
   useAppUpdate,
   type AppUpdateStatus,
 } from "../hooks/useAppUpdate";
@@ -237,28 +241,50 @@ export function SettingsSheet({
         setError("Backup wählen.");
         return;
       }
-      const ok = window.confirm(
-        `Backup „${selectedBackup}“ wiederherstellen?\n\nAktuelle Daten werden ersetzt. Laufende Arena-Sessions müssen beendet sein.`,
-      );
+      const ok = await confirmDialog({
+        title: "Backup wiederherstellen?",
+        body: `Backup „${selectedBackup}“ wiederherstellen?\n\nAktuelle Daten werden ersetzt. Laufende Arena-Sessions müssen beendet sein.`,
+        confirmLabel: "Wiederherstellen",
+        danger: true,
+        eyebrow: "Backup",
+      });
       if (!ok) return;
       await api.restoreDbBackup(selectedBackup);
       onDatabaseReplaced?.();
-      window.alert("Backup wiederhergestellt.");
+      await alertDialog({
+        title: "Backup wiederhergestellt",
+        body: "Die Datenbank wurde aus dem gewählten Backup geladen.",
+        eyebrow: "Backup",
+      });
     });
 
   const onReset = () =>
     void run(async () => {
       if (!(await requireAdminAuth())) return;
       assertCapability("admin:reset", getAppAccessSnapshot());
-      const ok = window.confirm(
-        "Wirklich ALLE Daten zurücksetzen?\n\nSchützen, Wettkämpfe, Training, Teams — alles weg. Besser vorher ein Backup machen.",
-      );
+      const ok = await confirmDialog({
+        title: "Alle Daten zurücksetzen?",
+        body: "Wirklich ALLE Daten zurücksetzen?\n\nSchützen, Wettkämpfe, Training, Teams — alles weg. Besser vorher ein Backup machen.",
+        confirmLabel: "Zurücksetzen",
+        danger: true,
+        eyebrow: "Achtung",
+      });
       if (!ok) return;
-      const ok2 = window.confirm("Letzte Warnung: Datenbank wirklich leeren?");
+      const ok2 = await confirmDialog({
+        title: "Letzte Warnung",
+        body: "Datenbank wirklich leeren?",
+        confirmLabel: "Endgültig leeren",
+        danger: true,
+        eyebrow: "Achtung",
+      });
       if (!ok2) return;
       await api.resetAllDatabase();
       onDatabaseReplaced?.();
-      window.alert("Datenbank zurückgesetzt.");
+      await alertDialog({
+        title: "Datenbank zurückgesetzt",
+        body: "Alle lokalen Daten wurden gelöscht.",
+        eyebrow: "Admin",
+      });
     });
 
   const onAdminUnlockCta = () => {
@@ -299,11 +325,15 @@ export function SettingsSheet({
   const onForgetDevice = () => {
     if (!canForget) return;
     const name = link.targetName?.trim() || "das bekannte Gerät";
-    const ok = window.confirm(
-      `„${name}“ vergessen?\n\nDie Arena merkt sich dieses Gerät danach nicht mehr. Du kannst später erneut ein Gerät suchen.`,
-    );
-    if (!ok) return;
     void (async () => {
+      const ok = await confirmDialog({
+        title: "Gerät vergessen?",
+        body: `„${name}“ vergessen?\n\nDie Arena merkt sich dieses Gerät danach nicht mehr. Du kannst später erneut ein Gerät suchen.`,
+        confirmLabel: "Vergessen",
+        danger: true,
+        eyebrow: "Verbindung",
+      });
+      if (!ok) return;
       setLinkBusy(true);
       setError(null);
       try {
@@ -478,11 +508,16 @@ export function SettingsSheet({
               onClick={() => {
                 if (appUpdate.status.kind !== "available") return;
                 const ver = appUpdate.status.update.version;
-                const ok = window.confirm(
-                  `Update ${ver} herunterladen und installieren?\n\nDie App kann danach einen Neustart benötigen.`,
-                );
-                if (!ok) return;
-                void appUpdate.downloadAndInstall();
+                void (async () => {
+                  const ok = await confirmDialog({
+                    title: "Update installieren?",
+                    body: `Update ${ver} herunterladen und installieren?\n\nDie App kann danach einen Neustart benötigen.`,
+                    confirmLabel: "Installieren",
+                    eyebrow: "App-Update",
+                  });
+                  if (!ok) return;
+                  void appUpdate.downloadAndInstall();
+                })();
               }}
             >
               Update installieren

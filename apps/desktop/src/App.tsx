@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppViewPref, RecoverySessionInfo } from "@rotpunktarena/domain";
 import { adminAccessStore } from "./access";
 import { AdminAuthSheet } from "./components/AdminAuthSheet";
+import { AppDialogHost } from "./components/AppDialogHost";
 import { AppTopBar } from "./components/AppTopBar";
 import type { AppView } from "./components/appNav";
 import type { ShooterValue } from "./components/ShooterAutocomplete";
@@ -226,6 +227,7 @@ export default function App() {
 
   return (
     <div className={frameClass}>
+      <AppDialogHost />
       {/* Mounted after Recovery Gate resolution — the one-shot startup
           update check must never sit on top of an interrupted session. */}
       <UpdateNoticeOnStart />

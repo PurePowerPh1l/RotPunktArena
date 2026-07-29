@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { CompetitionTeam, Person } from "@rotpunktarena/domain";
 import { SearchSelect } from "../../components/SearchSelect";
+import { confirmDialog } from "../../hooks/useAppDialog";
 import { formatPersonName } from "../../lib/format";
 
 type Props = {
@@ -93,13 +94,19 @@ export function TeamsMasterPanel({
   };
 
   const confirmDelete = (t: CompetitionTeam) => {
-    const ok = window.confirm(
-      `„${t.name}“ wirklich endgültig löschen?\n\nDie Team-Mitgliedschaften entfallen. Wettkampfergebnisse bleiben erhalten.`,
-    );
-    if (!ok) return;
-    if (selectedId === t.id) setSelectedId(null);
-    if (renamingId === t.id) setRenamingId(null);
-    void onDelete(t.id);
+    void (async () => {
+      const ok = await confirmDialog({
+        title: "Team löschen?",
+        body: `„${t.name}“ wirklich endgültig löschen?\n\nDie Team-Mitgliedschaften entfallen. Wettkampfergebnisse bleiben erhalten.`,
+        confirmLabel: "Löschen",
+        danger: true,
+        eyebrow: "Teams",
+      });
+      if (!ok) return;
+      if (selectedId === t.id) setSelectedId(null);
+      if (renamingId === t.id) setRenamingId(null);
+      void onDelete(t.id);
+    })();
   };
 
   const onAssign = async (e: FormEvent) => {

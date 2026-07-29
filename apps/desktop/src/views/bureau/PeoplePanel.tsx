@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type PointerEvent } from "react";
 import type { Person } from "@rotpunktarena/domain";
 import { OverflowMenu } from "../../components/OverflowMenu";
+import { confirmDialog } from "../../hooks/useAppDialog";
 
 type Props = {
   people: Person[];
@@ -97,12 +98,18 @@ export function PeoplePanel({
 
   const confirmDelete = (p: Person) => {
     const name = `${p.lastName}, ${p.firstName}`;
-    const ok = window.confirm(
-      `„${name}“ wirklich endgültig löschen?\n\nDer Schütze wird aus allen Startlisten entfernt. Trainingsdaten werden ebenfalls gelöscht.`,
-    );
-    if (!ok) return;
-    if (editingId === p.id) resetForm();
-    void onDelete(p.id);
+    void (async () => {
+      const ok = await confirmDialog({
+        title: "Schütze löschen?",
+        body: `„${name}“ wirklich endgültig löschen?\n\nDer Schütze wird aus allen Startlisten entfernt. Trainingsdaten werden ebenfalls gelöscht.`,
+        confirmLabel: "Löschen",
+        danger: true,
+        eyebrow: "Schützen",
+      });
+      if (!ok) return;
+      if (editingId === p.id) resetForm();
+      void onDelete(p.id);
+    })();
   };
 
   return (
