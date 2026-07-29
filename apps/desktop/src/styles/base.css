@@ -185,6 +185,65 @@ body.is-app-fullscreen .app-frame {
   font-size: 1.05em;
 }
 
+/* Extra-large: type + primary controls for hall / distance use. */
+.app-frame.is-extra-large-ui {
+  font-size: 1.18rem;
+}
+
+.app-frame.is-extra-large-ui .top,
+.app-frame.is-extra-large-ui .settings-sheet {
+  font-size: 1.06em;
+}
+
+.app-frame.is-extra-large-ui button {
+  padding: 0.82rem 1.2rem;
+  font-size: 1.02em;
+  border-radius: calc(var(--radius-sm) + 2px);
+}
+
+.app-frame.is-extra-large-ui button.ghost,
+.app-frame.is-extra-large-ui button.secondary {
+  padding: 0.72rem 1.05rem;
+}
+
+.app-frame.is-extra-large-ui .sliding-seg-btn {
+  padding: 0.48rem 0.95rem !important;
+  font-size: 0.95em;
+}
+
+.app-frame.is-extra-large-ui .sliding-seg-md .sliding-seg-btn {
+  padding: 0.62rem 1.15rem !important;
+  font-size: 1.02em;
+}
+
+.app-frame.is-extra-large-ui .top-nav-seg .sliding-seg-btn {
+  padding: 0.68rem 1.25rem !important;
+  font-size: 1.05em;
+}
+
+.app-frame.is-extra-large-ui .top-tool {
+  width: 2.55rem;
+  height: 2.55rem;
+}
+
+.app-frame.is-extra-large-ui .controls-actions .magic-btn.start-cta {
+  padding: 0.95rem 1.55rem 0.95rem 1.15rem;
+  font-size: 1.15rem;
+}
+
+.app-frame.is-extra-large-ui .score-print-btn {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.app-frame.is-extra-large-ui .field input,
+.app-frame.is-extra-large-ui .field select,
+.app-frame.is-extra-large-ui .shooter-ac input {
+  font-size: 1.05em;
+  min-height: 2.55rem;
+  padding: 0.55rem 0.7rem;
+}
+
 .app-frame-body {
   min-height: 0;
   min-width: 0;

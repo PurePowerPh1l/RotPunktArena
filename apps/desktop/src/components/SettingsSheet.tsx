@@ -580,6 +580,13 @@ export function SettingsSheet({
           disabled={!prefsReady}
           onChange={(on) => onUpdateUiPrefs({ reducedMotion: on })}
         />
+        <SettingsToggle
+          label="Extra große Schrift & Buttons"
+          hint="Deutlich größere Typo und Bedienelemente — gut aus Distanz / in der Halle."
+          checked={uiPrefs.extraLargeUi}
+          disabled={!prefsReady}
+          onChange={(on) => onUpdateUiPrefs({ extraLargeUi: on })}
+        />
         <SettingsHint>
           Hell/Dunkel steuert Farben; System folgt der Betriebssystem-Einstellung.
         </SettingsHint>
