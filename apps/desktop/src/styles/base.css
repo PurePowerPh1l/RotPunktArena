@@ -196,10 +196,10 @@ body.is-app-fullscreen .app-frame {
 
 .app-frame.is-extra-large-ui .settings-sheet {
   /* Sheet becomes the scale root — children use em so they keep relative sizes. */
-  font-size: 1.14em;
-  --side-sheet-width: min(26.5rem, calc(100vw - 1.5rem));
-  --side-sheet-pad: 1em 1.1em 1.15em;
-  --side-sheet-gap: 0.7em;
+  font-size: 1.08em;
+  --side-sheet-width: min(24.5rem, calc(100vw - 1.5rem));
+  --side-sheet-pad: 0.9em 1em 1em;
+  --side-sheet-gap: 0.6em;
 }
 
 .app-frame.is-extra-large-ui button:not(.train-arena-strip-tab):not(.train-arena-strip-rival):not(.score-print-btn):not(.settings-sheet button) {

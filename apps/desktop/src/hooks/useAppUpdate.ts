@@ -60,7 +60,8 @@ export function useAppUpdate() {
 
   /**
    * Download + install after the UI confirmed with the user.
-   * Ends in readyToRelaunch — never claims the new version is already running.
+   * On Windows (quiet NSIS) the process typically exits during install;
+   * readyToRelaunch is the fallback when the app stays alive.
    */
   const downloadAndInstall = useCallback(async () => {
     if (inflight.current) return;

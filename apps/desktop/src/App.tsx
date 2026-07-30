@@ -9,8 +9,9 @@ import type { ShooterValue } from "./components/ShooterAutocomplete";
 import { DevPanel } from "./components/DevPanel";
 import { RecoveryGate } from "./components/RecoveryGate";
 import { SettingsSheet } from "./components/SettingsSheet";
-import { UpdateNoticeOnStart } from "./components/UpdateNoticeOnStart";
+import { UpdateProgressSheet } from "./components/UpdateProgressSheet";
 import { IconDev, IconMute, IconSettings, IconSound } from "./components/UiIcons";
+import { AppUpdateProvider } from "./hooks/AppUpdateProvider";
 import { useAppAccess } from "./hooks/useAppAccess";
 import { useShotSound } from "./hooks/useShotSound";
 import { useTrueFullscreen } from "./hooks/useTrueFullscreen";
@@ -227,11 +228,12 @@ export default function App() {
     .join(" ");
 
   return (
+    <AppUpdateProvider>
     <div className={frameClass}>
       <AppDialogHost />
       {/* Mounted after Recovery Gate resolution — the one-shot startup
           update check must never sit on top of an interrupted session. */}
-      <UpdateNoticeOnStart />
+      <UpdateProgressSheet />
       <AppTopBar
         subtitle={VIEW_SUBTITLE[view]}
         view={view}
@@ -383,5 +385,6 @@ export default function App() {
         stackedSecondary={isSettingsSheetOpen && isDeveloperSheetOpen}
       />
     </div>
+    </AppUpdateProvider>
   );
 }

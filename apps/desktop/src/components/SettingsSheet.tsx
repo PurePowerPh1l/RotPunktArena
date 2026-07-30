@@ -15,10 +15,8 @@ import {
   alertDialog,
   confirmDialog,
 } from "../hooks/useAppDialog";
-import {
-  useAppUpdate,
-  type AppUpdateStatus,
-} from "../hooks/useAppUpdate";
+import { useAppUpdateContext } from "../hooks/AppUpdateProvider";
+import type { AppUpdateStatus } from "../hooks/useAppUpdate";
 import type { UiPrefsStatus } from "../hooks/useUiPrefs";
 import type { AppView } from "./appNav";
 import { SearchSelect } from "./SearchSelect";
@@ -169,7 +167,7 @@ export function SettingsSheet({
   currentView,
 }: Props) {
   const link = useLiveLinkStatus();
-  const appUpdate = useAppUpdate();
+  const appUpdate = useAppUpdateContext();
   const [busy, setBusy] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -488,6 +486,12 @@ export function SettingsSheet({
             nicht aktiv. Bitte neu starten — die laufende Sitzung zeigt weiter
             die alte Version.
           </SettingsHint>
+        ) : appUpdate.status.kind === "downloading" ||
+          appUpdate.status.kind === "installing" ? (
+          <SettingsHint>
+            Update läuft — Fortschritt im Update-Fenster. Unter Windows schließt
+            sich die App nach dem Download und startet neu.
+          </SettingsHint>
         ) : appUpdate.status.kind === "needsManualRestart" ? (
           <SettingsHint>
             Das Update ist installiert. Bitte die App manuell schließen und
@@ -495,8 +499,8 @@ export function SettingsSheet({
           </SettingsHint>
         ) : (
           <SettingsHint>
-            Prüfung und Download nur manuell — kein automatisches Update beim
-            Start.
+            Prüfung nur manuell. Download und Installation nach Bestätigung —
+            Fortschritt erscheint in einem eigenen Fenster.
           </SettingsHint>
         )}
         <div className="settings-connection-actions">
@@ -511,12 +515,12 @@ export function SettingsSheet({
                 void (async () => {
                   const ok = await confirmDialog({
                     title: "Update installieren?",
-                    body: `Update ${ver} herunterladen und installieren?\n\nDie App kann danach einen Neustart benötigen.`,
+                    body: `Update ${ver} herunterladen und installieren?\n\nDie App schließt sich danach und startet neu.`,
                     confirmLabel: "Installieren",
                     eyebrow: "App-Update",
                   });
                   if (!ok) return;
-                  void appUpdate.downloadAndInstall();
+                  appUpdate.beginInstallFromUi();
                 })();
               }}
             >
