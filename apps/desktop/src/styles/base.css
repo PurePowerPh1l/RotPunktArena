@@ -6,9 +6,9 @@
   --bg1: #1a1f27;
   --ink: #f2f0eb;
   --muted: #9aa3b0;
-  --accent: #c23a2b;
-  --accent-soft: rgba(194, 58, 43, 0.18);
-  --accent-line: rgba(194, 58, 43, 0.55);
+  --accent: #e0764c;
+  --accent-soft: rgba(224, 118, 76, 0.18);
+  --accent-line: rgba(224, 118, 76, 0.55);
   --ok: #5ecf7a;
   --warn: #e0b14a;
   --bad: #e57368;
@@ -40,10 +40,10 @@
   --status-draft-ink: #ffe6a0;
   --status-closed-ink: #ffc9c3;
   --status-template-ink: #c8d4f5;
-  --status-promo-ink: #e8a898;
+  --status-promo-ink: #e8b9a4;
   --status-link-ink: #b8e6bb;
   --banner-error-ink: #ffd5cf;
-  --hist-best-ink: #e8b4a8;
+  --hist-best-ink: #e8c4b0;
   --radius: 10px;
   --radius-sm: 6px;
   --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
@@ -65,8 +65,8 @@ html[data-color-scheme="light"] {
   --bg1: #e7e9ee;
   --ink: #1a1f27;
   --muted: #5a6472;
-  --accent-soft: rgba(194, 58, 43, 0.12);
-  --accent-line: rgba(194, 58, 43, 0.4);
+  --accent-soft: rgba(224, 118, 76, 0.12);
+  --accent-line: rgba(224, 118, 76, 0.4);
   --panel: rgba(0, 0, 0, 0.035);
   --panel-border: rgba(0, 0, 0, 0.1);
   --panel-inset: rgba(0, 0, 0, 0.05);
@@ -93,10 +93,10 @@ html[data-color-scheme="light"] {
   --status-draft-ink: #7a5a12;
   --status-closed-ink: #9a2f2f;
   --status-template-ink: #3a4a8a;
-  --status-promo-ink: #9a3228;
+  --status-promo-ink: #7a3a22;
   --status-link-ink: #1f6b3a;
   --banner-error-ink: #9a2f2f;
-  --hist-best-ink: #8a3228;
+  --hist-best-ink: #6e321c;
 }
 
 html[data-color-scheme="dark"] {
@@ -128,7 +128,7 @@ body,
 
 body {
   background:
-    radial-gradient(900px 520px at 6% -8%, rgba(194, 58, 43, 0.14) 0%, transparent 55%),
+    radial-gradient(900px 520px at 6% -8%, rgba(224, 118, 76, 0.14) 0%, transparent 55%),
     radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.16) 0%, transparent 50%),
     radial-gradient(640px 420px at 50% 108%, rgba(40, 48, 58, 0.55) 0%, transparent 55%),
     linear-gradient(168deg, #0e1116 0%, var(--bg0) 45%, var(--bg1) 100%);
@@ -138,7 +138,7 @@ body {
 
 html[data-color-scheme="light"] body {
   background:
-    radial-gradient(900px 520px at 6% -8%, rgba(194, 58, 43, 0.08) 0%, transparent 55%),
+    radial-gradient(900px 520px at 6% -8%, rgba(224, 118, 76, 0.08) 0%, transparent 55%),
     radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.08) 0%, transparent 50%),
     linear-gradient(168deg, #fafbfc 0%, var(--bg0) 45%, var(--bg1) 100%);
 }
@@ -170,11 +170,11 @@ body.is-app-fullscreen .app-frame {
   box-sizing: border-box;
 }
 
-/* Statistik + Verwaltung: warm orange ambient wash (nav accent stays brick). */
+/* Statistik + Verwaltung: soft orange ambient wash. */
 .app-frame-bureau,
 .app-frame-history {
   background:
-    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.16) 0%, transparent 55%),
+    radial-gradient(900px 520px at 6% -8%, rgba(224, 118, 76, 0.14) 0%, transparent 55%),
     radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.12) 0%, transparent 50%),
     radial-gradient(640px 420px at 50% 108%, rgba(40, 48, 58, 0.35) 0%, transparent 55%);
 }
@@ -182,7 +182,7 @@ body.is-app-fullscreen .app-frame {
 html[data-color-scheme="light"] .app-frame-bureau,
 html[data-color-scheme="light"] .app-frame-history {
   background:
-    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.1) 0%, transparent 55%),
+    radial-gradient(900px 520px at 6% -8%, rgba(224, 118, 76, 0.09) 0%, transparent 55%),
     radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.06) 0%, transparent 50%);
 }
 
@@ -468,6 +468,21 @@ html[data-color-scheme="light"] .app-frame-history {
   flex-shrink: 0;
 }
 
+html[data-color-scheme="light"] .top-cluster {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+html[data-color-scheme="light"] .top-tool:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+html[data-color-scheme="light"] .top-tool.is-on {
+  background: color-mix(in srgb, var(--accent) 16%, #fff);
+  color: var(--hist-best-ink);
+}
+
 .top-tool {
   appearance: none;
   display: inline-flex;
@@ -582,7 +597,7 @@ html[data-color-scheme="light"] .app-frame-history {
 }
 
 .top-tool:focus-visible {
-  outline: 2px solid rgba(194, 58, 43, 0.65);
+  outline: 2px solid rgba(224, 118, 76, 0.65);
   outline-offset: 1px;
 }
 

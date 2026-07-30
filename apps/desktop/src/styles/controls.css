@@ -43,7 +43,7 @@
   transform: translateY(-1.5px) scale(1.02);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.16) inset,
-    0 8px 20px rgba(194, 58, 43, 0.26);
+    0 8px 20px rgba(224, 118, 76, 0.26);
   filter: brightness(1.05);
 }
 
@@ -125,6 +125,15 @@
   flex-shrink: 0;
 }
 
+html[data-color-scheme="light"] .sliding-seg {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+html[data-color-scheme="light"] .sliding-seg.mode-row {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 .sliding-seg-pill {
   position: absolute;
   top: 0.18rem;
@@ -163,7 +172,7 @@
     box-shadow 0.35s ease;
 }
 
-/* Training = cool steel; competition stays warm accent. */
+/* Training button stays steel-blue; competition follows muted orange accent. */
 .sliding-seg.mode-row[data-value="training"] .sliding-seg-pill {
   background: #3f6f8f;
   box-shadow:
@@ -172,10 +181,10 @@
 }
 
 .sliding-seg.mode-row[data-value="competition"] .sliding-seg-pill {
-  background: #e25a28;
+  background: var(--accent);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.18) inset,
-    0 4px 14px rgba(226, 90, 40, 0.35);
+    0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .sliding-seg.mode-row .sliding-seg-btn {
@@ -305,7 +314,7 @@
 }
 
 .controls-actions .magic-btn.start-cta.is-nachkauf {
-  background: linear-gradient(135deg, #c47a22 0%, var(--accent) 55%, #c23a2b 100%);
+  background: linear-gradient(135deg, #c47a22 0%, var(--accent) 55%, #e0764c 100%);
 }
 
 .magic-btn.is-nachkauf:not(:disabled) {
