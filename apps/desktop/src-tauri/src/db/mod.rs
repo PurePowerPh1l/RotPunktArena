@@ -29,8 +29,9 @@ pub use sessions::{append_event_in_tx, session_phase_in_tx, touch_autosave_in_tx
 pub use snapshots::{SNAPSHOT_EVERY_N_SHOTS, SNAPSHOT_SUBDIR};
 pub use teams::{CompetitionTeam, TeamResultSummary};
 pub use training::{
-    TrainingSaveInfo, TrainingSessionDetail, TrainingSessionSummary, TrainingShooterOption,
-    TRAINING_HISTORY_MIN_SHOTS, TRAINING_SERIES_SHOTS,
+    normalize_training_series_shots, TrainingSaveInfo, TrainingSessionDetail,
+    TrainingSessionSummary, TrainingShooterOption, TRAINING_HISTORY_MIN_SHOTS,
+    TRAINING_SERIES_SHOTS,
 };
 
 pub struct Database {

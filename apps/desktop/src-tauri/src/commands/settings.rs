@@ -69,6 +69,13 @@ pub struct UiPrefs {
     pub remember_score_display: bool,
     pub hit_feedback: HitFeedbackPref,
     pub target_fit: TargetFitPref,
+    /// Training series length when not endless. Allowed: 5 / 10 / 20 / 30.
+    #[serde(default = "default_training_series_shots")]
+    pub training_series_shots: i64,
+}
+
+fn default_training_series_shots() -> i64 {
+    crate::db::TRAINING_SERIES_SHOTS
 }
 
 impl Default for UiPrefs {
@@ -87,6 +94,7 @@ impl Default for UiPrefs {
             remember_score_display: false,
             hit_feedback: HitFeedbackPref::Normal,
             target_fit: TargetFitPref::Auto,
+            training_series_shots: crate::db::TRAINING_SERIES_SHOTS,
         }
     }
 }
@@ -102,7 +110,12 @@ fn parse_ui_prefs_json(raw: &str) -> Result<UiPrefs, String> {
 fn load_ui_prefs(db: &Database) -> Result<UiPrefs, String> {
     match db.get_setting(UI_PREFS_KEY)? {
         None => Ok(UiPrefs::default()),
-        Some(raw) => parse_ui_prefs_json(&raw),
+        Some(raw) => {
+            let mut prefs = parse_ui_prefs_json(&raw)?;
+            prefs.training_series_shots =
+                crate::db::normalize_training_series_shots(prefs.training_series_shots);
+            Ok(prefs)
+        }
     }
 }
 
@@ -114,16 +127,21 @@ fn store_ui_prefs(db: &Database, prefs: &UiPrefs) -> Result<(), String> {
 /// Missing key → defaults. Corrupt / invalid stored JSON → error (no silent overwrite).
 #[tauri::command]
 pub fn get_ui_prefs(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<UiPrefs, String> {
-    engine.with_db(load_ui_prefs)
+    let prefs = engine.with_db(load_ui_prefs)?;
+    engine.set_training_series_shots_pref(prefs.training_series_shots);
+    Ok(prefs)
 }
 
 /// Full validated DTO write — exactly one `Db::set_setting("ui.prefs", …)`.
 #[tauri::command]
 pub fn set_ui_prefs(
     engine: tauri::State<'_, Arc<StandEngine>>,
-    prefs: UiPrefs,
+    mut prefs: UiPrefs,
 ) -> Result<UiPrefs, String> {
-    // `prefs` already deserialized by Tauri/serde (rejects unknown enums / bad types).
+    prefs.training_series_shots =
+        crate::db::normalize_training_series_shots(prefs.training_series_shots);
+    // Keep live training preference in sync for start / endless-off.
+    engine.set_training_series_shots_pref(prefs.training_series_shots);
     engine.with_db(|db| {
         store_ui_prefs(db, &prefs)?;
         Ok(prefs.clone())
@@ -267,12 +285,14 @@ mod tests {
             "rememberScoreDisplay",
             "hitFeedback",
             "targetFit",
+            "trainingSeriesShots",
         ] {
             assert!(obj.contains_key(key), "missing key {key}");
         }
         assert_eq!(obj["startView"], "live");
         assert_eq!(obj["scoreDisplay"], "punkte");
         assert_eq!(obj["colorScheme"], "system");
+        assert_eq!(obj["trainingSeriesShots"], 10);
         assert_eq!(obj["lastView"], serde_json::Value::Null);
     }
 
@@ -297,5 +317,6 @@ mod tests {
         let prefs = load_ui_prefs(&db).unwrap();
         assert!(prefs.large_text);
         assert!(!prefs.extra_large_ui);
+        assert_eq!(prefs.training_series_shots, crate::db::TRAINING_SERIES_SHOTS);
     }
 }

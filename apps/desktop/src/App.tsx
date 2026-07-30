@@ -322,6 +322,7 @@ export default function App() {
               rememberScoreDisplay: uiPrefs.prefs.rememberScoreDisplay,
               hitFeedback: uiPrefs.prefs.hitFeedback,
               targetFit: uiPrefs.prefs.targetFit,
+              trainingSeriesShots: uiPrefs.prefs.trainingSeriesShots,
               onUpdatePrefs: uiPrefs.updatePrefs,
             }}
           />
