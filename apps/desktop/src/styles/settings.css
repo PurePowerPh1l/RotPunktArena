@@ -73,11 +73,8 @@
 }
 
 .side-sheet-toggle input {
-  width: 1rem;
-  height: 1rem;
-  margin-top: 0.15rem;
+  /* Sized/themed via shared checkbox rules in base.css */
   flex-shrink: 0;
-  accent-color: var(--ok);
 }
 
 .side-sheet-toggle .field-hint {
@@ -230,6 +227,63 @@
   background: rgba(255, 255, 255, 0.02);
   overflow: hidden;
   flex-shrink: 0;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
+}
+
+/* Light mode: white overlays vanish on pale sheets — use ink washes instead. */
+html[data-color-scheme="light"] .side-sheet {
+  background: var(--elevated);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+html[data-color-scheme="light"] .settings-section {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.035);
+}
+
+html[data-color-scheme="light"] .settings-section.is-collapsed:hover {
+  background: rgba(0, 0, 0, 0.055);
+}
+
+html[data-color-scheme="light"] .settings-section.is-open {
+  border-color: color-mix(in srgb, var(--accent) 42%, rgba(0, 0, 0, 0.12));
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--accent) 18%, #fff) 0%,
+      color-mix(in srgb, var(--bg1) 55%, #fff) 48%,
+      #fff 100%
+    );
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+html[data-color-scheme="light"] .settings-section.is-open.is-danger {
+  border-color: rgba(180, 60, 60, 0.4);
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, rgba(200, 72, 72, 0.14) 80%, #fff) 0%,
+      #fff 100%
+    );
+  box-shadow:
+    inset 3px 0 0 rgba(180, 60, 60, 0.7),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+html[data-color-scheme="light"] .settings-section-toggle:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+html[data-color-scheme="light"] .settings-section.is-open > .settings-section-toggle {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .settings-section + .settings-section {
@@ -241,8 +295,42 @@
   background: color-mix(in srgb, rgba(200, 72, 72, 0.05) 55%, transparent);
 }
 
+.settings-section.is-collapsed {
+  opacity: 0.78;
+}
+
+.settings-section.is-collapsed:hover {
+  opacity: 0.92;
+  background: rgba(255, 255, 255, 0.035);
+}
+
 .settings-section.is-open {
-  background: rgba(255, 255, 255, 0.03);
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--panel-border));
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+      rgba(255, 255, 255, 0.04) 48%,
+      rgba(255, 255, 255, 0.025) 100%
+    );
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--accent) 72%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.settings-section.is-open.is-danger {
+  border-color: rgba(200, 72, 72, 0.38);
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, rgba(200, 72, 72, 0.16) 70%, transparent) 0%,
+      rgba(255, 255, 255, 0.03) 55%,
+      transparent 100%
+    );
+  box-shadow:
+    inset 3px 0 0 rgba(200, 72, 72, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .settings-section-toggle {
@@ -263,6 +351,14 @@
 
 .settings-section-toggle:hover {
   background: rgba(255, 255, 255, 0.03);
+}
+
+.settings-section.is-open > .settings-section-toggle {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.settings-section.is-open.is-danger > .settings-section-toggle {
+  background: color-mix(in srgb, rgba(200, 72, 72, 0.08) 70%, transparent);
 }
 
 .settings-section-toggle-copy {
@@ -293,11 +389,20 @@
   border-bottom: 1.6px solid var(--muted);
   transform: rotate(45deg);
   opacity: 0.7;
-  transition: transform 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .settings-section.is-open .settings-section-chevron {
   transform: rotate(225deg);
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+  opacity: 0.95;
+}
+
+.settings-section.is-open.is-danger .settings-section-chevron {
+  border-color: color-mix(in srgb, var(--bad) 65%, var(--muted));
 }
 
 .settings-section-head {
@@ -315,6 +420,16 @@
   text-transform: uppercase;
   color: var(--muted);
   line-height: 1.2;
+  transition: color 0.18s ease;
+}
+
+.settings-section.is-open .settings-section-title {
+  color: color-mix(in srgb, var(--accent) 42%, var(--ink));
+  font-weight: 700;
+}
+
+.settings-section.is-open.is-danger .settings-section-title {
+  color: color-mix(in srgb, var(--bad) 45%, var(--ink));
 }
 
 .settings-section-desc {
@@ -676,9 +791,9 @@
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle input {
-  width: 1.1em;
-  height: 1.1em;
-  margin-top: 0.15em;
+  width: 1.15em;
+  height: 1.15em;
+  margin-top: 0.12em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-action-primary {
