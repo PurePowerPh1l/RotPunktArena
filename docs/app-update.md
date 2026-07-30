@@ -220,11 +220,11 @@ Jeder Slice: eigener Branch, eigener Commit, kein fachfremder Diff.
 ### V2 — Happy Path (Slice 3)
 
 1. Altversion installiert, Manifest zeigt Neu.
-2. Check → available.
-3. Download startet; Busy/Progress sichtbar.
-4. Confirm → Install erfolgreich.
-5. Relaunch angeboten/ausgeführt.
-6. Nach Neustart: neue Version in „App & Updates“ sichtbar.
+2. Check → available (Start-Notice und/oder Settings).
+3. Confirm → gemeinsames Update-Progress-Sheet mit Download-Balken.
+4. Windows: `installMode: quiet` → stilles NSIS (`/S /R`); App beendet sich und startet neu — kein Installer-Fenster.
+5. Nach Neustart: neue Version in „App & Updates“ sichtbar.
+6. Fallback (nicht-Windows / kein Auto-Exit): `readyToRelaunch` + „Jetzt neu starten“.
 
 ### V2 — Negativ
 
