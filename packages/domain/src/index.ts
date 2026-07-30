@@ -192,18 +192,30 @@ export interface TrainingSaveInfo {
   reason: string;
 }
 
-/** Fixed training series length. Must match Rust `TRAINING_SERIES_SHOTS`. */
-export const TRAINING_SERIES_SHOTS = 10;
+/** Allowed training series lengths. Must match Rust `TRAINING_SERIES_SHOT_OPTIONS`. */
+export const TRAINING_SERIES_SHOT_OPTIONS = [5, 10, 20, 30] as const;
+export type TrainingSeriesShots = (typeof TRAINING_SERIES_SHOT_OPTIONS)[number];
 
-/** Must match Rust `TRAINING_HISTORY_MIN_SHOTS` (= full series only). */
+/** Default training series length. Must match Rust `TRAINING_SERIES_SHOTS`. */
+export const TRAINING_SERIES_SHOTS: TrainingSeriesShots = 10;
+
+/** @deprecated Prefer session maxShots; kept as default complete-series floor. */
 export const TRAINING_HISTORY_MIN_SHOTS = TRAINING_SERIES_SHOTS;
 
+export function isTrainingSeriesShots(n: number): n is TrainingSeriesShots {
+  return (TRAINING_SERIES_SHOT_OPTIONS as readonly number[]).includes(n);
+}
+
+export function normalizeTrainingSeriesShots(n: number): TrainingSeriesShots {
+  return isTrainingSeriesShots(n) ? n : TRAINING_SERIES_SHOTS;
+}
+
 /** German UI copy derived from TrainingSaveInfo / min-shots policy. */
-export function trainingHistoryMinShotsHint(minShots = TRAINING_HISTORY_MIN_SHOTS): string {
+export function trainingHistoryMinShotsHint(minShots: number = TRAINING_HISTORY_MIN_SHOTS): string {
   return `Nur vollständige ${minShots}er-Serien landen in der Statistik — kürzere Abbrüche werden verworfen.`;
 }
 
-export function trainingResetConfirmMessage(minShots = TRAINING_HISTORY_MIN_SHOTS): string {
+export function trainingResetConfirmMessage(minShots: number = TRAINING_HISTORY_MIN_SHOTS): string {
   return `Aktuelle Serie beenden und neue starten?\n(${trainingHistoryMinShotsHint(minShots)})`;
 }
 
@@ -428,6 +440,8 @@ export interface UiPrefs {
   rememberScoreDisplay: boolean;
   hitFeedback: HitFeedbackPref;
   targetFit: TargetFitPref;
+  /** Training series length when not in endless mode. */
+  trainingSeriesShots: TrainingSeriesShots;
 }
 
 /**
@@ -447,4 +461,5 @@ export const UI_PREFS_LOAD_PLACEHOLDER: UiPrefs = {
   rememberScoreDisplay: false,
   hitFeedback: "normal",
   targetFit: "auto",
+  trainingSeriesShots: TRAINING_SERIES_SHOTS,
 };

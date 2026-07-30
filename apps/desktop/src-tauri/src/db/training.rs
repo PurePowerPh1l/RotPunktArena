@@ -6,13 +6,24 @@
 use super::Database;
 use rusqlite::{params, OptionalExtension};
 
-/// Fixed training series length — one series = this many shots.
+/// Default training series length — one series = this many shots unless
+/// the user picks another allowed length (`TRAINING_SERIES_SHOT_OPTIONS`).
 /// Must match `packages/domain` `TRAINING_SERIES_SHOTS`.
 pub const TRAINING_SERIES_SHOTS: i64 = 10;
 
-/// Minimum shots before a training series appears in history.
-/// Equals [`TRAINING_SERIES_SHOTS`] so only complete series feed statistics.
+/// Allowed training series lengths. Must match domain `TRAINING_SERIES_SHOT_OPTIONS`.
+pub const TRAINING_SERIES_SHOT_OPTIONS: [i64; 4] = [5, 10, 20, 30];
+
+/// Fallback floor for history when a session has no persisted `max_shots`.
 pub const TRAINING_HISTORY_MIN_SHOTS: i64 = TRAINING_SERIES_SHOTS;
+
+pub fn normalize_training_series_shots(n: i64) -> i64 {
+    if TRAINING_SERIES_SHOT_OPTIONS.contains(&n) {
+        n
+    } else {
+        TRAINING_SERIES_SHOTS
+    }
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,7 +83,7 @@ impl TrainingSaveInfo {
                 self.shot_count
             )),
             "too_short" => Some(format!(
-                "Serie beendet ({} Schüsse) — Statistik nur bei voller {}er-Serie",
+                "Serie beendet ({} Schüsse) — Statistik nur bei voller Serie ({} Schüsse)",
                 self.shot_count, self.min_shots
             )),
             "empty" => Some("Serie beendet — keine Schüsse, nichts gespeichert".into()),
@@ -91,39 +102,43 @@ impl Database {
     /// Policy (DB is source of truth):
     /// - competition sessions → never history
     /// - 0 shots → not saved
-    /// - 1..MIN-1 → not saved (anti-spam)
-    /// - ≥ MIN → set `training_saved` once (idempotent)
+    /// - fewer than the session's `max_shots` (or default floor) → not saved
+    /// - ≥ limit → set `training_saved` once (idempotent)
     pub fn maybe_save_training_history(
         &self,
         session_id: &str,
         is_training: bool,
     ) -> Result<TrainingSaveInfo, String> {
-        let min_shots = TRAINING_HISTORY_MIN_SHOTS;
         if !is_training {
             return Ok(TrainingSaveInfo::not_training());
         }
 
-        let row: Option<(i64, Option<String>)> = self
+        let row: Option<(i64, Option<String>, Option<i64>)> = self
             .conn
             .query_row(
-                "SELECT training_saved, competition_id FROM sessions WHERE id = ?1",
+                "SELECT training_saved, competition_id, max_shots FROM sessions WHERE id = ?1",
                 params![session_id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .optional()
             .map_err(|e| e.to_string())?;
 
-        let Some((already_flagged, competition_id)) = row else {
+        let Some((already_flagged, competition_id, session_max)) = row else {
             return Ok(TrainingSaveInfo {
                 saved: false,
                 shot_count: 0,
-                min_shots,
+                min_shots: TRAINING_HISTORY_MIN_SHOTS,
                 reason: "empty".into(),
             });
         };
         if competition_id.is_some() {
             return Ok(TrainingSaveInfo::not_training());
         }
+
+        let min_shots = session_max
+            .filter(|&n| n > 0)
+            .map(normalize_training_series_shots)
+            .unwrap_or(TRAINING_HISTORY_MIN_SHOTS);
 
         let shot_count = self.count_session_shots(session_id)?;
         if already_flagged != 0 {
@@ -373,6 +388,8 @@ mod tests {
         let session = db
             .start_session("Test", None, None, None)
             .expect("session");
+        db.set_session_max_shots(&session.id, Some(TRAINING_SERIES_SHOTS))
+            .expect("max shots");
         for i in 0..shots {
             let x = format!("{:05}", i + 1);
             let frame = build_synthetic_shot_frame("10.5", "012.30", &x, "00040").unwrap();
@@ -388,7 +405,7 @@ mod tests {
         let mut db = Database::open_in_memory().unwrap();
         let empty = seed_training(&mut db, 0);
         let short = seed_training(&mut db, 3);
-        let ok = seed_training(&mut db, TRAINING_HISTORY_MIN_SHOTS);
+        let ok = seed_training(&mut db, TRAINING_SERIES_SHOTS);
 
         let a = db.maybe_save_training_history(&empty, true).unwrap();
         assert_eq!(a.reason, "empty");
@@ -402,10 +419,28 @@ mod tests {
         let c = db.maybe_save_training_history(&ok, true).unwrap();
         assert_eq!(c.reason, "saved");
         assert!(c.saved);
-        assert_eq!(c.shot_count, TRAINING_HISTORY_MIN_SHOTS);
+        assert_eq!(c.shot_count, TRAINING_SERIES_SHOTS);
 
         let again = db.maybe_save_training_history(&ok, true).unwrap();
         assert!(again.saved);
+    }
+
+    #[test]
+    fn saves_complete_five_shot_series() {
+        let mut db = Database::open_in_memory().unwrap();
+        let session = db.start_session("Test", None, None, None).unwrap();
+        db.set_session_max_shots(&session.id, Some(5)).unwrap();
+        for i in 0..5 {
+            let x = format!("{:05}", i + 1);
+            let frame = build_synthetic_shot_frame("10.5", "012.30", &x, "00040").unwrap();
+            let _ = db
+                .ingest_raw_frame(&session.id, &frame, "test", None)
+                .unwrap();
+        }
+        let info = db.maybe_save_training_history(&session.id, true).unwrap();
+        assert_eq!(info.reason, "saved");
+        assert_eq!(info.min_shots, 5);
+        assert_eq!(info.shot_count, 5);
     }
 
     #[test]

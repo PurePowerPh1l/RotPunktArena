@@ -56,6 +56,10 @@ export async function setTrainingEndless(endless: boolean): Promise<LiveState> {
   return invoke("set_training_endless", { endless });
 }
 
+export async function setTrainingSeriesShots(shots: number): Promise<LiveState> {
+  return invoke("set_training_series_shots", { shots });
+}
+
 export async function saveTrainingSession(): Promise<LiveState> {
   return invoke("save_training_session");
 }
