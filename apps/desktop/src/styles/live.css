@@ -683,6 +683,22 @@
   color: var(--accent);
 }
 
+.series-shots-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.series-shots-label {
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
 .print-btn {
   margin-top: 0.65rem;
   align-self: start;

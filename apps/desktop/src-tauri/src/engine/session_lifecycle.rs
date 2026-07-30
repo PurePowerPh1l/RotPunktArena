@@ -66,7 +66,13 @@ impl StandEngine {
                 self.with_db(|db| db.effective_max_shots(cid, args.entry_id.as_deref()))?
             }
             None if endless => None,
-            None => Some(crate::db::TRAINING_SERIES_SHOTS),
+            None => {
+                let n = {
+                    let g = self.inner.lock();
+                    g.training_series_shots
+                };
+                Some(crate::db::normalize_training_series_shots(n))
+            }
         };
         // Persist so Arena ingest enforces the limit inside its TX
         // (closes the race between last accepted shot and series finish).
@@ -202,11 +208,24 @@ impl StandEngine {
         }
 
         // Interrupted sessions resume as normal series (endless is not persisted).
+        // Prefer the limit already stored on the session row.
+        let pref = {
+            let g = self.inner.lock();
+            crate::db::normalize_training_series_shots(g.training_series_shots)
+        };
         let max_shots = match &session.competition_id {
             Some(cid) => {
                 self.with_db(|db| db.effective_max_shots(cid, session.entry_id.as_deref()))?
             }
-            None => Some(crate::db::TRAINING_SERIES_SHOTS),
+            None => {
+                let stored = self.with_db(|db| db.get_session_max_shots(session_id))?;
+                Some(
+                    stored
+                        .filter(|&n| n > 0)
+                        .map(crate::db::normalize_training_series_shots)
+                        .unwrap_or(pref),
+                )
+            }
         };
         self.with_db_mut(|db| db.set_session_max_shots(session_id, max_shots))?;
         let series_complete = !probe && max_shots.is_some_and(|m| shots.len() as i64 >= m);
@@ -459,7 +478,7 @@ impl StandEngine {
                     g.max_shots = None;
                     (None, session_id.map(|id| (id, None)))
                 } else {
-                    let max = crate::db::TRAINING_SERIES_SHOTS;
+                    let max = crate::db::normalize_training_series_shots(g.training_series_shots);
                     g.max_shots = Some(max);
                     let n = g.shots.len() as i64;
                     let finish = if n >= max { Some(n) } else { None };
@@ -469,6 +488,50 @@ impl StandEngine {
         };
         // Keep the persisted per-session limit in sync so Arena ingest
         // enforces the same cap as the live engine.
+        if let Some((session_id, max)) = persist {
+            self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
+        }
+        if let Some(shot_index) = finish_at {
+            self.finish_series_if_needed(app, shot_index);
+        }
+        Ok(self.snapshot())
+    }
+
+    /// Remember preferred training series length (does not mutate an open session).
+    pub fn set_training_series_shots_pref(&self, shots: i64) {
+        let n = crate::db::normalize_training_series_shots(shots);
+        let mut g = self.inner.lock();
+        g.training_series_shots = n;
+    }
+
+    /// Set training series length preference and apply to an open non-endless session.
+    pub fn set_training_series_shots(
+        &self,
+        app: &AppHandle,
+        shots: i64,
+    ) -> Result<LiveState, String> {
+        let n = crate::db::normalize_training_series_shots(shots);
+        let (finish_at, persist) = {
+            let mut g = self.inner.lock();
+            if g.session
+                .as_ref()
+                .is_some_and(|s| s.competition_id.is_some())
+            {
+                return Err("Schusszahl nur im Training änderbar".into());
+            }
+            g.training_series_shots = n;
+            let open =
+                g.session.as_ref().is_some_and(|s| s.ended_at.is_none()) && !g.series_complete;
+            if !open || g.endless_mode {
+                (None, None)
+            } else {
+                let session_id = g.session.as_ref().map(|s| s.id.clone());
+                g.max_shots = Some(n);
+                let count = g.shots.len() as i64;
+                let finish = if count >= n { Some(count) } else { None };
+                (finish, session_id.map(|id| (id, Some(n))))
+            }
+        };
         if let Some((session_id, max)) = persist {
             self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
         }

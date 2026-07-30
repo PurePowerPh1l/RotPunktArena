@@ -35,6 +35,9 @@ type Props = {
   nachkaufPurchased: number;
   endlessMode: boolean;
   onEndlessModeChange: (endless: boolean) => void;
+  /** Training series length (5/10/20/30); ignored when endless. */
+  seriesShots?: number;
+  onSeriesShotsChange?: (shots: number) => void;
   /** Probephase aktiv — Schüsse sind ungewertete Probeschüsse. */
   probeActive?: boolean;
   /** „Wertung beginnen“ — Probephase beenden. */
@@ -70,6 +73,8 @@ export function LiveScoreColumn({
   nachkaufPurchased,
   endlessMode,
   onEndlessModeChange,
+  seriesShots = 10,
+  onSeriesShotsChange,
   probeActive = false,
   onFinishProbe,
   ceremony = null,
@@ -244,6 +249,23 @@ export function LiveScoreColumn({
 
       {showEndlessToggle ? (
         <div className="score-actions">
+          {!endlessMode && onSeriesShotsChange ? (
+            <div className="series-shots-picker">
+              <span className="series-shots-label">Schüsse</span>
+              <SlidingSeg
+                size="sm"
+                ariaLabel="Schusszahl der Trainingsserie"
+                value={String(seriesShots)}
+                onChange={(v) => onSeriesShotsChange(Number(v))}
+                options={[
+                  { value: "5", label: "5" },
+                  { value: "10", label: "10" },
+                  { value: "20", label: "20" },
+                  { value: "30", label: "30" },
+                ]}
+              />
+            </div>
+          ) : null}
           <label
             className="check-field endless-toggle"
             title="Unbegrenzt schießen — wird nicht in der Statistik gespeichert"

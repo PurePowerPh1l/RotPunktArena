@@ -108,6 +108,16 @@ impl Database {
         Ok(())
     }
 
+    pub fn get_session_max_shots(&self, session_id: &str) -> Result<Option<i64>, String> {
+        self.conn
+            .query_row(
+                "SELECT max_shots FROM sessions WHERE id = ?1",
+                params![session_id],
+                |r| r.get::<_, Option<i64>>(0),
+            )
+            .map_err(|e| e.to_string())
+    }
+
     /// Persist the session phase (`probe` / `match`) so Arena ingest can
     /// classify shots inside the same TX.
     pub fn set_session_phase(&mut self, session_id: &str, phase: &str) -> Result<(), String> {

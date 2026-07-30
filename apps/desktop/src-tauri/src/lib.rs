@@ -110,6 +110,7 @@ pub fn run() {
             commands::dev_unlock_admin_session,
             commands::reset_training_series,
             commands::set_training_endless,
+            commands::set_training_series_shots,
             commands::save_training_session,
             commands::list_training_history,
             commands::get_training_session_detail,
