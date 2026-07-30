@@ -252,16 +252,16 @@ html[data-color-scheme="light"] .settings-section.is-collapsed:hover {
 }
 
 html[data-color-scheme="light"] .settings-section.is-open {
-  border-color: color-mix(in srgb, var(--accent) 42%, rgba(0, 0, 0, 0.12));
+  border-color: rgba(0, 0, 0, 0.16);
   background:
     linear-gradient(
       105deg,
-      color-mix(in srgb, var(--accent) 18%, #fff) 0%,
-      color-mix(in srgb, var(--bg1) 55%, #fff) 48%,
+      rgba(0, 0, 0, 0.04) 0%,
+      #fff 48%,
       #fff 100%
     );
   box-shadow:
-    inset 3px 0 0 color-mix(in srgb, var(--accent) 78%, transparent),
+    inset 3px 0 0 rgba(0, 0, 0, 0.22),
     0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -283,7 +283,7 @@ html[data-color-scheme="light"] .settings-section-toggle:hover {
 }
 
 html[data-color-scheme="light"] .settings-section.is-open > .settings-section-toggle {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .settings-section + .settings-section {
@@ -306,17 +306,17 @@ html[data-color-scheme="light"] .settings-section.is-open > .settings-section-to
 
 .settings-section.is-open {
   opacity: 1;
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--panel-border));
+  border-color: rgba(255, 255, 255, 0.14);
   background:
     linear-gradient(
       105deg,
-      color-mix(in srgb, var(--accent) 14%, transparent) 0%,
-      rgba(255, 255, 255, 0.04) 48%,
-      rgba(255, 255, 255, 0.025) 100%
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.035) 48%,
+      rgba(255, 255, 255, 0.02) 100%
     );
   box-shadow:
-    inset 3px 0 0 color-mix(in srgb, var(--accent) 72%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 3px 0 0 rgba(255, 255, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .settings-section.is-open.is-danger {
@@ -354,7 +354,7 @@ html[data-color-scheme="light"] .settings-section.is-open > .settings-section-to
 }
 
 .settings-section.is-open > .settings-section-toggle {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .settings-section.is-open.is-danger > .settings-section-toggle {
@@ -397,7 +397,7 @@ html[data-color-scheme="light"] .settings-section.is-open > .settings-section-to
 
 .settings-section.is-open .settings-section-chevron {
   transform: rotate(225deg);
-  border-color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+  border-color: color-mix(in srgb, var(--ink) 55%, var(--muted));
   opacity: 0.95;
 }
 
@@ -424,7 +424,7 @@ html[data-color-scheme="light"] .settings-section.is-open > .settings-section-to
 }
 
 .settings-section.is-open .settings-section-title {
-  color: color-mix(in srgb, var(--accent) 42%, var(--ink));
+  color: var(--ink);
   font-weight: 700;
 }
 

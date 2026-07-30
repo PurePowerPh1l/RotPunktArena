@@ -567,8 +567,6 @@ export function LiveStandView({
               <SeriesCeremony
                 open={ceremonyOpen}
                 seriesTotal={seriesPrimary}
-                shotCount={shotCount}
-                maxShots={maxShots}
                 pulse={arenaProgress.pulse}
                 className={feedbackClass}
                 xpPreview={

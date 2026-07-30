@@ -1,32 +1,5 @@
 /* Live-Stand: Probephase, Scheibe/Presence, Score-Spalte, Arena-Progress, Auto-Zoom */
 
-/* Training keeps cool steel; competition stays warm orange (global accent = brick). */
-.stand[data-mode="training"] {
-  --accent: #3f6f8f;
-  --accent-soft: rgba(63, 111, 143, 0.2);
-  --accent-line: rgba(63, 111, 143, 0.55);
-  --hist-best-ink: #c8dce8;
-}
-
-html[data-color-scheme="light"] .stand[data-mode="training"] {
-  --accent-soft: rgba(63, 111, 143, 0.14);
-  --accent-line: rgba(63, 111, 143, 0.42);
-  --hist-best-ink: #2a4a62;
-}
-
-.stand[data-mode="competition"] {
-  --accent: #e25a28;
-  --accent-soft: rgba(226, 90, 40, 0.18);
-  --accent-line: rgba(226, 90, 40, 0.55);
-  --hist-best-ink: #f0c4b0;
-}
-
-html[data-color-scheme="light"] .stand[data-mode="competition"] {
-  --accent-soft: rgba(226, 90, 40, 0.12);
-  --accent-line: rgba(226, 90, 40, 0.42);
-  --hist-best-ink: #9a4a2e;
-}
-
 /* Probephase (Probeschüsse vor der Wertung) */
 .probe-banner {
   margin-top: 0.45rem;
@@ -203,7 +176,7 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
 }
 
 .shot-list tbody tr.shot-row-selectable:focus-visible {
-  outline: 2px solid rgba(194, 58, 43, 0.65);
+  outline: 2px solid rgba(224, 118, 76, 0.65);
   outline-offset: -2px;
 }
 
@@ -367,7 +340,13 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
   line-height: 1.1;
 }
 
-.series-ceremony-meta,
+.series-ceremony-meta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
 .series-ceremony-trend,
 .series-ceremony-xp,
 .series-ceremony-liga,
@@ -580,8 +559,8 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
 .train-arena-strip-tab.is-active,
 .train-arena-strip-rival.is-active {
   color: var(--ink);
-  border-color: rgba(194, 58, 43, 0.35);
-  background: rgba(194, 58, 43, 0.1);
+  border-color: rgba(224, 118, 76, 0.35);
+  background: rgba(224, 118, 76, 0.1);
 }
 
 .train-arena-strip-tab-sub {
@@ -820,7 +799,7 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
 .face-wrap-interactive:focus-within {
   box-shadow:
     0 18px 36px rgba(0, 0, 0, 0.4),
-    0 0 0 2px rgba(194, 58, 43, 0.75);
+    0 0 0 2px rgba(224, 118, 76, 0.75);
 }
 
 .face {
@@ -838,7 +817,7 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
 
 /* Keyboard focus stays visible (mouse focus is handled by the wrap ring). */
 .face:focus-visible {
-  outline: 2px solid rgba(194, 58, 43, 0.75);
+  outline: 2px solid rgba(224, 118, 76, 0.75);
   outline-offset: -2px;
 }
 
@@ -892,8 +871,8 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
   margin: 0;
   padding: 0.4rem 0.75rem;
   border-radius: var(--radius-sm);
-  background: rgba(194, 58, 43, 0.14);
-  border: 1px solid rgba(194, 58, 43, 0.35);
+  background: rgba(224, 118, 76, 0.14);
+  border: 1px solid rgba(224, 118, 76, 0.35);
   color: var(--hist-best-ink);
   font-size: 0.78rem;
   line-height: 1.35;
@@ -925,20 +904,56 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
     background 0.4s ease;
 }
 
-.controls[data-mode="training"] {
-  border-color: rgba(63, 111, 143, 0.45);
+.controls[data-mode="training"],
+.controls[data-mode="competition"] {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--panel-border));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 1px rgba(63, 111, 143, 0.12),
-    0 10px 28px rgba(63, 111, 143, 0.1);
+    0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 10px 28px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.controls[data-mode="competition"] {
-  border-color: rgba(226, 90, 40, 0.42);
+/* Light mode: bottom bar stays bright — dark rgba wash reads as muddy gray. */
+html[data-color-scheme="light"] .controls {
+  background: var(--elevated);
+  border-color: rgba(0, 0, 0, 0.1);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 1px rgba(226, 90, 40, 0.1),
-    0 10px 28px rgba(226, 90, 40, 0.12);
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+html[data-color-scheme="light"] .controls[data-mode="training"],
+html[data-color-scheme="light"] .controls[data-mode="competition"] {
+  border-color: color-mix(in srgb, var(--accent) 38%, rgba(0, 0, 0, 0.12));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 6%, #fff) 0%,
+      #fff 55%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 8px 22px rgba(0, 0, 0, 0.07);
+}
+
+html[data-color-scheme="light"] .train-arena-strip {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+html[data-color-scheme="light"] .train-arena-strip-track {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+html[data-color-scheme="light"] .train-arena-strip-tab.is-active,
+html[data-color-scheme="light"] .train-arena-strip-rival.is-active {
+  border-color: color-mix(in srgb, var(--accent) 40%, rgba(0, 0, 0, 0.12));
+  background: color-mix(in srgb, var(--accent) 12%, #fff);
+}
+
+html[data-color-scheme="light"] .controls-banner {
+  background: color-mix(in srgb, var(--accent) 12%, #fff);
+  border-color: color-mix(in srgb, var(--accent) 32%, rgba(0, 0, 0, 0.1));
 }
 
 .controls-mode-stack {
@@ -1169,7 +1184,7 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
 .field input:focus,
 .field select:focus {
   outline: none;
-  border-color: rgba(194, 58, 43, 0.55);
+  border-color: rgba(224, 118, 76, 0.55);
 }
 
 .field input:disabled,
@@ -1210,13 +1225,13 @@ html[data-color-scheme="light"] .stand[data-mode="competition"] {
   letter-spacing: 0.04em;
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
-  background: rgba(194, 58, 43, 0.18);
+  background: rgba(224, 118, 76, 0.18);
   color: var(--status-promo-ink);
-  border: 1px solid rgba(194, 58, 43, 0.35);
+  border: 1px solid rgba(224, 118, 76, 0.35);
 }
 
 .shooter-ac-promote:hover:not(:disabled) {
-  background: rgba(194, 58, 43, 0.28);
+  background: rgba(224, 118, 76, 0.28);
 }
 
 .shooter-ac-error {

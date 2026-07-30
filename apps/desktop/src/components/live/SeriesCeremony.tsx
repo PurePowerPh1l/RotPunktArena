@@ -4,8 +4,6 @@ import type { SeriesPulse } from "../../training/seriesPulse";
 type Props = {
   open: boolean;
   seriesTotal: number;
-  shotCount: number;
-  maxShots: number | null;
   /** Soft pulse when series was saved into training history. */
   pulse?: SeriesPulse | null;
   /** Fallback XP estimate when history pulse is not ready yet. */
@@ -26,17 +24,12 @@ function fmtSrDelta(delta: number): string {
 export function SeriesCeremony({
   open,
   seriesTotal,
-  shotCount,
-  maxShots,
   pulse = null,
   xpPreview,
   onOpenStats,
   className,
 }: Props) {
   if (!open) return null;
-
-  const shotsLabel =
-    maxShots != null ? `${shotCount} / ${maxShots} Schüsse` : `${shotCount} Schüsse`;
 
   const xpText =
     pulse != null
@@ -81,10 +74,10 @@ export function SeriesCeremony({
       <span className="series-ceremony-kicker">
         {pulse?.leveledUp ? "Level Up" : "Serie beendet"}
       </span>
+      <span className="series-ceremony-meta">Gesamte Ringe</span>
       <span className="series-ceremony-total">
         {formatScoreCompact(seriesTotal)}
       </span>
-      <span className="series-ceremony-meta">{shotsLabel}</span>
 
       {(xpText || ligaText || pulse?.placeHint) && (
         <span className="series-ceremony-signals">
