@@ -22,6 +22,15 @@ pub fn set_training_endless(
 }
 
 #[tauri::command]
+pub fn set_training_series_shots(
+    app: tauri::AppHandle,
+    engine: tauri::State<'_, Arc<StandEngine>>,
+    shots: i64,
+) -> Result<LiveState, String> {
+    engine.set_training_series_shots(&app, shots)
+}
+
+#[tauri::command]
 pub fn save_training_session(
     engine: tauri::State<'_, Arc<StandEngine>>,
 ) -> Result<LiveState, String> {

@@ -42,6 +42,8 @@ type Props = {
   canStartCompetition: boolean;
   isTraining: boolean;
   endlessMode: boolean;
+  /** Active training series length for reset/copy. */
+  seriesShots: number;
   shotCount: number;
   serialFeature: boolean | undefined;
   transport: string | undefined;
@@ -92,6 +94,7 @@ export function LiveSessionControls({
   canStartCompetition,
   isTraining,
   endlessMode,
+  seriesShots,
   shotCount,
   serialFeature,
   transport,
@@ -130,7 +133,7 @@ export function LiveSessionControls({
   const handleReset = () => {
     const msg = endlessMode
       ? trainingEndlessResetConfirmMessage()
-      : trainingResetConfirmMessage();
+      : trainingResetConfirmMessage(seriesShots);
     void (async () => {
       const ok = await confirmDialog({
         title: "Serie zurücksetzen?",
@@ -327,7 +330,7 @@ export function LiveSessionControls({
               title={
                 endlessMode
                   ? "Endlos-Serie verwerfen und neu starten"
-                  : `Serie beenden (${trainingHistoryMinShotsHint()}) und neue starten`
+                  : `Serie beenden (${trainingHistoryMinShotsHint(seriesShots)}) und neue starten`
               }
             >
               Serie zurücksetzen

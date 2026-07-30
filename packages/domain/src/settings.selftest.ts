@@ -21,6 +21,7 @@ const expected: UiPrefs = {
   rememberScoreDisplay: false,
   hitFeedback: "normal",
   targetFit: "auto",
+  trainingSeriesShots: 10,
 };
 
 assert(
@@ -44,6 +45,7 @@ assert(
       "scoreDisplay",
       "startView",
       "targetFit",
+      "trainingSeriesShots",
     ].join(","),
   `unexpected keys: ${keys.join(",")}`,
 );

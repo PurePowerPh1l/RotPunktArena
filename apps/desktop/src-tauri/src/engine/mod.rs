@@ -88,6 +88,8 @@ struct SharedInner {
     last_training_save: Option<TrainingSaveInfo>,
     /// Preference + active session flag for training endless mode.
     endless_mode: bool,
+    /// Preferred training series length (5/10/20/30) when not endless.
+    training_series_shots: i64,
     /// Current session is in the probe phase (Probeschüsse before scoring).
     probe_active: bool,
 }
@@ -129,6 +131,7 @@ impl StandEngine {
                 series_complete: false,
                 last_training_save: None,
                 endless_mode: false,
+                training_series_shots: crate::db::TRAINING_SERIES_SHOTS,
                 probe_active: false,
             }),
             sim_control: SimulatorControl::default(),

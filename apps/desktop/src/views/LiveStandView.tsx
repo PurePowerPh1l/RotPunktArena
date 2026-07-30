@@ -8,7 +8,12 @@ import type {
   HitFeedbackPref,
   ScoreDisplayPref,
   TargetFitPref,
+  TrainingSeriesShots,
   UiPrefs,
+} from "@rotpunktarena/domain";
+import {
+  normalizeTrainingSeriesShots,
+  TRAINING_SERIES_SHOTS,
 } from "@rotpunktarena/domain";
 import { SlidingSeg } from "../components/SlidingSeg";
 import {
@@ -60,6 +65,7 @@ export type ArenaUiPrefsSlice = {
   rememberScoreDisplay: boolean;
   hitFeedback: HitFeedbackPref;
   targetFit: TargetFitPref;
+  trainingSeriesShots: TrainingSeriesShots;
   onUpdatePrefs: (patch: Partial<UiPrefs>) => void;
 };
 
@@ -156,6 +162,9 @@ export function LiveStandView({
     useState<ScoreDisplayMode | null>(null);
   const [faceLabels, setFaceLabels] = useState<FaceLabelMode>("value");
   const [endlessMode, setEndlessMode] = useState(false);
+  const [seriesShots, setSeriesShots] = useState<TrainingSeriesShots>(
+    TRAINING_SERIES_SHOTS,
+  );
   const [createBusy, setCreateBusy] = useState(false);
   const [stripFocus, setStripFocus] = useState<"xp" | "liga">("xp");
 
@@ -286,6 +295,13 @@ export function LiveStandView({
   const mouseAimActive = canAim && developerMode && mouseAimEnabled;
   const isTraining = mode === "training" && !live.state?.session?.competitionId;
   const setEndlessOnEngine = live.setEndlessMode;
+  const setSeriesShotsOnEngine = live.setSeriesShots;
+
+  useEffect(() => {
+    const next = normalizeTrainingSeriesShots(arenaPrefs.trainingSeriesShots);
+    setSeriesShots(next);
+    void setSeriesShotsOnEngine(next);
+  }, [arenaPrefs.trainingSeriesShots, setSeriesShotsOnEngine]);
 
   useEffect(() => {
     if (live.state?.endlessMode != null) {
@@ -467,6 +483,13 @@ export function LiveStandView({
     void live.setEndlessMode(next);
   };
 
+  const onSeriesShotsChange = (next: number) => {
+    const normalized = normalizeTrainingSeriesShots(next);
+    setSeriesShots(normalized);
+    arenaPrefs.onUpdatePrefs({ trainingSeriesShots: normalized });
+    void live.setSeriesShots(normalized);
+  };
+
   const startNext = async () => {
     if (live.busy) return;
     const decision = resolveLiveHardwareStart({
@@ -540,6 +563,8 @@ export function LiveStandView({
           nachkaufPurchased={selectedEntry?.nachkaufPurchased ?? 0}
           endlessMode={endlessMode}
           onEndlessModeChange={onEndlessModeChange}
+          seriesShots={seriesShots}
+          onSeriesShotsChange={onSeriesShotsChange}
           probeActive={probeActive}
           onFinishProbe={() => void live.finishProbe()}
           rivalTarget={trainingMode ? arenaProgress.rivalTarget : null}
@@ -623,6 +648,7 @@ export function LiveStandView({
         canStartCompetition={canStartCompetition}
         isTraining={isTraining}
         endlessMode={endlessMode}
+        seriesShots={seriesShots}
         shotCount={shotCount}
         serialFeature={live.state?.serialFeature}
         transport={live.state?.transport}

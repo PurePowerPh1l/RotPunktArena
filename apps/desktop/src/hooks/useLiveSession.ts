@@ -256,6 +256,15 @@ export function useLiveSession() {
     [],
   );
 
+  const setSeriesShots = useCallback(async (shots: number) => {
+    try {
+      const s = await api.setTrainingSeriesShots(shots);
+      setState(s);
+    } catch (e) {
+      setDetail(String(e));
+    }
+  }, []);
+
   const fireAt = useCallback(
     async (x: number, y: number) => {
       await runExclusive(async () => {
@@ -314,6 +323,7 @@ export function useLiveSession() {
     finishProbe,
     resetSeries,
     setEndlessMode,
+    setSeriesShots,
     fireOnce,
     fireAt,
     toggleAuto,
