@@ -12,7 +12,8 @@
   z-index: 80;
   width: var(--side-sheet-width);
   max-height: calc(100vh - 5.5rem);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: var(--side-sheet-pad);
   border-radius: var(--radius);
   border: 1px solid var(--panel-border);
@@ -23,6 +24,13 @@
   gap: var(--side-sheet-gap);
   animation: panel-bloom 0.32s var(--ease-out-expo) both;
   transform-origin: top right;
+}
+
+/* Never shrink sheet children — otherwise open accordion bodies get clipped
+   by overflow:hidden while the sheet refuses to scroll their full height. */
+.side-sheet > * {
+  flex-shrink: 0;
+  min-height: min-content;
 }
 
 .side-sheet-head {
@@ -142,7 +150,7 @@
 
 /* Settings sheet — product preference layout */
 .side-sheet.settings-sheet {
-  --side-sheet-width: min(22.5rem, calc(100vw - 2rem));
+  --side-sheet-width: min(24rem, calc(100vw - 2rem));
   --side-sheet-gap: 0.55rem;
   --side-sheet-pad: 0.85rem 0.95rem 1rem;
 }
@@ -221,6 +229,7 @@
   border: 1px solid rgba(255, 255, 255, 0.055);
   background: rgba(255, 255, 255, 0.02);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .settings-section + .settings-section {
@@ -498,21 +507,25 @@
 }
 
 .settings-choice-options {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
   gap: 0.3rem;
 }
 
 .settings-choice-btn {
   appearance: none;
   margin: 0;
-  padding: 0.32rem 0.6rem;
+  width: 100%;
+  padding: 0.32rem 0.45rem;
   border-radius: 6px;
   border: 1px solid var(--panel-border);
   background: rgba(0, 0, 0, 0.22);
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
   cursor: pointer;
 }
 
@@ -621,14 +634,51 @@
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-section-desc,
 .app-frame.is-extra-large-ui .settings-sheet .settings-hint {
-  font-size: 0.9em;
+  font-size: 0.88em;
   line-height: 1.35;
 }
 
+.app-frame.is-extra-large-ui .settings-sheet .settings-section-peek {
+  -webkit-line-clamp: 2;
+  font-size: 0.82em;
+  line-height: 1.3;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-section-body {
+  gap: 0.5em;
+  padding: 0 0.55em 0.6em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-choice-options {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7em), 1fr));
+  gap: 0.28em;
+}
+
 .app-frame.is-extra-large-ui .settings-sheet .settings-choice-btn {
-  padding: 0.38em 0.7em;
-  font-size: 0.9em;
+  padding: 0.36em 0.4em;
+  font-size: 0.86em;
   border-radius: 0.4em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .settings-row-label {
+  font-size: 0.95em;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle {
+  font-size: 0.95em;
+  gap: 0.5em;
+  align-items: flex-start;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle > span {
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle input {
+  width: 1.1em;
+  height: 1.1em;
+  margin-top: 0.15em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-action-primary {
@@ -657,16 +707,6 @@
 .app-frame.is-extra-large-ui .settings-sheet .settings-connection-actions,
 .app-frame.is-extra-large-ui .settings-sheet .settings-backup-actions {
   gap: 0.3em;
-}
-
-.app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle {
-  font-size: 1em;
-  gap: 0.55em;
-}
-
-.app-frame.is-extra-large-ui .settings-sheet .side-sheet-toggle input {
-  width: 1.1em;
-  height: 1.1em;
 }
 
 .app-frame.is-extra-large-ui .settings-sheet .settings-info-label,
