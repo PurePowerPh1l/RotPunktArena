@@ -123,9 +123,9 @@ export function LiveScoreColumn({
 
   return (
     <section className="score-col">
-      <p className="shooter">
+      <p className={`shooter is-${mode}`}>
         <span className="shooter-label">
-          <IconPerson size={12} /> Schütze
+          <IconPerson size={14} /> Schütze
         </span>
         <span className="shooter-name-row">
           <span className="shooter-name">{displayName}</span>
@@ -253,7 +253,7 @@ export function LiveScoreColumn({
             <div className="series-shots-picker">
               <span className="series-shots-label">Schüsse</span>
               <SlidingSeg
-                size="sm"
+                size="md"
                 ariaLabel="Schusszahl der Trainingsserie"
                 value={String(seriesShots)}
                 onChange={(v) => onSeriesShotsChange(Number(v))}

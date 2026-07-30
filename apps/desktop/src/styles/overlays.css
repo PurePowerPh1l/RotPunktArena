@@ -83,7 +83,7 @@
 .update-notice-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #c24a22, var(--accent));
+  background: linear-gradient(90deg, #a83224, var(--accent));
   transition: width 0.35s var(--ease-out-expo);
 }
 
@@ -191,14 +191,14 @@
   place-items: center;
   padding: 1.25rem;
   background:
-    radial-gradient(720px 420px at 20% 0%, rgba(226, 90, 40, 0.2) 0%, transparent 55%),
+    radial-gradient(720px 420px at 20% 0%, rgba(194, 58, 43, 0.2) 0%, transparent 55%),
     radial-gradient(640px 380px at 90% 80%, rgba(70, 96, 130, 0.18) 0%, transparent 50%),
     linear-gradient(168deg, #0e1116 0%, var(--bg0) 50%, var(--bg1) 100%);
 }
 
 html[data-color-scheme="light"] .recovery-gate {
   background:
-    radial-gradient(720px 420px at 20% 0%, rgba(226, 90, 40, 0.1) 0%, transparent 55%),
+    radial-gradient(720px 420px at 20% 0%, rgba(194, 58, 43, 0.1) 0%, transparent 55%),
     radial-gradient(640px 380px at 90% 80%, rgba(70, 96, 130, 0.08) 0%, transparent 50%),
     linear-gradient(168deg, #fafbfc 0%, var(--bg0) 50%, var(--bg1) 100%);
 }

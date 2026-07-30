@@ -6,7 +6,9 @@ import type {
 import type { ScoreDisplayMode } from "../components/TargetFace";
 
 /**
- * Wettkampf schlägt Nutzer-Pref, überschreibt sie aber nie.
+ * Default display: Wettkampf folgt scoringMode, Training der Nutzer-Pref.
+ * Live-Umschalten Punkte/Teiler ist in beiden Modi erlaubt (Session-Override
+ * in der View); Pref wird nur im Training geschrieben.
  * Competition scoringMode `ringe` maps to display `punkte`.
  */
 export function effectiveScoreDisplay(opts: {
@@ -38,7 +40,7 @@ export function shouldPersistScoreDisplay(rememberScoreDisplay: boolean): boolea
   return rememberScoreDisplay;
 }
 
-/** Session override is dropped when entering competition. */
+/** Drop session view override when entering competition (use scoring default). */
 export function scoreDisplayOverrideForMode(
   mode: "training" | "competition",
   trainingOverride: ScoreDisplayMode | null,

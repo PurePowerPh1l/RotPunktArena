@@ -572,7 +572,7 @@
   height: 3.4rem;
   border-radius: 12px;
   background: var(--accent-soft);
-  border: 1px solid rgba(226, 90, 40, 0.4);
+  border: 1px solid rgba(194, 58, 43, 0.4);
   display: grid;
   place-items: center;
   gap: 0;
@@ -697,7 +697,7 @@
 .train-xp-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #c24a22, var(--accent));
+  background: linear-gradient(90deg, #a83224, var(--accent));
   transition: width 0.45s var(--ease-out-expo);
 }
 
@@ -826,7 +826,7 @@
 
 .chip-on {
   background: var(--accent-soft);
-  border-color: rgba(226, 90, 40, 0.65);
+  border-color: rgba(194, 58, 43, 0.65);
 }
 
 .shooter-picker {
@@ -862,7 +862,7 @@
 
 .shooter-picker-trigger.is-on {
   background: var(--accent-soft);
-  border-color: rgba(226, 90, 40, 0.65);
+  border-color: rgba(194, 58, 43, 0.65);
 }
 
 .shooter-picker-trigger-label {
@@ -921,8 +921,8 @@
 }
 
 .shooter-picker-input:focus {
-  outline: 1px solid rgba(226, 90, 40, 0.55);
-  border-color: rgba(226, 90, 40, 0.45);
+  outline: 1px solid rgba(194, 58, 43, 0.55);
+  border-color: rgba(194, 58, 43, 0.45);
 }
 
 .shooter-picker-list {
@@ -1018,7 +1018,7 @@
 }
 
 .result-series-row-active td {
-  outline: 1px solid rgba(226, 90, 40, 0.45);
+  outline: 1px solid rgba(194, 58, 43, 0.45);
   outline-offset: -1px;
 }
 
@@ -1064,12 +1064,12 @@
   padding: 0.85rem 1rem;
   border: 1px solid var(--accent-line);
   border-radius: 8px;
-  background: rgba(226, 90, 40, 0.1);
+  background: rgba(194, 58, 43, 0.1);
 }
 
 .hist-last-serie.is-levelup {
-  border-color: rgba(226, 90, 40, 0.55);
-  background: rgba(226, 90, 40, 0.16);
+  border-color: rgba(194, 58, 43, 0.55);
+  background: rgba(194, 58, 43, 0.16);
 }
 
 .hist-last-serie-main {
@@ -1886,7 +1886,7 @@
 }
 
 .hist-row-selected td {
-  background: rgba(226, 90, 40, 0.12);
+  background: rgba(194, 58, 43, 0.12);
 }
 
 @media (max-width: 900px) {
@@ -2155,7 +2155,7 @@
 }
 
 .trend-legend-series {
-  background: linear-gradient(90deg, #e25a28, #f0a060);
+  background: linear-gradient(90deg, #c23a2b, #e07060);
   height: 3px;
 }
 
@@ -2389,7 +2389,7 @@
 
 .achieve-chip.is-on {
   opacity: 1;
-  border-color: rgba(226, 90, 40, 0.45);
+  border-color: rgba(194, 58, 43, 0.45);
   background: var(--accent-soft);
 }
 
@@ -2419,7 +2419,7 @@
 
 .achieve-chip.is-on .achieve-chip-icon {
   color: var(--hist-best-ink);
-  background: rgba(226, 90, 40, 0.2);
+  background: rgba(194, 58, 43, 0.2);
 }
 
 .achieve-grid.is-expanded .achieve-chip-icon {
@@ -2467,7 +2467,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #c24a22, var(--accent));
+  background: linear-gradient(90deg, #a83224, var(--accent));
 }
 
 .shot-list td,

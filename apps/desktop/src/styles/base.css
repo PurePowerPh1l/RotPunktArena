@@ -6,9 +6,9 @@
   --bg1: #1a1f27;
   --ink: #f2f0eb;
   --muted: #9aa3b0;
-  --accent: #e25a28;
-  --accent-soft: rgba(226, 90, 40, 0.18);
-  --accent-line: rgba(226, 90, 40, 0.55);
+  --accent: #c23a2b;
+  --accent-soft: rgba(194, 58, 43, 0.18);
+  --accent-line: rgba(194, 58, 43, 0.55);
   --ok: #5ecf7a;
   --warn: #e0b14a;
   --bad: #e57368;
@@ -40,10 +40,10 @@
   --status-draft-ink: #ffe6a0;
   --status-closed-ink: #ffc9c3;
   --status-template-ink: #c8d4f5;
-  --status-promo-ink: #f0b49a;
+  --status-promo-ink: #e8a898;
   --status-link-ink: #b8e6bb;
   --banner-error-ink: #ffd5cf;
-  --hist-best-ink: #f0c4b0;
+  --hist-best-ink: #e8b4a8;
   --radius: 10px;
   --radius-sm: 6px;
   --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
@@ -65,8 +65,8 @@ html[data-color-scheme="light"] {
   --bg1: #e7e9ee;
   --ink: #1a1f27;
   --muted: #5a6472;
-  --accent-soft: rgba(226, 90, 40, 0.12);
-  --accent-line: rgba(226, 90, 40, 0.4);
+  --accent-soft: rgba(194, 58, 43, 0.12);
+  --accent-line: rgba(194, 58, 43, 0.4);
   --panel: rgba(0, 0, 0, 0.035);
   --panel-border: rgba(0, 0, 0, 0.1);
   --panel-inset: rgba(0, 0, 0, 0.05);
@@ -93,10 +93,10 @@ html[data-color-scheme="light"] {
   --status-draft-ink: #7a5a12;
   --status-closed-ink: #9a2f2f;
   --status-template-ink: #3a4a8a;
-  --status-promo-ink: #b04520;
+  --status-promo-ink: #9a3228;
   --status-link-ink: #1f6b3a;
   --banner-error-ink: #9a2f2f;
-  --hist-best-ink: #9a4a2e;
+  --hist-best-ink: #8a3228;
 }
 
 html[data-color-scheme="dark"] {
@@ -128,7 +128,7 @@ body,
 
 body {
   background:
-    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.14) 0%, transparent 55%),
+    radial-gradient(900px 520px at 6% -8%, rgba(194, 58, 43, 0.14) 0%, transparent 55%),
     radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.16) 0%, transparent 50%),
     radial-gradient(640px 420px at 50% 108%, rgba(40, 48, 58, 0.55) 0%, transparent 55%),
     linear-gradient(168deg, #0e1116 0%, var(--bg0) 45%, var(--bg1) 100%);
@@ -138,7 +138,7 @@ body {
 
 html[data-color-scheme="light"] body {
   background:
-    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.08) 0%, transparent 55%),
+    radial-gradient(900px 520px at 6% -8%, rgba(194, 58, 43, 0.08) 0%, transparent 55%),
     radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.08) 0%, transparent 50%),
     linear-gradient(168deg, #fafbfc 0%, var(--bg0) 45%, var(--bg1) 100%);
 }
@@ -168,6 +168,22 @@ body.is-app-fullscreen .app-frame {
   gap: clamp(0.45rem, 1vmin, 0.9rem);
   overflow: hidden;
   box-sizing: border-box;
+}
+
+/* Statistik + Verwaltung: warm orange ambient wash (nav accent stays brick). */
+.app-frame-bureau,
+.app-frame-history {
+  background:
+    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.16) 0%, transparent 55%),
+    radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.12) 0%, transparent 50%),
+    radial-gradient(640px 420px at 50% 108%, rgba(40, 48, 58, 0.35) 0%, transparent 55%);
+}
+
+html[data-color-scheme="light"] .app-frame-bureau,
+html[data-color-scheme="light"] .app-frame-history {
+  background:
+    radial-gradient(900px 520px at 6% -8%, rgba(226, 90, 40, 0.1) 0%, transparent 55%),
+    radial-gradient(780px 480px at 100% 0%, rgba(70, 96, 130, 0.06) 0%, transparent 50%);
 }
 
 .app-frame.is-compact-ui {
@@ -252,6 +268,61 @@ body.is-app-fullscreen .app-frame {
 .app-frame.is-extra-large-ui .score-print-btn {
   padding: 0.4rem 0.7rem;
   font-size: 0.9rem;
+}
+
+.app-frame.is-extra-large-ui .score-col .shooter {
+  font-size: 1.32rem;
+  margin-bottom: 0.65rem;
+  padding: 0.65rem 0.85rem 0.65rem 0.9rem;
+  border-radius: 12px;
+}
+
+.app-frame.is-extra-large-ui .score-col .shooter.is-competition {
+  font-size: 1.4rem;
+  padding: 0.72rem 0.9rem 0.72rem 0.95rem;
+}
+
+.app-frame.is-extra-large-ui .score-col .shooter-label {
+  font-size: 0.84rem;
+  gap: 0.4rem;
+  margin-bottom: 0.28rem;
+  letter-spacing: 0.1em;
+}
+
+.app-frame.is-extra-large-ui .score-col .shooter.is-competition .shooter-label {
+  font-size: 0.9rem;
+}
+
+.app-frame.is-extra-large-ui .score-col .shooter-label svg {
+  width: 1em;
+  height: 1em;
+}
+
+.app-frame.is-extra-large-ui .score-col .shooter-name {
+  font-size: 1.2em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.app-frame.is-extra-large-ui .controls .field.field-shooter,
+.app-frame.is-extra-large-ui .controls .live-comp-cluster .field {
+  font-size: 0.84rem;
+  gap: 0.35rem;
+}
+
+.app-frame.is-extra-large-ui .controls .field.field-compact {
+  flex: 1 1 8.5rem;
+  max-width: 17rem;
+}
+
+.app-frame.is-extra-large-ui .controls .live-comp-cluster {
+  gap: 0.5rem 0.6rem;
+  flex-basis: 18rem;
+}
+
+.app-frame.is-extra-large-ui .controls .live-comp-cluster .shooter-ac input {
+  font-size: 1.05em;
+  min-height: 2.55rem;
 }
 
 .app-frame.is-extra-large-ui .field input,
@@ -511,7 +582,93 @@ body.is-app-fullscreen .app-frame {
 }
 
 .top-tool:focus-visible {
-  outline: 2px solid rgba(226, 90, 40, 0.65);
+  outline: 2px solid rgba(194, 58, 43, 0.65);
   outline-offset: 1px;
 }
+
+/* Themed checkbox — replaces native Windows chrome (Live + Settings). */
+.check-field > input[type="checkbox"],
+.side-sheet-toggle > input[type="checkbox"] {
+  --check-accent: var(--accent);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.2em;
+  height: 1.2em;
+  margin: 0;
+  flex-shrink: 0;
+  display: grid;
+  place-content: center;
+  border: 1.5px solid color-mix(in srgb, var(--panel-border) 75%, var(--muted));
+  border-radius: 0.32em;
+  background: color-mix(in srgb, var(--input-fill) 88%, transparent);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.side-sheet-toggle > input[type="checkbox"] {
+  --check-accent: var(--ok);
+  margin-top: 0.12em;
+}
+
+.check-field > input[type="checkbox"]::before,
+.side-sheet-toggle > input[type="checkbox"]::before {
+  content: "";
+  width: 0.62em;
+  height: 0.62em;
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform 0.14s var(--ease-out-expo);
+  background: var(--ink);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.check-field > input[type="checkbox"]:hover,
+.side-sheet-toggle > input[type="checkbox"]:hover {
+  border-color: color-mix(in srgb, var(--check-accent) 45%, var(--panel-border));
+}
+
+.check-field > input[type="checkbox"]:checked,
+.side-sheet-toggle > input[type="checkbox"]:checked {
+  border-color: color-mix(in srgb, var(--check-accent) 60%, var(--panel-border));
+  background: color-mix(in srgb, var(--check-accent) 26%, rgba(0, 0, 0, 0.2));
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.2),
+    0 0 0 1px color-mix(in srgb, var(--check-accent) 22%, transparent);
+}
+
+.check-field > input[type="checkbox"]:checked::before,
+.side-sheet-toggle > input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+.check-field > input[type="checkbox"]:focus-visible,
+.side-sheet-toggle > input[type="checkbox"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--check-accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.check-field > input[type="checkbox"]:disabled,
+.side-sheet-toggle > input[type="checkbox"]:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.app-frame.is-extra-large-ui .series-shots-label {
+  font-size: 0.92em;
+}
+
+.app-frame.is-extra-large-ui .score-actions .endless-toggle {
+  font-size: 1.05em;
+}
+
+.app-frame.is-extra-large-ui .series-shots-picker .sliding-seg-md .sliding-seg-btn {
+  min-width: 2.55em;
+  padding: 0.48em 0.75em;
+  font-size: 1em;
+}
+
 

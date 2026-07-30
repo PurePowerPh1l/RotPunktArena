@@ -15,10 +15,8 @@ import {
   normalizeTrainingSeriesShots,
   TRAINING_SERIES_SHOTS,
 } from "@rotpunktarena/domain";
-import { SlidingSeg } from "../components/SlidingSeg";
 import {
   TargetFace,
-  type FaceLabelMode,
   type ScoreDisplayMode,
 } from "../components/TargetFace";
 import type { ShooterValue } from "../components/ShooterAutocomplete";
@@ -38,7 +36,6 @@ import {
   effectiveScoreDisplay,
   hitFeedbackIntensityClass,
   hitFeedbackShowsFlash,
-  scoreDisplayOverrideForMode,
   shouldPersistScoreDisplay,
   targetFitMultiplier,
 } from "../lib/arenaPrefsLogic";
@@ -157,10 +154,9 @@ export function LiveStandView({
     running: live.running,
   });
   const [mode, setMode] = useState<"training" | "competition">("training");
-  /** Session-local training override; null → use pref via effectiveScoreDisplay. */
-  const [trainingDisplayOverride, setTrainingDisplayOverride] =
+  /** Session-local Punkte/Teiler view; null → effectiveScoreDisplay default. */
+  const [displayOverride, setDisplayOverride] =
     useState<ScoreDisplayMode | null>(null);
-  const [faceLabels, setFaceLabels] = useState<FaceLabelMode>("value");
   const [endlessMode, setEndlessMode] = useState(false);
   const [seriesShots, setSeriesShots] = useState<TrainingSeriesShots>(
     TRAINING_SERIES_SHOTS,
@@ -168,28 +164,26 @@ export function LiveStandView({
   const [createBusy, setCreateBusy] = useState(false);
   const [stripFocus, setStripFocus] = useState<"xp" | "liga">("xp");
 
-  const prefDisplay = effectiveScoreDisplay({
+  const baseDisplay = effectiveScoreDisplay({
     mode,
     competitionScoringMode: selectedComp?.scoringMode,
     pref: arenaPrefs.scoreDisplay,
   });
-  const displayMode: ScoreDisplayMode =
-    mode === "training" && trainingDisplayOverride != null
-      ? trainingDisplayOverride
-      : prefDisplay;
+  const displayMode: ScoreDisplayMode = displayOverride ?? baseDisplay;
 
   const onDisplayModeChange = (next: ScoreDisplayMode) => {
-    if (mode !== "training") return;
-    setTrainingDisplayOverride(next);
-    if (shouldPersistScoreDisplay(arenaPrefs.rememberScoreDisplay)) {
+    setDisplayOverride(next);
+    if (
+      mode === "training" &&
+      shouldPersistScoreDisplay(arenaPrefs.rememberScoreDisplay)
+    ) {
       arenaPrefs.onUpdatePrefs({ scoreDisplay: next });
     }
   };
 
   useEffect(() => {
-    setTrainingDisplayOverride((prev) =>
-      scoreDisplayOverrideForMode(mode, prev),
-    );
+    // Fresh default per mode (competition scoring / training pref); live toggle re-applies.
+    setDisplayOverride(null);
   }, [mode]);
 
   const fitMult = useMemo(
@@ -536,7 +530,7 @@ export function LiveStandView({
       : trainingShooter.name.trim().length > 0;
 
   return (
-    <div className="stand">
+    <div className="stand" data-mode={mode}>
       <main className="stage">
         <LiveScoreColumn
           shooterFallback={shooter}
@@ -601,7 +595,7 @@ export function LiveStandView({
               onFocusShot={canInspect ? setFocusShot : undefined}
               interactive={mouseAimActive}
               onAimClick={(x, y) => void live.fireAt(x, y)}
-              labelMode={faceLabels}
+              labelMode="value"
               displayMode={displayMode}
               fitMultiplier={fitMult}
               allowInspect={canInspect}
@@ -615,26 +609,17 @@ export function LiveStandView({
               />
             ) : null}
           </div>
-          <div className="face-tools">
-            <SlidingSeg
-              size="sm"
-              ariaLabel="Beschriftung"
-              value={faceLabels}
-              onChange={setFaceLabels}
-              options={[
-                { value: "value", label: "Wert" },
-                { value: "index", label: "Nr." },
-                { value: "off", label: "Aus" },
-              ]}
-            />
-            <StreakChip shots={shots} visible={trainingMode} />
-            {mouseAimActive ? <p className="face-hint">Klick = Schuss</p> : null}
-            {seriesComplete && shotCount > 0 ? (
-              <p className="face-hint">
-                Schuss antippen · Mausrad zoomen · ziehen · Doppelklick zurück
-              </p>
-            ) : null}
-          </div>
+          {trainingMode || mouseAimActive || (seriesComplete && shotCount > 0) ? (
+            <div className="face-tools">
+              <StreakChip shots={shots} visible={trainingMode} />
+              {mouseAimActive ? <p className="face-hint">Klick = Schuss</p> : null}
+              {seriesComplete && shotCount > 0 ? (
+                <p className="face-hint">
+                  Schuss antippen · Mausrad zoomen · ziehen · Doppelklick zurück
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       </main>
 

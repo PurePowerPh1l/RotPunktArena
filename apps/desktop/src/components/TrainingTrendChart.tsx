@@ -275,9 +275,9 @@ export function TrainingTrendChart({
         >
           <defs>
             <linearGradient id={`trendFill-${clipId}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(226, 90, 40, 0.42)" />
-              <stop offset="55%" stopColor="rgba(226, 90, 40, 0.12)" />
-              <stop offset="100%" stopColor="rgba(226, 90, 40, 0)" />
+              <stop offset="0%" stopColor="rgba(194, 58, 43, 0.42)" />
+              <stop offset="55%" stopColor="rgba(194, 58, 43, 0.12)" />
+              <stop offset="100%" stopColor="rgba(194, 58, 43, 0)" />
             </linearGradient>
             <linearGradient
               id={`trendStroke-${clipId}`}
@@ -286,8 +286,8 @@ export function TrainingTrendChart({
               x2="1"
               y2="0"
             >
-              <stop offset="0%" stopColor="#e25a28" stopOpacity="0.75" />
-              <stop offset="100%" stopColor="#f0a060" />
+              <stop offset="0%" stopColor="#c23a2b" stopOpacity="0.75" />
+              <stop offset="100%" stopColor="#e07060" />
             </linearGradient>
             <clipPath id={`trendClip-${clipId}`}>
               <rect

@@ -43,7 +43,7 @@
   transform: translateY(-1.5px) scale(1.02);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.16) inset,
-    0 8px 20px rgba(226, 90, 40, 0.26);
+    0 8px 20px rgba(194, 58, 43, 0.26);
   filter: brightness(1.05);
 }
 
@@ -134,14 +134,16 @@
   background: var(--accent);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.18) inset,
-    0 4px 14px rgba(226, 90, 40, 0.35);
+    0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent);
   opacity: 0;
   pointer-events: none;
   z-index: 0;
   transition:
     transform 0.38s var(--ease-out-expo),
     width 0.38s var(--ease-out-expo),
-    opacity 0.2s ease;
+    opacity 0.2s ease,
+    background 0.35s ease,
+    box-shadow 0.35s ease;
 }
 
 .sliding-seg.mode-row {
@@ -170,7 +172,7 @@
 }
 
 .sliding-seg.mode-row[data-value="competition"] .sliding-seg-pill {
-  background: var(--accent);
+  background: #e25a28;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.18) inset,
     0 4px 14px rgba(226, 90, 40, 0.35);
@@ -271,7 +273,7 @@
   opacity: 0.88;
 }
 
-/* Live primary start — hero CTA, not another generic orange pill. */
+/* Live primary start — brand-red hero CTA in training and competition. */
 .controls-actions .magic-btn.start-cta {
   padding: 0.82rem 1.4rem 0.82rem 1.05rem;
   border-radius: 11px;
@@ -280,15 +282,16 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   gap: 0.55rem;
+  background: linear-gradient(165deg, #d6453a 0%, #b82e28 55%, #9e2420 100%);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.16) inset,
-    0 10px 26px rgba(226, 90, 40, 0.32);
+    0 10px 26px rgba(184, 46, 40, 0.38);
 }
 
 .controls-actions .magic-btn.start-cta:hover:not(:disabled) {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.2) inset,
-    0 14px 32px rgba(226, 90, 40, 0.42);
+    0 14px 32px rgba(184, 46, 40, 0.48);
 }
 
 .controls-actions .magic-btn.start-cta .magic-btn-label > svg:first-child {
@@ -302,7 +305,7 @@
 }
 
 .controls-actions .magic-btn.start-cta.is-nachkauf {
-  background: linear-gradient(135deg, #c47a22 0%, var(--accent) 55%, #e25a28 100%);
+  background: linear-gradient(135deg, #c47a22 0%, var(--accent) 55%, #c23a2b 100%);
 }
 
 .magic-btn.is-nachkauf:not(:disabled) {
