@@ -93,6 +93,23 @@ export async function rfcommForgetTarget(): Promise<void> {
   await invoke("rfcomm_forget_target");
 }
 
+export type KnownDevice = {
+  btAddrHex: string;
+  displayName: string;
+  isActive: boolean;
+  lastConnectedAt?: number | null;
+};
+
+/** Remembered RedDots (Gerätegedächtnis) — active first. */
+export async function rfcommListDevices(): Promise<KnownDevice[]> {
+  return invoke("rfcomm_list_devices");
+}
+
+/** Forget one remembered device; drops bond/link if it was active. */
+export async function rfcommForgetDevice(btAddrHex: string): Promise<void> {
+  await invoke("rfcomm_forget_device", { btAddrHex });
+}
+
 export type RfcommDiagEvent = {
   ts: string;
   event: string;

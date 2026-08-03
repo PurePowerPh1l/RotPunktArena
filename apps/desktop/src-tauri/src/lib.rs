@@ -59,6 +59,8 @@ pub fn run() {
             commands::rfcomm_setup_scan,
             commands::rfcomm_setup_connect,
             commands::rfcomm_forget_target,
+            commands::rfcomm_list_devices,
+            commands::rfcomm_forget_device,
             commands::rfcomm_reconnect,
             commands::rfcomm_cancel_connect,
             commands::rfcomm_diag_tail,

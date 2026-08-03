@@ -37,7 +37,10 @@ pub use manager::{
     connect_known_nuclear, needs_setup, open_windows_bluetooth_settings, setup_connect, setup_scan,
     ConnectionHandle, ConnectionManager, RfcommBridgeTransport, SetupCandidate,
 };
-pub use persist::{clear_known_target, load_known_target, save_known_target};
+pub use persist::{
+    clear_known_target, list_known_devices, load_known_target, remove_known_device,
+    save_known_target, KnownDeviceSummary,
+};
 pub use status::ConnectionStatus;
 
 /// Last N RFCOMM diag JSONL events (addresses anonymized).
