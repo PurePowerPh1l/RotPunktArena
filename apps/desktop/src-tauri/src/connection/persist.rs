@@ -1,9 +1,8 @@
 //! Persist known RFCOMM devices (BD_ADDR is canonical) in app data.
 //!
-//! Store format is multi-device ready (`rfcomm_devices.json`): a device list
-//! plus one active address. Stufe A only ever connects the active device;
-//! the list exists so a later device-memory UI needs no second migration.
-//! Legacy single-target files (`rfcomm_known_target.json`) migrate on load.
+//! Store format (`rfcomm_devices.json`): a device list plus one active address.
+//! Startup/Nuclear connect only the active device; the list feeds the
+//! Gerätegedächtnis-UI (Stufe B). Legacy `rfcomm_known_target.json` migrates on load.
 
 use crate::transport::rfcomm::target::RfcommTarget;
 use std::fs;
@@ -66,6 +65,41 @@ impl DeviceStore {
     pub fn clear_active(&mut self) {
         if let Some(addr) = self.active_addr.take() {
             self.devices.retain(|d| d.target.bt_addr != addr);
+        }
+    }
+
+    /// Remove any device by BD_ADDR. Returns whether it was the active one.
+    pub fn remove_addr(&mut self, bt_addr: u64) -> bool {
+        let addr = bt_addr & 0xFFFF_FFFF_FFFF;
+        let was_active = self.active_addr.map(|a| a & 0xFFFF_FFFF_FFFF) == Some(addr);
+        self.devices
+            .retain(|d| d.target.bt_addr & 0xFFFF_FFFF_FFFF != addr);
+        if was_active {
+            self.active_addr = None;
+        }
+        was_active
+    }
+}
+
+/// UI summary of a remembered RedDot (Gerätegedächtnis).
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnownDeviceSummary {
+    pub bt_addr_hex: String,
+    pub display_name: String,
+    pub is_active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_connected_at: Option<u64>,
+}
+
+impl KnownDevice {
+    pub fn summary(&self, active_addr: Option<u64>) -> KnownDeviceSummary {
+        let addr = self.target.bt_addr & 0xFFFF_FFFF_FFFF;
+        KnownDeviceSummary {
+            bt_addr_hex: format!("{addr:012X}"),
+            display_name: self.target.display_name.clone(),
+            is_active: active_addr.map(|a| a & 0xFFFF_FFFF_FFFF) == Some(addr),
+            last_connected_at: self.last_connected_at,
         }
     }
 }
@@ -136,6 +170,34 @@ pub fn clear_known_target(data_dir: &Path) -> Result<(), String> {
     let mut store = load_device_store(data_dir);
     store.clear_active();
     save_device_store(data_dir, &store)
+}
+
+/// Remembered devices for the UI — active first, then newest last-connected.
+pub fn list_known_devices(data_dir: &Path) -> Vec<KnownDeviceSummary> {
+    let store = load_device_store(data_dir);
+    let mut out: Vec<_> = store
+        .devices
+        .iter()
+        .map(|d| d.summary(store.active_addr))
+        .collect();
+    out.sort_by(|a, b| {
+        b.is_active
+            .cmp(&a.is_active)
+            .then(b.last_connected_at.cmp(&a.last_connected_at))
+            .then(a.display_name.cmp(&b.display_name))
+    });
+    out
+}
+
+/// Remove a remembered device by BD_ADDR.
+///
+/// Returns `true` if it was the active device (caller should also drop the
+/// Owner bond via `ForgetTarget`).
+pub fn remove_known_device(data_dir: &Path, bt_addr: u64) -> Result<bool, String> {
+    let mut store = load_device_store(data_dir);
+    let was_active = store.remove_addr(bt_addr);
+    save_device_store(data_dir, &store)?;
+    Ok(was_active)
 }
 
 #[cfg(test)]
@@ -228,6 +290,49 @@ mod tests {
         let dir = tmp_dir("empty");
         assert_eq!(load_known_target(&dir), None);
         clear_known_target(&dir).unwrap();
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_orders_active_then_recent() {
+        let dir = tmp_dir("list");
+        let a = target(0xAAAA_AAAA_AAAA, "KT RDT ZIE A");
+        let b = target(0xBBBB_BBBB_BBBB, "KT RDT ZIE B");
+        save_known_target(&dir, &a).unwrap();
+        save_known_target(&dir, &b).unwrap();
+        let list = list_known_devices(&dir);
+        assert_eq!(list.len(), 2);
+        assert!(list[0].is_active);
+        assert_eq!(list[0].bt_addr_hex, "BBBBBBBBBBBB");
+        assert!(!list[1].is_active);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn remove_non_active_keeps_active() {
+        let dir = tmp_dir("rm_non");
+        let a = target(0xAAAA_AAAA_AAAA, "KT RDT ZIE A");
+        let b = target(0xBBBB_BBBB_BBBB, "KT RDT ZIE B");
+        save_known_target(&dir, &a).unwrap();
+        save_known_target(&dir, &b).unwrap();
+        assert!(!remove_known_device(&dir, a.bt_addr).unwrap());
+        assert_eq!(load_known_target(&dir), Some(b));
+        assert_eq!(list_known_devices(&dir).len(), 1);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn remove_active_clears_active_slot() {
+        let dir = tmp_dir("rm_act");
+        let a = target(0xAAAA_AAAA_AAAA, "KT RDT ZIE A");
+        let b = target(0xBBBB_BBBB_BBBB, "KT RDT ZIE B");
+        save_known_target(&dir, &a).unwrap();
+        save_known_target(&dir, &b).unwrap();
+        assert!(remove_known_device(&dir, b.bt_addr).unwrap());
+        assert_eq!(load_known_target(&dir), None);
+        let list = list_known_devices(&dir);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].bt_addr_hex, "AAAAAAAAAAAA");
         let _ = fs::remove_dir_all(&dir);
     }
 }
