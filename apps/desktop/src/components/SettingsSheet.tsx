@@ -691,7 +691,7 @@ export function SettingsSheet({
             disabled={!canSearchDevice || linkBusy}
             onClick={() => onSearchDevice?.()}
           >
-            Gerät suchen
+            {hasKnownDevice ? "Anderes Gerät verbinden" : "Gerät suchen"}
           </button>
           <button
             type="button"

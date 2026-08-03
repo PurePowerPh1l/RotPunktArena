@@ -7,9 +7,7 @@ use super::command::ConnectionCommand;
 use super::connect_policy::ConnectOrigin;
 use super::handle::ConnectionHandle;
 use super::status::ConnectionStatus;
-use crate::transport::rfcomm::discovery::{
-    bond_state, find_nearby_reddot, find_reddot_candidate,
-};
+use crate::transport::rfcomm::discovery::{bond_state, find_reddot_candidate, scan_all_reddots};
 use crate::transport::rfcomm::target::RfcommTarget;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -20,6 +18,8 @@ pub struct SetupCandidate {
     pub bt_addr_hex: String,
     pub display_name: String,
     pub already_paired: bool,
+    /// True for the currently persisted (active) device.
+    pub is_active: bool,
 }
 
 fn bond_authenticated(bt_addr: u64) -> bool {
@@ -57,8 +57,11 @@ fn pause_owner_for_setup(handle: &ConnectionHandle) -> Result<(), String> {
     Err("Owner PauseForSetup nicht bestätigt".into())
 }
 
-/// Pause connect + scan for a RedDot (paired list, then nearby inquiry).
-pub fn setup_scan(handle: &ConnectionHandle) -> Result<SetupCandidate, String> {
+/// Pause connect + scan for **all** RedDots (paired list + nearby inquiry).
+///
+/// Always runs both sources so a new/second device shows up even while an
+/// old one is still bonded. Active (persisted) device sorts first.
+pub fn setup_scan(handle: &ConnectionHandle) -> Result<Vec<SetupCandidate>, String> {
     pause_owner_for_setup(handle)?;
     set_shared_reason(
         handle,
@@ -66,38 +69,37 @@ pub fn setup_scan(handle: &ConnectionHandle) -> Result<SetupCandidate, String> {
         "Suche RedDot in der Nähe…",
     );
 
-    if let Some(t) = find_reddot_candidate().map_err(|e| e.to_string())? {
-        let paired = bond_authenticated(t.bt_addr);
-        set_shared_reason(
-            handle,
-            ConnectionStatus::Discovering,
-            &format!("Gefunden: {}", t.display_name),
-        );
-        return Ok(SetupCandidate {
-            bt_addr_hex: t.addr_hex(),
-            display_name: t.display_name,
-            already_paired: paired,
-        });
-    }
-
-    let nearby = find_nearby_reddot().map_err(|e| e.to_string())?;
-    let Some(d) = nearby else {
+    let active_addr = handle.target().map(|t| t.bt_addr & 0xFFFF_FFFF_FFFF);
+    let devices = scan_all_reddots().map_err(|e| e.to_string())?;
+    if devices.is_empty() {
         let msg = "Kein RedDot gefunden — Ziel einschalten, nah ans Gerät halten, erneut suchen"
             .to_string();
         set_shared_reason(handle, ConnectionStatus::NeedsTarget, &msg);
         return Err(msg);
+    }
+
+    let mut candidates: Vec<SetupCandidate> = devices
+        .into_iter()
+        .map(|d| {
+            let addr = d.bt_addr & 0xFFFF_FFFF_FFFF;
+            SetupCandidate {
+                bt_addr_hex: format!("{addr:012X}"),
+                display_name: d.display_name,
+                already_paired: d.paired || bond_authenticated(addr),
+                is_active: active_addr == Some(addr),
+            }
+        })
+        .collect();
+    // Active device first, discovery rank otherwise (stable sort).
+    candidates.sort_by_key(|c| !c.is_active);
+
+    let reason = if candidates.len() == 1 {
+        format!("Gefunden: {}", candidates[0].display_name)
+    } else {
+        format!("{} RedDots gefunden", candidates.len())
     };
-    let paired = d.paired || bond_authenticated(d.bt_addr);
-    set_shared_reason(
-        handle,
-        ConnectionStatus::Discovering,
-        &format!("Gefunden: {}", d.display_name),
-    );
-    Ok(SetupCandidate {
-        bt_addr_hex: format!("{:012X}", d.bt_addr & 0xFFFF_FFFF_FFFF),
-        display_name: d.display_name,
-        already_paired: paired,
-    })
+    set_shared_reason(handle, ConnectionStatus::Discovering, &reason);
+    Ok(candidates)
 }
 
 fn parse_bt_addr_hex(hex: &str) -> Result<u64, String> {

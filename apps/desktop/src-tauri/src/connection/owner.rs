@@ -298,10 +298,20 @@ impl Owner {
         self.set_connect_phase(ConnectPhase::Paging);
         self.set_status(ConnectionStatus::Connecting, "Gerät wird vorbereitet…");
 
+        let prev_addr = switch_forget_addr(
+            self.target.as_ref().map(|t| t.bt_addr),
+            bt_addr,
+            forget_scope,
+        );
+
         let shared = Arc::clone(&self.shared);
         let shared_prog = Arc::clone(&self.shared);
         let (tx, rx) = std::sync::mpsc::sync_channel(1);
         thread::spawn(move || {
+            if let Some(old) = prev_addr {
+                let _ = crate::transport::rfcomm::discovery::remove_bond(old);
+                spp_com::restore_for(old);
+            }
             let result = nuclear::run_nuclear_link_with(
                 bt_addr,
                 &display_name,
@@ -581,4 +591,21 @@ impl Owner {
             });
         }
     }
+}
+
+/// Target switch (Badge/Setup): previous known bond to drop explicitly, so the
+/// old device can never win the next paired-first scan. `AllRedDotHints` only
+/// covers name-hint bonds and could miss a renamed old target. Startup
+/// (`PrimaryOnly`) never switches — always `None` there.
+pub(crate) fn switch_forget_addr(
+    current: Option<u64>,
+    new_addr: u64,
+    scope: ForgetScope,
+) -> Option<u64> {
+    if scope != ForgetScope::AllRedDotHints {
+        return None;
+    }
+    current
+        .map(|a| a & 0xFFFF_FFFF_FFFF)
+        .filter(|a| *a != new_addr & 0xFFFF_FFFF_FFFF)
 }

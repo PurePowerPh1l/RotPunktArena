@@ -118,9 +118,12 @@ export type SetupCandidate = {
   btAddrHex: string;
   displayName: string;
   alreadyPaired: boolean;
+  /** Currently persisted (active) device. */
+  isActive: boolean;
 };
 
-export async function rfcommSetupScan(): Promise<SetupCandidate> {
+/** All RedDots in reach (paired + nearby), active device first. */
+export async function rfcommSetupScan(): Promise<SetupCandidate[]> {
   return invoke("rfcomm_setup_scan");
 }
 

@@ -125,6 +125,45 @@ pub fn find_nearby_reddot() -> Result<Option<DiscoveredDevice>, TransportError> 
     }
 }
 
+/// All RedDot-like devices: paired list + nearby inquiry, deduped and ranked.
+///
+/// Setup uses this so a second/new RedDot shows up even while an old one is
+/// still bonded (the old paired-first shortcut hid it). Ordering: name-hint
+/// rank, then paired before new, then name — the caller may re-sort (e.g.
+/// active device first).
+pub fn scan_all_reddots() -> Result<Vec<DiscoveredDevice>, TransportError> {
+    #[cfg(windows)]
+    {
+        let _ = crate::transport::rfcomm::WinsockRuntime::init();
+        let paired = enumerate_paired().unwrap_or_default();
+        let nearby = discovery_windows::inquire_reddot_all().unwrap_or_default();
+        Ok(rank_reddots(merge_devices(&[paired, nearby])))
+    }
+    #[cfg(not(windows))]
+    {
+        Err(TransportError::NotImplemented(
+            "Discovery nur unter Windows".into(),
+        ))
+    }
+}
+
+/// Filter to name-hint matches and sort: hint rank → paired first → name.
+fn rank_reddots(devices: Vec<DiscoveredDevice>) -> Vec<DiscoveredDevice> {
+    let mut ranked: Vec<_> = devices
+        .into_iter()
+        .filter(|d| d.bt_addr != 0)
+        .filter(|d| name_hint_rank(&d.display_name).is_some())
+        .collect();
+    ranked.sort_by_key(|d| {
+        (
+            name_hint_rank(&d.display_name).unwrap_or(99),
+            !d.paired,
+            d.display_name.clone(),
+        )
+    });
+    ranked
+}
+
 /// Pair classic BT with fixed PIN (transparent — no Windows wizard when PIN set).
 pub fn pair_with_pin(bt_addr: u64, display_name: &str, pin: &str) -> Result<(), TransportError> {
     #[cfg(windows)]
@@ -578,6 +617,11 @@ mod discovery_windows {
 
     /// Inquiry (~8s): find best nearby RedDot by name hints (paired or not).
     pub fn inquire_reddot_candidate() -> Result<Option<DiscoveredDevice>, TransportError> {
+        Ok(inquire_reddot_all()?.into_iter().next())
+    }
+
+    /// Inquiry (~8s): all nearby RedDots by name hints, best rank first.
+    pub fn inquire_reddot_all() -> Result<Vec<DiscoveredDevice>, TransportError> {
         unsafe {
             let search = BLUETOOTH_DEVICE_SEARCH_PARAMS {
                 dw_size: size_of::<BLUETOOTH_DEVICE_SEARCH_PARAMS>() as u32,
@@ -611,11 +655,14 @@ mod discovery_windows {
                     d.display_name.clone(),
                 )
             });
-            Ok(ranked.into_iter().next().map(|d| DiscoveredDevice {
-                bt_addr: d.bt_addr,
-                display_name: d.display_name,
-                paired: d.paired,
-            }))
+            Ok(ranked
+                .into_iter()
+                .map(|d| DiscoveredDevice {
+                    bt_addr: d.bt_addr,
+                    display_name: d.display_name,
+                    paired: d.paired,
+                })
+                .collect())
         }
     }
 
@@ -941,5 +988,48 @@ mod tests {
         assert_eq!(name_hint_rank("SMARDTV Box"), None);
         assert_eq!(name_hint_rank("HardTop Speaker"), None);
         assert_eq!(name_hint_rank(""), None);
+    }
+
+    fn dev(addr: u64, name: &str, paired: bool) -> DiscoveredDevice {
+        DiscoveredDevice {
+            bt_addr: addr,
+            display_name: name.to_string(),
+            paired,
+        }
+    }
+
+    #[test]
+    fn rank_reddots_filters_non_reddots_and_zero_addr() {
+        let ranked = rank_reddots(vec![
+            dev(1, "SMARDTV Box", true),
+            dev(0, "KT RDT ZIE 9", true),
+            dev(2, "KT RDT ZIE 1", true),
+        ]);
+        assert_eq!(ranked.len(), 1);
+        assert_eq!(ranked[0].bt_addr, 2);
+    }
+
+    #[test]
+    fn rank_reddots_orders_hint_then_paired_then_name() {
+        let ranked = rank_reddots(vec![
+            dev(1, "DISAG RedDot", true),
+            dev(2, "KT RDT ZIE 2", false),
+            dev(3, "KT RDT ZIE 1", true),
+            dev(4, "KT RDT ZIE 3", true),
+        ]);
+        let addrs: Vec<u64> = ranked.iter().map(|d| d.bt_addr).collect();
+        // "KT RDT" hint (rank 0) before "REDDOT"/"DISAG"; paired before new; then name.
+        assert_eq!(addrs, vec![3, 4, 2, 1]);
+    }
+
+    #[test]
+    fn merged_paired_and_nearby_dedupe_by_addr() {
+        let merged = merge_devices(&[
+            vec![dev(7, "KT RDT ZIE 1", true)],
+            vec![dev(7, "KT RDT ZIE 1", false), dev(8, "KT RDT ZIE 2", false)],
+        ]);
+        assert_eq!(merged.len(), 2);
+        let d7 = merged.iter().find(|d| d.bt_addr == 7).unwrap();
+        assert!(d7.paired, "paired flag survives merge");
     }
 }
