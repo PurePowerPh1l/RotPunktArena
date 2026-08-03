@@ -478,7 +478,7 @@ Implementiert Session-`Transport`:
 
 ## 13. Persistenz
 
-Datei: `{app_data_dir}/rfcomm_devices.json` (multi-device-fähig; Stufe A nutzt nur `activeAddr`)
+Datei: `{app_data_dir}/rfcomm_devices.json` (Gerätegedächtnis + `activeAddr`)
 
 Inhalt grob:
 
@@ -498,8 +498,9 @@ Inhalt grob:
 ```
 
 - Canonical Key: `bt_addr` (48-bit); Owner/Startup sehen weiterhin nur das **aktive** Gerät (`load_known_target`)
-- `ForgetTarget` entfernt den aktiven Eintrag (Liste bleibt für spätere Geräte-Memory-UI)
-- Gerätewechsel via Setup upsertet den neuen Eintrag und setzt `activeAddr` um
+- `ForgetTarget` / aktives Vergessen entfernt den aktiven Eintrag; nicht-aktive Einträge bleiben im Gedächtnis
+- `rfcomm_list_devices` / `rfcomm_forget_device` — UI-Gerätegedächtnis (Settings + Setup-Sheet)
+- Gerätewechsel via Setup/Settings upsertet den neuen Eintrag und setzt `activeAddr` um
 - Legacy `rfcomm_known_target.json` wird beim ersten Laden einmalig migriert und gelöscht
 - `com_port` ist Legacy-Feld (Virtual COM), im RFCOMM-Pfad ungenutzt
 
@@ -521,7 +522,9 @@ Inhalt grob:
 | `rfcomm_status` | Status-DTO inkl. `needsSetup` |
 | `rfcomm_setup_scan` | Setup-Scan — alle RedDots (paired + nearby), Liste |
 | `rfcomm_setup_connect` | Nuclear Pair+Connect / Target-Switch (Setup-Sheet) |
-| `rfcomm_forget_target` | Bond + Known-JSON löschen |
+| `rfcomm_list_devices` | Gerätegedächtnis — remembered devices (active first) |
+| `rfcomm_forget_device` | Ein Gerät aus dem Gedächtnis entfernen (aktiv → ForgetTarget) |
+| `rfcomm_forget_target` | Bond + aktives Known löschen |
 | `rfcomm_reconnect` / Connect-API | Nuclear auf Known (`connect_known_nuclear`) |
 | `rfcomm_open_pairing_settings` | No-Op (Pairing in-app) |
 

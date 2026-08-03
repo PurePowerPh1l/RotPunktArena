@@ -20,6 +20,8 @@ Freigabe nur wenn Zeilen „OK“ oder bewusst „N/A“. Primäre Lab-Matrix: [
 | 14 | Zwei RedDots gleichzeitig sichtbar | Scan listet beide (paired + nearby, dedupliziert); kein Auto-Connect ohne Tap | **offen — braucht Zweitgerät** | |
 | 15 | Wechsel während Linked | Settings „Anderes Gerät verbinden“ → Sheet öffnet; alter Link fällt erst beim Scan (PauseForSetup) | **offen — braucht Zweitgerät** | |
 | 16 | Legacy-Migration | Update mit vorhandener `rfcomm_known_target.json` → Gerät bleibt Known, Datei migriert zu `rfcomm_devices.json` | | |
+| 17 | Gerätegedächtnis Ein-Tap | Settings: gemerktes B tippen → Nuclear Switch ohne Nearby-Scan nötig (Gerät muss erreichbar sein) | **offen — braucht Zweitgerät** | |
+| 18 | Gerätegedächtnis Vergessen | Nicht-aktives Gerät „Vergessen“ entfernt nur JSON-Eintrag; aktives → Bond+Link weg | | |
 
 ## Freigabekriterien
 
