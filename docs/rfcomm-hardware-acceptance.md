@@ -15,6 +15,11 @@ Freigabe nur wenn Zeilen „OK“ oder bewusst „N/A“. Primäre Lab-Matrix: [
 | 9 | Normal Exit / Restart | Bond bleibt; Soft beim nächsten Start wenn Bond OK | | |
 | 10 | Soak ≥ 2 h Linked | Kein Handle-Leck; stabile Schüsse | | |
 | 11 | UI-Begriffe | Kein COM / Repair / Port im Normalflow | | |
+| 12 | Gerätewechsel A→B | Setup-Liste zeigt beide; Tap auf B → Nuclear auf B; A-Bond weg; `rfcomm_devices.json` active=B | **offen — braucht Zweitgerät** | |
+| 13 | Gerätewechsel B→A (zurück) | Wie 12 in Gegenrichtung; kein manuelles „Gerät vergessen“ nötig | **offen — braucht Zweitgerät** | |
+| 14 | Zwei RedDots gleichzeitig sichtbar | Scan listet beide (paired + nearby, dedupliziert); kein Auto-Connect ohne Tap | **offen — braucht Zweitgerät** | |
+| 15 | Wechsel während Linked | Settings „Anderes Gerät verbinden“ → Sheet öffnet; alter Link fällt erst beim Scan (PauseForSetup) | **offen — braucht Zweitgerät** | |
+| 16 | Legacy-Migration | Update mit vorhandener `rfcomm_known_target.json` → Gerät bleibt Known, Datei migriert zu `rfcomm_devices.json` | | |
 
 ## Freigabekriterien
 

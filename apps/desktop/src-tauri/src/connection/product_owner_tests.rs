@@ -200,6 +200,30 @@ fn forget_scope_for_origin(origin: ConnectOrigin) -> ForgetScope {
 }
 
 #[test]
+fn switch_forget_addr_drops_old_bond_only_on_real_switch() {
+    use super::owner::switch_forget_addr;
+    let old = 0xAAAA_AAAA_AAAA_u64;
+    let new = 0xBBBB_BBBB_BBBB_u64;
+    // Setup/Badge switch to another device → old bond is dropped explicitly.
+    assert_eq!(
+        switch_forget_addr(Some(old), new, ForgetScope::AllRedDotHints),
+        Some(old)
+    );
+    // Same device (repair) → nothing extra to forget.
+    assert_eq!(
+        switch_forget_addr(Some(old), old, ForgetScope::AllRedDotHints),
+        None
+    );
+    // No previous target (first setup) → nothing extra to forget.
+    assert_eq!(switch_forget_addr(None, new, ForgetScope::AllRedDotHints), None);
+    // Startup never switches — PrimaryOnly must not forget foreign bonds.
+    assert_eq!(
+        switch_forget_addr(Some(old), new, ForgetScope::PrimaryOnly),
+        None
+    );
+}
+
+#[test]
 fn start_without_target_needs_target() {
     let mut o = ProductOwner::new(false);
     assert!(!o.handle(FakeCmd::Start));

@@ -156,7 +156,7 @@ pub fn rfcomm_status(
 }
 
 #[tauri::command]
-/// First-Setup: discover a RedDot candidate (paired list, then inquiry).
+/// Setup: discover **all** RedDot candidates (paired list + inquiry, deduped).
 ///
 /// # Preconditions
 /// - Target should be powered and discoverable if not already bonded.
@@ -166,7 +166,7 @@ pub fn rfcomm_status(
 ///   on a blocking worker so the command thread / UI stay responsive.
 pub async fn rfcomm_setup_scan(
     handle: tauri::State<'_, crate::connection::ConnectionHandle>,
-) -> Result<crate::connection::SetupCandidate, String> {
+) -> Result<Vec<crate::connection::SetupCandidate>, String> {
     let h = handle.inner().clone();
     tauri::async_runtime::spawn_blocking(move || crate::connection::setup_scan(&h))
         .await
