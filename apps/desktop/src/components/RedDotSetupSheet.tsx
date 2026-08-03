@@ -2,9 +2,14 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { MagicButton } from "./MagicButton";
 import * as liveApi from "../api/live";
-import type { SetupCandidate } from "../api/live";
+import type { KnownDevice, SetupCandidate } from "../api/live";
 
 type Phase = "idle" | "searching" | "found" | "connecting" | "error" | "done";
+
+type Row = SetupCandidate & {
+  /** From Gerätegedächtnis, not seen in this scan. */
+  fromMemory?: boolean;
+};
 
 type Props = {
   open: boolean;
@@ -12,21 +17,46 @@ type Props = {
   onLinked: () => void;
 };
 
-function candidateHint(c: SetupCandidate): string {
+function candidateHint(c: Row): string {
+  if (c.fromMemory) return "Gemerkt — einschalten, dann tippen";
   if (c.isActive) return "Zuletzt verbunden";
   if (c.alreadyPaired) return "Bereits gekoppelt";
   return "Neu — falls Windows nach einer PIN fragt: 0000";
 }
 
+function rememberedAsRows(mem: KnownDevice[]): Row[] {
+  return mem.map((d) => ({
+    btAddrHex: d.btAddrHex,
+    displayName: d.displayName,
+    alreadyPaired: true,
+    isActive: d.isActive,
+    fromMemory: true,
+  }));
+}
+
+function mergeScanWithMemory(found: SetupCandidate[], mem: KnownDevice[]): Row[] {
+  const seen = new Set(found.map((c) => c.btAddrHex.toUpperCase()));
+  const extra = mem
+    .filter((d) => !seen.has(d.btAddrHex.toUpperCase()))
+    .map((d) => ({
+      btAddrHex: d.btAddrHex,
+      displayName: d.displayName,
+      alreadyPaired: true,
+      isActive: d.isActive,
+      fromMemory: true,
+    }));
+  return [...found, ...extra];
+}
+
 /**
  * Apple-style setup: proximity copy → scan → tap to connect → done.
- * Shows every RedDot in reach; one tap switches the active device.
+ * Shows RedDots in reach plus remembered devices for one-tap switch.
  * Runtime autoconnect stays outside this sheet.
  */
 export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [candidates, setCandidates] = useState<SetupCandidate[]>([]);
-  const [selected, setSelected] = useState<SetupCandidate | null>(null);
+  const [candidates, setCandidates] = useState<Row[]>([]);
+  const [selected, setSelected] = useState<Row | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -50,13 +80,24 @@ export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
     setCandidates([]);
     setSelected(null);
     setPhase("searching");
+    const mem = await liveApi.rfcommListDevices().catch(() => [] as KnownDevice[]);
     try {
       const found = await liveApi.rfcommSetupScan();
-      setCandidates(found);
+      setCandidates(mergeScanWithMemory(found, mem));
       setPhase("found");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
-      setPhase("error");
+      if (mem.length > 0) {
+        setCandidates(rememberedAsRows(mem));
+        setPhase("found");
+        setError(
+          e instanceof Error
+            ? `${e.message} — gemerkte Geräte unten`
+            : String(e),
+        );
+      } else {
+        setError(e instanceof Error ? e.message : String(e));
+        setPhase("error");
+      }
     } finally {
       setBusy(false);
     }
@@ -64,7 +105,7 @@ export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
 
   const [connectHint, setConnectHint] = useState("Gerät wird vorbereitet…");
 
-  async function runConnect(candidate: SetupCandidate) {
+  async function runConnect(candidate: Row) {
     setSelected(candidate);
     setBusy(true);
     setError(null);
@@ -96,6 +137,8 @@ export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
   if (!open) return null;
 
   const single = candidates.length === 1 ? candidates[0] : null;
+  const showList = phase === "found" && candidates.length > 1;
+  const showSingle = phase === "found" && single !== null;
 
   return (
     <div className="reddot-setup is-open" role="dialog" aria-modal="true" aria-labelledby="reddot-setup-title">
@@ -125,23 +168,19 @@ export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
           </p>
         ) : null}
 
-        {phase === "found" && single ? (
+        {showSingle ? (
           <div className="reddot-setup-found">
             <p className="reddot-setup-status" aria-live="polite">
               Gefunden: <strong>{single.displayName}</strong>
             </p>
-            <p className="reddot-setup-hint muted">
-              {single.alreadyPaired
-                ? "Bereits gekoppelt — Verbindung wird aufgebaut."
-                : "Falls Windows nach einer PIN fragt: 0000"}
-            </p>
+            <p className="reddot-setup-hint muted">{candidateHint(single)}</p>
           </div>
         ) : null}
 
-        {phase === "found" && candidates.length > 1 ? (
+        {showList ? (
           <div className="reddot-setup-found">
             <p className="reddot-setup-status" aria-live="polite">
-              {candidates.length} RedDots gefunden — tippe zum Verbinden:
+              {candidates.length} Geräte — tippe zum Verbinden:
             </p>
             <ul className="reddot-setup-list">
               {candidates.map((c) => (
@@ -183,14 +222,16 @@ export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
           </p>
         ) : null}
 
-        {phase === "error" && error ? (
+        {(phase === "error" || (phase === "found" && error)) && error ? (
           <p className="reddot-setup-error" role="alert">
-            Verbindung neu aufsetzen fehlgeschlagen — {error}
+            {phase === "error"
+              ? `Verbindung neu aufsetzen fehlgeschlagen — ${error}`
+              : error}
           </p>
         ) : null}
 
         <div className="reddot-setup-actions">
-          {phase === "found" && single ? (
+          {showSingle ? (
             <MagicButton
               className="nav-btn"
               disabled={busy}
@@ -213,9 +254,9 @@ export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
               Erneut versuchen
             </MagicButton>
           ) : null}
-          {phase === "error" || phase === "idle" ? (
+          {phase === "error" || phase === "idle" || phase === "found" ? (
             <MagicButton
-              className="nav-btn"
+              className={phase === "found" ? "secondary nav-btn" : "nav-btn"}
               disabled={busy}
               onClick={() => void runScan()}
             >
