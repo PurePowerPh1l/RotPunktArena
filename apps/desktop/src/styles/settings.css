@@ -675,6 +675,64 @@ html[data-color-scheme="light"] .settings-section.is-open > .settings-section-to
   align-items: stretch;
 }
 
+.settings-device-list {
+  list-style: none;
+  margin: 0 0 0.85rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.settings-device-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.settings-device-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 80%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 70%, rgba(0, 0, 0, 0.2));
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-device-main:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ink) 28%, var(--panel-border));
+}
+
+.settings-device-main:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.settings-device-name {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.settings-device-hint {
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.settings-device-forget {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+}
+
 .settings-action-primary {
   appearance: none;
   margin: 0;
