@@ -171,6 +171,7 @@ export function SettingsSheet({
   const [busy, setBusy] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [knownDevices, setKnownDevices] = useState<liveApi.KnownDevice[]>([]);
   const prefsReady = uiPrefsStatus === "ready" || uiPrefsStatus === "saving";
   const prefsBusy = uiPrefsStatus === "loading" || uiPrefsStatus === "saving";
   const [backups, setBackups] = useState<DbBackupInfo[]>([]);
@@ -190,6 +191,15 @@ export function SettingsSheet({
 
   const latestBackup = useMemo(() => backups[0], [backups]);
 
+  const reloadKnownDevices = async () => {
+    if (!link.rfcommFeature) {
+      setKnownDevices([]);
+      return;
+    }
+    const list = await liveApi.rfcommListDevices();
+    setKnownDevices(list);
+  };
+
   const reloadBackups = async () => {
     const list = await api.listDbBackups();
     setBackups(list);
@@ -205,8 +215,16 @@ export function SettingsSheet({
     void reloadBackups().catch((e) => setError(String(e)));
     void appUpdate.refreshVersion();
     void link.refresh();
+    void reloadKnownDevices().catch((e) => setError(String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Verbindung default + reload when sheet opens
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !link.rfcommFeature) return;
+    void reloadKnownDevices().catch(() => {});
+    // Refresh memory list when link target/status changes (after switch/forget).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, link.rfcommFeature, link.hasTarget, link.linked, link.targetName]);
 
   if (!open) return null;
 
@@ -337,6 +355,57 @@ export function SettingsSheet({
       try {
         await liveApi.rfcommForgetTarget();
         await link.refresh();
+        await reloadKnownDevices();
+      } catch (e) {
+        setError(String(e));
+        await link.refresh();
+      } finally {
+        setLinkBusy(false);
+      }
+    })();
+  };
+
+  const onSwitchKnownDevice = (device: liveApi.KnownDevice) => {
+    if (linkBusy || connecting) return;
+    if (device.isActive && link.linked) return;
+    void (async () => {
+      setLinkBusy(true);
+      setError(null);
+      try {
+        if (device.isActive) {
+          await liveApi.rfcommConnectReddot();
+        } else {
+          await liveApi.rfcommSetupConnect(device.btAddrHex, device.displayName);
+        }
+        await link.refresh();
+        await reloadKnownDevices();
+      } catch (e) {
+        setError(String(e));
+        await link.refresh();
+        await reloadKnownDevices().catch(() => {});
+      } finally {
+        setLinkBusy(false);
+      }
+    })();
+  };
+
+  const onForgetKnownDevice = (device: liveApi.KnownDevice) => {
+    if (linkBusy || connecting) return;
+    void (async () => {
+      const ok = await confirmDialog({
+        title: "Gerät vergessen?",
+        body: `„${device.displayName}“ aus dem Gerätegedächtnis entfernen?`,
+        confirmLabel: "Vergessen",
+        danger: true,
+        eyebrow: "Verbindung",
+      });
+      if (!ok) return;
+      setLinkBusy(true);
+      setError(null);
+      try {
+        await liveApi.rfcommForgetDevice(device.btAddrHex);
+        await link.refresh();
+        await reloadKnownDevices();
       } catch (e) {
         setError(String(e));
         await link.refresh();
@@ -665,21 +734,67 @@ export function SettingsSheet({
 
       <SettingsSection
         title="Verbindung"
-        description="Verwalte das bekannte Gerät und den Verbindungsstatus."
+        description="Gerätegedächtnis und Verbindungsstatus."
         open={openSection === "verbindung"}
         onOpenChange={() => toggleSection("verbindung")}
       >
         <div className="settings-info-block">
-          <SettingsInfoRow label="Bekanntes Gerät" value={deviceLabel} />
+          <SettingsInfoRow label="Aktives Gerät" value={deviceLabel} />
           <SettingsInfoRow
             label="Status"
             value={statusLabel}
             statusTone={statusTone}
           />
         </div>
+        {knownDevices.length > 0 ? (
+          <ul className="settings-device-list">
+            {knownDevices.map((device) => {
+              const hint = device.isActive
+                ? link.linked
+                  ? "Verbunden"
+                  : "Zuletzt verbunden — tippe zum Reparieren"
+                : "Gemerkt — tippe zum Wechseln";
+              const canTap =
+                !linkBusy &&
+                !connecting &&
+                !(device.isActive && link.linked);
+              return (
+                <li key={device.btAddrHex} className="settings-device-row">
+                  <button
+                    type="button"
+                    className="settings-device-main"
+                    disabled={!canTap}
+                    title={
+                      device.isActive && link.linked
+                        ? "Bereits verbunden"
+                        : device.isActive
+                          ? "Verbindung reparieren"
+                          : "Dieses Gerät verbinden"
+                    }
+                    onClick={() => onSwitchKnownDevice(device)}
+                  >
+                    <span className="settings-device-name">
+                      {device.displayName}
+                    </span>
+                    <span className="settings-device-hint muted">{hint}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost settings-device-forget"
+                    disabled={linkBusy || connecting}
+                    title="Aus dem Gerätegedächtnis entfernen"
+                    onClick={() => onForgetKnownDevice(device)}
+                  >
+                    Vergessen
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
         {connecting ? (
           <SettingsHint>Verbindung wird hergestellt…</SettingsHint>
-        ) : !hasKnownDevice ? (
+        ) : knownDevices.length === 0 ? (
           <SettingsHint>
             Suche nach verfügbaren RedDot-Geräten in der Nähe.
           </SettingsHint>
@@ -691,7 +806,9 @@ export function SettingsSheet({
             disabled={!canSearchDevice || linkBusy}
             onClick={() => onSearchDevice?.()}
           >
-            Gerät suchen
+            {hasKnownDevice || knownDevices.length > 0
+              ? "Anderes Gerät verbinden"
+              : "Gerät suchen"}
           </button>
           <button
             type="button"
@@ -710,21 +827,23 @@ export function SettingsSheet({
           >
             Neu verbinden
           </button>
-          <button
-            type="button"
-            className="ghost settings-action-quiet"
-            disabled={!canForget}
-            title={
-              !hasKnownDevice
-                ? "Kein Gerät gespeichert"
-                : connecting
-                  ? "Bitte warten, bis die Verbindung abgeschlossen ist"
-                  : undefined
-            }
-            onClick={onForgetDevice}
-          >
-            Gerät vergessen
-          </button>
+          {knownDevices.length === 0 ? (
+            <button
+              type="button"
+              className="ghost settings-action-quiet"
+              disabled={!canForget}
+              title={
+                !hasKnownDevice
+                  ? "Kein Gerät gespeichert"
+                  : connecting
+                    ? "Bitte warten, bis die Verbindung abgeschlossen ist"
+                    : undefined
+              }
+              onClick={onForgetDevice}
+            >
+              Gerät vergessen
+            </button>
+          ) : null}
         </div>
       </SettingsSection>
 

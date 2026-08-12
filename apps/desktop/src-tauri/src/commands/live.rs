@@ -156,7 +156,7 @@ pub fn rfcomm_status(
 }
 
 #[tauri::command]
-/// First-Setup: discover a RedDot candidate (paired list, then inquiry).
+/// Setup: discover **all** RedDot candidates (paired list + inquiry, deduped).
 ///
 /// # Preconditions
 /// - Target should be powered and discoverable if not already bonded.
@@ -166,7 +166,7 @@ pub fn rfcomm_status(
 ///   on a blocking worker so the command thread / UI stay responsive.
 pub async fn rfcomm_setup_scan(
     handle: tauri::State<'_, crate::connection::ConnectionHandle>,
-) -> Result<crate::connection::SetupCandidate, String> {
+) -> Result<Vec<crate::connection::SetupCandidate>, String> {
     let h = handle.inner().clone();
     tauri::async_runtime::spawn_blocking(move || crate::connection::setup_scan(&h))
         .await
@@ -204,12 +204,57 @@ pub async fn rfcomm_setup_connect(
 /// - None.
 ///
 /// # Side effects
-/// - `ForgetTarget`: clears `rfcomm_known_target.json`, bumps generation, → `needsTarget`.
+/// - `ForgetTarget`: clears active device from `rfcomm_devices.json`, bumps generation, → `needsTarget`.
 /// - Primary recovery path out of `faulted` when persist/target is bad.
 pub fn rfcomm_forget_target(
     handle: tauri::State<'_, crate::connection::ConnectionHandle>,
 ) -> Result<(), String> {
     handle.send(crate::connection::ConnectionCommand::ForgetTarget)
+}
+
+#[tauri::command]
+/// List remembered RedDots (Gerätegedächtnis) — active first.
+pub fn rfcomm_list_devices(
+    app: tauri::AppHandle,
+) -> Result<Vec<crate::connection::KnownDeviceSummary>, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(crate::connection::list_known_devices(&data_dir))
+}
+
+#[tauri::command]
+/// Forget one remembered device by BD_ADDR hex.
+///
+/// If it is the active device, runs Owner `ForgetTarget` (bond + link + persist).
+/// Non-active entries are only removed from `rfcomm_devices.json`.
+pub fn rfcomm_forget_device(
+    app: tauri::AppHandle,
+    handle: tauri::State<'_, crate::connection::ConnectionHandle>,
+    bt_addr_hex: String,
+) -> Result<(), String> {
+    let clean: String = bt_addr_hex
+        .chars()
+        .filter(|c| c.is_ascii_hexdigit())
+        .collect();
+    if clean.len() != 12 {
+        return Err(format!("Ungültige Bluetooth-Adresse: {bt_addr_hex}"));
+    }
+    let addr = u64::from_str_radix(&clean, 16).map_err(|e| e.to_string())? & 0xFFFF_FFFF_FFFF;
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let active = handle
+        .target()
+        .map(|t| t.bt_addr & 0xFFFF_FFFF_FFFF)
+        .or_else(|| {
+            crate::connection::list_known_devices(&data_dir)
+                .into_iter()
+                .find(|d| d.is_active)
+                .and_then(|d| u64::from_str_radix(&d.bt_addr_hex, 16).ok())
+        });
+    if active == Some(addr) {
+        handle.send(crate::connection::ConnectionCommand::ForgetTarget)?;
+    } else {
+        let _ = crate::connection::remove_known_device(&data_dir, addr)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

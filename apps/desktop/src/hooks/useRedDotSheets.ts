@@ -22,6 +22,9 @@ type Args = {
 export function useRedDotSheets({ link, setupRequestNonce = 0 }: Args) {
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupDismissed, setSetupDismissed] = useState(false);
+  /** Explicit request (badge/settings) — sheet may stay open while linked,
+      so switching to another device is possible without forgetting first. */
+  const [setupForced, setSetupForced] = useState(false);
   const [wakeOpen, setWakeOpen] = useState(false);
   const [wakeDismissed, setWakeDismissed] = useState(false);
 
@@ -29,8 +32,10 @@ export function useRedDotSheets({ link, setupRequestNonce = 0 }: Args) {
   useEffect(() => {
     if (!link.rfcommFeature) return;
     if (link.linked) {
-      setSetupOpen(false);
-      setSetupDismissed(false);
+      if (!setupForced) {
+        setSetupOpen(false);
+        setSetupDismissed(false);
+      }
       setWakeOpen(false);
       setWakeDismissed(false);
       return;
@@ -39,7 +44,7 @@ export function useRedDotSheets({ link, setupRequestNonce = 0 }: Args) {
       setSetupOpen(true);
       setWakeOpen(false);
     }
-  }, [link.rfcommFeature, link.linked, link.needsSetup, setupDismissed]);
+  }, [link.rfcommFeature, link.linked, link.needsSetup, setupDismissed, setupForced]);
 
   // Known target, idle, not linked → small wake hint (unless setup / dismissed / busy).
   useEffect(() => {
@@ -73,22 +78,25 @@ export function useRedDotSheets({ link, setupRequestNonce = 0 }: Args) {
     wakeDismissed,
   ]);
 
-  // Badge / CTA: force-open sheet even after „Später“.
+  // Badge / CTA / Settings: force-open sheet even after „Später“ or while linked.
   useEffect(() => {
     if (setupRequestNonce < 1) return;
     setSetupDismissed(false);
+    setSetupForced(true);
     setSetupOpen(true);
     setWakeOpen(false);
   }, [setupRequestNonce]);
 
   const closeSetup = () => {
     setSetupOpen(false);
+    setSetupForced(false);
     setSetupDismissed(true);
   };
 
   const linkedSetup = () => {
     void link.refresh();
     setSetupOpen(false);
+    setSetupForced(false);
     setSetupDismissed(false);
   };
 

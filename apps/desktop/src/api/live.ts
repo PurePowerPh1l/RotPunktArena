@@ -93,6 +93,23 @@ export async function rfcommForgetTarget(): Promise<void> {
   await invoke("rfcomm_forget_target");
 }
 
+export type KnownDevice = {
+  btAddrHex: string;
+  displayName: string;
+  isActive: boolean;
+  lastConnectedAt?: number | null;
+};
+
+/** Remembered RedDots (Gerätegedächtnis) — active first. */
+export async function rfcommListDevices(): Promise<KnownDevice[]> {
+  return invoke("rfcomm_list_devices");
+}
+
+/** Forget one remembered device; drops bond/link if it was active. */
+export async function rfcommForgetDevice(btAddrHex: string): Promise<void> {
+  await invoke("rfcomm_forget_device", { btAddrHex });
+}
+
 export type RfcommDiagEvent = {
   ts: string;
   event: string;
@@ -118,9 +135,12 @@ export type SetupCandidate = {
   btAddrHex: string;
   displayName: string;
   alreadyPaired: boolean;
+  /** Currently persisted (active) device. */
+  isActive: boolean;
 };
 
-export async function rfcommSetupScan(): Promise<SetupCandidate> {
+/** All RedDots in reach (paired + nearby), active device first. */
+export async function rfcommSetupScan(): Promise<SetupCandidate[]> {
   return invoke("rfcomm_setup_scan");
 }
 

@@ -26,7 +26,7 @@ Hardware: KT RDT / BT Classic 2.0 SPP (Kanal 1); Identität = persistierte BD_AD
 | **Startup Nuclear** | App-Start + Known BD_ADDR (genau 1×) | ja — **nur** persistierte BD_ADDR → Pair → RFCOMM |
 | **Nuclear (Badge/Setup)** | Verbinden / Setup | ja — primary + name-hint RedDots → Pair → RFCOMM |
 | **Idle** | Nuclear-Fail, Link lost, Abbruch | wartet auf User-Nuclear (Badge) |
-| **Setup-Sheet** | kein Known (`needsTarget`) | Scan → Nuclear-Connect |
+| **Setup-Sheet** | kein Known (`needsTarget`) **oder** explizit (Badge / Settings „Anderes Gerät verbinden“) | Scan (alle RedDots, Liste) → Tap → Nuclear-Connect (Target-Switch) |
 | **Forget** | Nutzer | Bond + JSON weg |
 
 Bond-Lookup am Start ist **Diagnose** (JSONL `startup_bond_diag`), keine Freigabe für reines RFCOMM (Soft-A).
@@ -97,7 +97,7 @@ Parallel (nur bei aktiver Live-Session):
 | **Startup Nuclear einmal** | Known BD_ADDR → 1× Full Nuclear; Fail → Idle; kein Auto-Retry |
 | **Nur Known-BD_ADDR am Start** | Kein Name-Scan, kein Forget fremder Geräte beim Start |
 | **Verbinden = Nuclear** | Badge / Setup: Forget → Pair → RFCOMM (`nuclear.rs`) |
-| **BD_ADDR ist Identität** | Persistiert in `rfcomm_known_target.json`, nicht Anzeigename/COM-Port |
+| **BD_ADDR ist Identität** | Persistiert in `rfcomm_devices.json`, nicht Anzeigename/COM-Port |
 | **Kein Known → Setup** | `needsTarget` öffnet Sheet |
 | **Hook wo Pairing nötig** | Nuclear (Startup + Badge/Setup); kein Dauer-Soft-Wake |
 | **Linked = Socket-OK** | ENQ ist Keepalive danach, keine Verify-Phase |
@@ -127,7 +127,7 @@ Parallel (nur bei aktiver Live-Session):
 | `connection/command.rs` | `ConnectionCommand`-Enum |
 | `connection/status.rs` | `ConnectionStatus` |
 | `connection/event.rs` | Optionale Events |
-| `connection/persist.rs` | `rfcomm_known_target.json` |
+| `connection/persist.rs` | `rfcomm_devices.json` |
 | `connection/backoff.rs` | Reconnect-Delays |
 | `connection/diag.rs` | JSONL-Diagnose |
 | `connection/generation_tests.rs` | Unit-Tests Generation / Policy |
@@ -200,7 +200,7 @@ rfcomm = []                   # Produkt-Bluetooth-Pfad
    - `WinsockRuntime::init()`
    - **kein** globaler Dauer-PIN-Hook (Hook nur während Nuclear)
    - Owner-Thread `rfcomm-connection` spawnen
-   - Known-Target aus `rfcomm_known_target.json` laden
+   - Known-Target aus `rfcomm_devices.json` laden
    - `ConnectionCommand::Start` senden → Startup Nuclear **oder** NeedsTarget
 3. `ConnectionHandle` als Tauri-State registrieren.
 4. Bei Window-Close / Exit: `Shutdown` → Socket schließen / Hook deregistrieren.
@@ -306,20 +306,21 @@ Zustände: `idle` → `searching` → `found` → `connecting` → `done` | `err
 ### 8.2 `setup_scan`
 
 1. `PauseForSetup`.
-2. `find_reddot_candidate()` (gepaart + Name-Hints), sonst `find_nearby_reddot()` (Inquiry).
-3. `SetupCandidate { btAddrHex, displayName, alreadyPaired }`.
+2. `scan_all_reddots()` — **immer beide Quellen**: `enumerate_paired()` + Nearby-Inquiry, per BD_ADDR dedupliziert, Name-Hint-Filter. Kein paired-first-Shortcut mehr — ein zweites/neues RedDot bleibt sichtbar, auch wenn ein altes noch gebondet ist.
+3. `Vec<SetupCandidate { btAddrHex, displayName, alreadyPaired, isActive }>` — aktives (persistiertes) Gerät zuerst, sonst Discovery-Rank (Hint → paired → Name).
+4. UI: genau 1 Treffer = große CTA (wie früher); mehrere = tappbare Liste.
 
-### 8.3 `setup_connect`
+### 8.3 `setup_connect` (= Target-Switch)
 
 Kein Re-Inquiry (UI-Freeze). Display-Name vom Scan/Hint.
 
 ```text
 PauseForSetup
-NuclearLink(addr, display_name)   → forget → pair → RFCOMM
+NuclearLink(addr, display_name)   → [Switch: alter Known-Bond explizit weg] → forget → pair → RFCOMM
 poll bis Linked (max ~90s) oder Faulted/NeedsPairing/NeedsTarget
 ```
 
-Gleiche Semantik wie Badge **Verbinden** (`connect_known_nuclear`).
+Gleiche Semantik wie Badge **Verbinden** (`connect_known_nuclear`). Ist die gewählte Adresse ≠ bisheriges Known, entfernt der Owner **zusätzlich explizit** den alten Bond (`switch_forget_addr` in `owner.rs`) — `AllRedDotHints` deckt nur name-hint Bonds und könnte ein umbenanntes Altgerät verpassen. Damit ist Gerätewechsel ohne manuelles „Gerät vergessen“ möglich.
 
 ### 8.4 Einstiege
 
@@ -393,7 +394,7 @@ Merged aus:
 |---|---|
 | Fehlerbild | Soft/Nuclear failen; Idle oder NeedsPairing; JSONL Soft/Nuclear-Fails |
 | Einmalige Diagnose | `resolve_spp_channel(bt_addr)` in `sdp.rs` (ohne Cache-Flush) per `bt_diag` |
-| Produkt-Fix | Kanal in `rfcomm_known_target.json` unter `rfcommChannel` persistieren; SDP **nicht** im Soft/Nuclear-Loop |
+| Produkt-Fix | Kanal in `rfcomm_devices.json` unter `rfcommChannel` persistieren; SDP **nicht** im Soft/Nuclear-Loop |
 | Nicht tun | SDP bei jedem Connect; `LUP_FLUSHCACHE`; Multi-Port-Hammering (1…30) |
 
 `sdp.rs` ist bewusst Diagnose-/Sonderpfad, nicht Happy-Path.
@@ -477,21 +478,30 @@ Implementiert Session-`Transport`:
 
 ## 13. Persistenz
 
-Datei: `{app_data_dir}/rfcomm_known_target.json`
+Datei: `{app_data_dir}/rfcomm_devices.json` (Gerätegedächtnis + `activeAddr`)
 
 Inhalt grob:
 
 ```json
 {
-  "btAddr": 123456789,
-  "displayName": "KT RDT ZIE 1",
-  "serviceUuid": "00001101-0000-1000-8000-00805F9B34FB",
-  "rfcommChannel": 1
+  "activeAddr": 123456789,
+  "devices": [
+    {
+      "btAddr": 123456789,
+      "displayName": "KT RDT ZIE 1",
+      "serviceUuid": "00001101-0000-1000-8000-00805F9B34FB",
+      "rfcommChannel": 1,
+      "lastConnectedAt": 1785715200
+    }
+  ]
 }
 ```
 
-- Canonical Key: `bt_addr` (48-bit)
-- `ForgetTarget` löscht die Datei
+- Canonical Key: `bt_addr` (48-bit); Owner/Startup sehen weiterhin nur das **aktive** Gerät (`load_known_target`)
+- `ForgetTarget` / aktives Vergessen entfernt den aktiven Eintrag; nicht-aktive Einträge bleiben im Gedächtnis
+- `rfcomm_list_devices` / `rfcomm_forget_device` — UI-Gerätegedächtnis (Settings + Setup-Sheet)
+- Gerätewechsel via Setup/Settings upsertet den neuen Eintrag und setzt `activeAddr` um
+- Legacy `rfcomm_known_target.json` wird beim ersten Laden einmalig migriert und gelöscht
 - `com_port` ist Legacy-Feld (Virtual COM), im RFCOMM-Pfad ungenutzt
 
 ---
@@ -510,9 +520,11 @@ Inhalt grob:
 | Command | Zweck |
 |---|---|
 | `rfcomm_status` | Status-DTO inkl. `needsSetup` |
-| `rfcomm_setup_scan` | First-Setup Scan |
-| `rfcomm_setup_connect` | Nuclear Pair+Connect (Setup-Sheet) |
-| `rfcomm_forget_target` | Bond + Known-JSON löschen |
+| `rfcomm_setup_scan` | Setup-Scan — alle RedDots (paired + nearby), Liste |
+| `rfcomm_setup_connect` | Nuclear Pair+Connect / Target-Switch (Setup-Sheet) |
+| `rfcomm_list_devices` | Gerätegedächtnis — remembered devices (active first) |
+| `rfcomm_forget_device` | Ein Gerät aus dem Gedächtnis entfernen (aktiv → ForgetTarget) |
+| `rfcomm_forget_target` | Bond + aktives Known löschen |
 | `rfcomm_reconnect` / Connect-API | Nuclear auf Known (`connect_known_nuclear`) |
 | `rfcomm_open_pairing_settings` | No-Op (Pairing in-app) |
 
