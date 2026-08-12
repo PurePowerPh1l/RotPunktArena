@@ -52,7 +52,6 @@ ${PRINT_BASE_CSS}
 </style>
 </head>
 <body>
-  <button class="noprint" onclick="window.print()" style="margin-bottom:1rem;padding:0.5rem 0.9rem;">Drucken</button>
   <h1>Schussbild — ${escapeHtml(input.shooterName)}</h1>
   <p class="meta">${escapeHtml(input.modeLabel)}${limit} · ${escapeHtml(when)}</p>
   <div class="grid">
@@ -66,12 +65,11 @@ ${PRINT_BASE_CSS}
     </div>
   </div>
   <p class="foot">RotPunktArena · append-only Ergebnis · Ausdruck zur Dokumentation</p>
-  <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;
 }
 
-/** Opens a print preview with target face + shot table (works in Tauri WebView2). */
+/** Opens a print preview with target face + shot table. */
 export function printShotCard(input: ShotCardPrintInput): void {
   if (input.shots.length === 0) return;
   openPrintHtml(buildHtml(input));

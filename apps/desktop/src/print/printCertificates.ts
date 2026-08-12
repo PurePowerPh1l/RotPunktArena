@@ -204,9 +204,7 @@ function buildHtml(input: CertificatesPrintInput, pages: CertificatePage[]): str
 </style>
 </head>
 <body>
-  <button class="noprint" onclick="window.print()" style="padding:0.5rem 0.9rem;">Drucken</button>
   ${sheets}
-  <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;
 }
