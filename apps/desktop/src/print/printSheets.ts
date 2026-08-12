@@ -97,7 +97,6 @@ function buildResultsHtml(input: ResultsSheetInput): string {
 <style>${PRINT_BASE_CSS}</style>
 </head>
 <body>
-  <button class="noprint" onclick="window.print()" style="margin-bottom:1rem;padding:0.5rem 0.9rem;">Drucken</button>
   <h1>${escapeHtml(input.competition.name)}</h1>
   <p class="meta">${escapeHtml(input.competition.date)} · ${escapeHtml(input.competition.discipline)}${bestOfNote} · ${escapeHtml(when)}</p>
   <table>
@@ -106,7 +105,6 @@ function buildResultsHtml(input: ResultsSheetInput): string {
   </table>
   ${teamBlock}
   <p class="foot">RotPunktArena · Ergebnisprotokoll${bestOfNote ? " · Werte = beste Serie" : ""}</p>
-  <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;
 }
@@ -216,7 +214,6 @@ ${PRINT_BASE_CSS}
 </style>
 </head>
 <body>
-  <button class="noprint" onclick="window.print()" style="margin-bottom:1rem;padding:0.5rem 0.9rem;">Drucken</button>
   <h1>${escapeHtml(name)}</h1>
   <p class="meta">${escapeHtml(detail.competitionName)} · ${seriesList.length > 1 ? "alle Serien, beste markiert" : "Serie"} · ${escapeHtml(when)}</p>
   ${
@@ -230,7 +227,6 @@ ${PRINT_BASE_CSS}
   }
   ${seriesBlocks || "<p>Keine Serien</p>"}
   <p class="foot">RotPunktArena · Ergebnis · ${seriesList.length > 1 ? "Wertung = beste Serie" : "Ausdruck zur Dokumentation"}</p>
-  <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;
 }
@@ -273,7 +269,6 @@ function buildTrainingHtml(input: TrainingSheetInput): string {
 <style>${PRINT_BASE_CSS}</style>
 </head>
 <body>
-  <button class="noprint" onclick="window.print()" style="margin-bottom:1rem;padding:0.5rem 0.9rem;">Drucken</button>
   <h1>${escapeHtml(input.title)}</h1>
   <p class="meta">${escapeHtml(input.filterLabel)} · ${escapeHtml(when)}</p>
   <table>
@@ -281,7 +276,6 @@ function buildTrainingHtml(input: TrainingSheetInput): string {
     <tbody>${rows || "<tr><td colspan='6'>Keine Serien</td></tr>"}</tbody>
   </table>
   <p class="foot">RotPunktArena · Trainingshistorie</p>
-  <script>window.onload = function () { setTimeout(function () { window.print(); }, 120); };</script>
 </body>
 </html>`;
 }
