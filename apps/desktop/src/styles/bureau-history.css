@@ -220,6 +220,8 @@
 }
 
 .start-more-menu {
+  left: 0;
+  right: auto;
   min-width: 16rem;
   padding: 0.55rem;
   gap: 0.5rem;
