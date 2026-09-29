@@ -136,17 +136,19 @@ export function BureauView({
     onDropPerson: (personId) => b.addPersonToStartList(personId),
   });
 
+  const reorderEntry = async (draggedId: string, targetId: string) => {
+    const ids = b.entries.map((e) => e.id);
+    const from = ids.indexOf(draggedId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0 || from === to) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, draggedId);
+    await b.reorderEntries(ids);
+  };
+
   const entryDnD = useEntryStartListDnD({
     enabled: startListEditEnabled,
-    onReorder: async (draggedId, targetId) => {
-      const ids = b.entries.map((e) => e.id);
-      const from = ids.indexOf(draggedId);
-      const to = ids.indexOf(targetId);
-      if (from < 0 || to < 0 || from === to) return;
-      ids.splice(from, 1);
-      ids.splice(to, 0, draggedId);
-      await b.reorderEntries(ids);
-    },
+    onReorder: reorderEntry,
     onRemove: async (entryId) => {
       const entry = b.entries.find((e) => e.id === entryId);
       if (!entry) return;
@@ -426,6 +428,11 @@ export function BureauView({
                         })();
                       }}
                       onBeginEntryDrag={entryDnD.beginEntryDrag}
+                      onMoveEntry={(entryId, direction) => {
+                        const index = b.entries.findIndex((e) => e.id === entryId);
+                        const target = b.entries[index + direction];
+                        if (target) void reorderEntry(entryId, target.id);
+                      }}
                       onOpenEntryResults={(entryId) => {
                         setWettkampfTab("results");
                         void openResult(entryId);

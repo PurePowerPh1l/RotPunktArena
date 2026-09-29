@@ -45,6 +45,7 @@ type Props = {
     label: string,
     e: PointerEvent,
   ) => void;
+  onMoveEntry: (entryId: string, direction: -1 | 1) => void;
 };
 
 export function StartListPanel({
@@ -70,6 +71,7 @@ export function StartListPanel({
   onOpenLive,
   onOpenEntryResults,
   onBeginEntryDrag,
+  onMoveEntry,
 }: Props) {
   const [cloneFromId, setCloneFromId] = useState("");
   const [quickName, setQuickName] = useState("");
@@ -188,7 +190,7 @@ export function StartListPanel({
                 ? `${selected.name} · geschlossen`
                 : selected.status === "template"
                   ? "Vorlage — zum Schießen zuerst als Wettkampf anlegen."
-                  : "Starter wählen → Zur Arena · ⋮⋮ aus Startliste ziehen."}
+                  : "Starter wählen → Zur Arena · Reihenfolge per Ziehen oder Starter-Aktionen ändern."}
           </p>
           {locked && selected ? (
             <p className="hint start-list-lock-hint">
@@ -278,7 +280,7 @@ export function StartListPanel({
               </tr>
             </thead>
             <tbody>
-              {entries.map((e) => {
+              {entries.map((e, index) => {
                 const isSelected = selectedEntryId === e.id;
                 const label = formatPersonName(e.lastName, e.firstName, "");
                 const isDone = e.status === "done";
@@ -298,7 +300,6 @@ export function StartListPanel({
                     ]
                       .filter(Boolean)
                       .join(" ") || undefined}
-                    aria-selected={isSelected}
                     onClick={() => setSelectedEntryId(e.id)}
                   >
                     <td
@@ -322,7 +323,18 @@ export function StartListPanel({
                     <td>{e.startOrder}</td>
                     <td>
                       <span className="start-name-cell">
-                        <span className="start-name">{label}</span>
+                        <button
+                          type="button"
+                          className="start-name start-select-btn"
+                          aria-label={`${label} auswählen`}
+                          aria-pressed={isSelected}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setSelectedEntryId(e.id);
+                          }}
+                        >
+                          {label}
+                        </button>
                         {nk > 0 ? (
                           <button
                             type="button"
@@ -377,7 +389,23 @@ export function StartListPanel({
                     </td>
                     <td onClick={(ev) => ev.stopPropagation()}>
                       {canEdit ? (
-                        <OverflowMenu ariaLabel="Starter-Aktionen">
+                        <OverflowMenu ariaLabel={`Aktionen für ${label}`}>
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={busy || index === 0}
+                            onClick={() => onMoveEntry(e.id, -1)}
+                          >
+                            Nach oben
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={busy || index === entries.length - 1}
+                            onClick={() => onMoveEntry(e.id, 1)}
+                          >
+                            Nach unten
+                          </button>
                           <button
                             type="button"
                             className="ghost"

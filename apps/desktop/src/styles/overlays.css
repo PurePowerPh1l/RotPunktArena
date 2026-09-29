@@ -178,7 +178,7 @@
 .app-dialog-actions .app-dialog-danger {
   background: var(--bad);
   border-color: transparent;
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 .app-dialog-actions .app-dialog-danger:hover:not(:disabled) {
