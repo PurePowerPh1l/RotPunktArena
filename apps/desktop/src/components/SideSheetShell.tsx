@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 
 type Props = {
   title: string;
@@ -19,6 +19,18 @@ export function SideSheetShell({
   stackedSecondary = false,
   className,
 }: Props) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useLayoutEffect(() => {
+    const previousFocus = document.activeElement;
+    closeButtonRef.current?.focus();
+    return () => {
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus();
+      }
+    };
+  }, []);
+
   const classes = [
     "side-sheet",
     stackedSecondary ? "is-stacked-secondary" : "",
@@ -31,7 +43,7 @@ export function SideSheetShell({
     <aside className={classes} aria-label={ariaLabel}>
       <div className="side-sheet-head">
         <strong>{title}</strong>
-        <button type="button" className="ghost" onClick={onClose}>
+        <button ref={closeButtonRef} type="button" className="ghost" onClick={onClose}>
           Schließen
         </button>
       </div>
