@@ -1,4 +1,4 @@
-﻿//! First-setup scan + nuclear connect (blocking helpers for Tauri commands).
+//! First-setup scan + nuclear connect (blocking helpers for Tauri commands).
 //!
 //! Start: Startup Nuclear once for Known BD_ADDR.
 //! Sheet / Badge Verbinden → NuclearLink on owner (single-flight with Startup).
@@ -47,7 +47,10 @@ fn pause_owner_for_setup(handle: &ConnectionHandle) -> Result<(), String> {
     handle
         .send(ConnectionCommand::PauseForSetup)
         .map_err(|e| e)?;
-    let deadline = Instant::now() + Duration::from_secs(3);
+    // An in-flight Nuclear may still be inside a blocking Windows pairing or
+    // socket call. The Owner acknowledges Discovering only after that worker
+    // has stopped, so scanning cannot race its Bluetooth operations.
+    let deadline = Instant::now() + Duration::from_secs(90);
     while Instant::now() < deadline {
         if handle.status() == ConnectionStatus::Discovering {
             return Ok(());
@@ -113,7 +116,7 @@ fn parse_bt_addr_hex(hex: &str) -> Result<u64, String> {
 /// Wait for an in-flight or just-sent Nuclear to settle (single-flight attach).
 fn wait_nuclear_outcome(
     handle: &ConnectionHandle,
-    fallback: RfcommTarget,
+    expected_addr: u64,
     gen0: u64,
     attach: bool,
 ) -> Result<RfcommTarget, String> {
@@ -124,7 +127,13 @@ fn wait_nuclear_outcome(
         if st == ConnectionStatus::Linked {
             // New Nuclear bumps gen; attach to Startup keeps the same gen on success.
             if attach || gen > gen0 {
-                return Ok(handle.target().unwrap_or(fallback));
+                let target = handle
+                    .target()
+                    .ok_or("Verbindung ohne aktives RedDot-Ziel")?;
+                if target.bt_addr & 0xFFFF_FFFF_FFFF != expected_addr & 0xFFFF_FFFF_FFFF {
+                    return Err("Ein anderes RedDot wurde verbunden — bitte erneut wählen".into());
+                }
+                return Ok(target);
             }
         }
         if st == ConnectionStatus::Connecting {
@@ -173,21 +182,21 @@ pub fn setup_connect(
     bt_addr_hex: &str,
     display_name_hint: Option<&str>,
 ) -> Result<RfcommTarget, String> {
-    // If Startup Nuclear is already running, do not PauseForSetup (would cancel it).
-    if handle.status() == ConnectionStatus::Connecting {
-        let fallback = handle.target().unwrap_or(RfcommTarget {
-            bt_addr: parse_bt_addr_hex(bt_addr_hex)?,
-            display_name: display_name_hint.unwrap_or("RedDot").to_string(),
-            service_uuid: crate::transport::rfcomm::SPP_SERVICE_UUID.to_string(),
-            rfcomm_channel: Some(1),
-            com_port: None,
-        });
-        return wait_nuclear_outcome(handle, fallback, handle.generation(), true);
+    let addr = parse_bt_addr_hex(bt_addr_hex)?;
+    // Attach only to a known-device flight for this exact address. A setup
+    // flight may target a different address while the old target remains active.
+    if handle.status() == ConnectionStatus::Connecting
+        && matches!(
+            handle.connect_origin(),
+            ConnectOrigin::StartupAuto | ConnectOrigin::BadgeNuclear
+        )
+        && handle.target().map(|t| t.bt_addr) == Some(addr)
+    {
+        return wait_nuclear_outcome(handle, addr, handle.generation(), true);
     }
 
     pause_owner_for_setup(handle)?;
 
-    let addr = parse_bt_addr_hex(bt_addr_hex)?;
     let mut display_name = display_name_hint
         .filter(|s| !s.trim().is_empty())
         .unwrap_or("RedDot")
@@ -215,18 +224,7 @@ pub fn setup_connect(
         })
         .map_err(|e| e)?;
 
-    wait_nuclear_outcome(
-        handle,
-        RfcommTarget {
-            bt_addr: addr,
-            display_name,
-            service_uuid: crate::transport::rfcomm::SPP_SERVICE_UUID.to_string(),
-            rfcomm_channel: Some(1),
-            com_port: None,
-        },
-        gen0,
-        false,
-    )
+    wait_nuclear_outcome(handle, addr, gen0, false)
 }
 
 /// Nuclear link for a known target (Verbinden button).
@@ -239,7 +237,7 @@ pub fn connect_known_nuclear(handle: &ConnectionHandle) -> Result<RfcommTarget, 
     };
 
     if handle.status() == ConnectionStatus::Connecting {
-        return wait_nuclear_outcome(handle, t, handle.generation(), true);
+        return wait_nuclear_outcome(handle, t.bt_addr, handle.generation(), true);
     }
 
     // Capture generation *before* send — Nuclear bumps generation on start.
@@ -252,7 +250,7 @@ pub fn connect_known_nuclear(handle: &ConnectionHandle) -> Result<RfcommTarget, 
         })
         .map_err(|e| e)?;
 
-    wait_nuclear_outcome(handle, t, gen0, false)
+    wait_nuclear_outcome(handle, t.bt_addr, gen0, false)
 }
 
 pub fn open_windows_bluetooth_settings() -> Result<(), String> {
@@ -281,5 +279,50 @@ pub fn open_windows_bluetooth_settings() -> Result<(), String> {
     #[cfg(not(windows))]
     {
         Err("Bluetooth-Einstellungen nur unter Windows".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connection::connect_policy::ConnectPhase;
+    use crate::connection::shared::SharedState;
+    use std::sync::{mpsc, Arc, Mutex};
+
+    fn linked_handle(addr: u64) -> ConnectionHandle {
+        let (cmd_tx, _cmd_rx) = mpsc::channel();
+        ConnectionHandle {
+            cmd_tx,
+            inner: Arc::new(Mutex::new(SharedState {
+                status: ConnectionStatus::Linked,
+                generation: 2,
+                target: Some(RfcommTarget {
+                    bt_addr: addr,
+                    display_name: "RedDot".into(),
+                    service_uuid: crate::transport::rfcomm::SPP_SERVICE_UUID.into(),
+                    rfcomm_channel: Some(1),
+                    com_port: None,
+                }),
+                last_reason: String::new(),
+                connect_phase: ConnectPhase::Idle,
+                connect_origin: ConnectOrigin::None,
+                sink_rx: None,
+                sink_registered: false,
+                sink_epoch: 0,
+            })),
+        }
+    }
+
+    #[test]
+    fn linked_outcome_requires_requested_device() {
+        let a = 0xAAAA_AAAA_AAAA;
+        let b = 0xBBBB_BBBB_BBBB;
+        let handle = linked_handle(a);
+        assert_eq!(
+            wait_nuclear_outcome(&handle, a, 1, false).unwrap().bt_addr,
+            a
+        );
+        assert!(wait_nuclear_outcome(&handle, b, 1, false).is_err());
+        assert!(wait_nuclear_outcome(&handle, b, 2, true).is_err());
     }
 }

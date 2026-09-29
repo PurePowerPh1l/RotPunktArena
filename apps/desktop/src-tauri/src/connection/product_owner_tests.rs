@@ -140,15 +140,19 @@ impl ProductOwner {
         }
     }
 
-    /// Interrupt while Nuclear worker runs (`run_nuclear` pump): bump only;
-    /// when result arrives with stale gen → Idle (not Discovering / NeedsTarget).
+    /// Interrupt while Nuclear worker runs (`run_nuclear` pump): bump first;
+    /// after the worker stops, PauseForSetup acknowledges Discovering.
     /// Real Forget during pump does **not** clear target in the pump arm.
     fn interrupt_nuclear_flight(&mut self, kind: NuclearInterrupt) {
         assert_eq!(self.status, ConnectionStatus::Connecting);
         let started = self.generation;
         self.bump();
         assert!(self.generation > started);
-        self.status = ConnectionStatus::Idle;
+        self.status = if kind == NuclearInterrupt::PauseForSetup {
+            ConnectionStatus::Discovering
+        } else {
+            ConnectionStatus::Idle
+        };
         self.last_origin = None;
         match kind {
             NuclearInterrupt::ForgetTarget => {
@@ -215,7 +219,10 @@ fn switch_forget_addr_drops_old_bond_only_on_real_switch() {
         None
     );
     // No previous target (first setup) → nothing extra to forget.
-    assert_eq!(switch_forget_addr(None, new, ForgetScope::AllRedDotHints), None);
+    assert_eq!(
+        switch_forget_addr(None, new, ForgetScope::AllRedDotHints),
+        None
+    );
     // Startup never switches — PrimaryOnly must not forget foreign bonds.
     assert_eq!(
         switch_forget_addr(Some(old), new, ForgetScope::PrimaryOnly),
@@ -366,12 +373,12 @@ fn pause_outside_nuclear_discovers() {
 }
 
 #[test]
-fn pause_during_nuclear_flight_ends_idle_not_discovering() {
+fn pause_during_nuclear_flight_acknowledges_discovering() {
     let mut o = ProductOwner::new(true);
     o.handle(FakeCmd::Start);
     assert!(o.has_target);
     o.interrupt_nuclear_flight(NuclearInterrupt::PauseForSetup);
-    assert_eq!(o.status, ConnectionStatus::Idle);
+    assert_eq!(o.status, ConnectionStatus::Discovering);
     assert!(o.has_target);
 }
 
