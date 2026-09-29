@@ -155,7 +155,7 @@ export function PeoplePanel({
             </button>
           </div>
         ) : (
-          <button type="submit" disabled={busy}>
+          <button type="submit" className="secondary" disabled={busy}>
             Anlegen
           </button>
         )}
