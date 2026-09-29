@@ -41,10 +41,7 @@ pub fn update_person(
 }
 
 #[tauri::command]
-pub fn delete_person(
-    engine: tauri::State<'_, Arc<StandEngine>>,
-    id: String,
-) -> Result<(), String> {
+pub fn delete_person(engine: tauri::State<'_, Arc<StandEngine>>, id: String) -> Result<(), String> {
     engine.with_db(|db| db.delete_person(&id))
 }
 
@@ -60,8 +57,10 @@ pub fn list_competitions(
 pub fn create_competition(
     engine: tauri::State<'_, Arc<StandEngine>>,
     competition: CreateCompetition,
+    activate: Option<bool>,
 ) -> Result<Competition, String> {
-    engine.with_db(|db| db.create_competition(competition))
+    engine
+        .with_db(|db| db.create_competition_with_activation(competition, activate.unwrap_or(false)))
 }
 
 #[tauri::command]
@@ -204,12 +203,7 @@ pub fn list_teams(
     competition_id: Option<String>,
     include_archived: Option<bool>,
 ) -> Result<Vec<CompetitionTeam>, String> {
-    engine.with_db(|db| {
-        db.list_teams(
-            competition_id.as_deref(),
-            include_archived.unwrap_or(false),
-        )
-    })
+    engine.with_db(|db| db.list_teams(competition_id.as_deref(), include_archived.unwrap_or(false)))
 }
 
 #[tauri::command]
@@ -225,8 +219,7 @@ pub fn create_team(
     engine: tauri::State<'_, Arc<StandEngine>>,
     name: String,
     // Ignored — teams are global. Kept for older frontend payloads.
-    #[allow(unused_variables)]
-    competition_id: Option<String>,
+    #[allow(unused_variables)] competition_id: Option<String>,
 ) -> Result<CompetitionTeam, String> {
     engine.with_db(|db| db.create_team(&name))
 }

@@ -65,13 +65,14 @@ impl Owner {
         event_tx: Option<Sender<ConnectionEvent>>,
     ) -> Self {
         let target = shared.lock().unwrap().target.clone();
+        let status = shared.lock().unwrap().status;
         Self {
             data_dir,
             cmd_rx,
             sink_tx,
             shared,
             event_tx,
-            status: ConnectionStatus::Idle,
+            status,
             generation: 0,
             target,
             socket: None,
@@ -177,6 +178,10 @@ impl Owner {
                 false
             }
             ConnectionCommand::ForgetTarget => {
+                if let Err(error) = clear_known_target(&self.data_dir) {
+                    self.set_status(ConnectionStatus::Faulted, &error);
+                    return false;
+                }
                 self.bump_generation();
                 self.socket = None;
                 self.link_name = None;
@@ -187,7 +192,6 @@ impl Owner {
                 } else {
                     spp_com::restore_all();
                 }
-                let _ = clear_known_target(&self.data_dir);
                 self.target = None;
                 auth_hook::clear_auto_pin_allows();
                 self.sync_shared_target();

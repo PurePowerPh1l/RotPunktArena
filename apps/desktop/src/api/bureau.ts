@@ -69,8 +69,10 @@ export async function createCompetition(input: {
   kind?: import("@rotpunktarena/domain").CompetitionKind;
   tenthsEnabled?: boolean;
   probeEnabled?: boolean;
+  activateOnCreate?: boolean;
 }): Promise<Competition> {
-  return invoke("create_competition", { competition: input });
+  const { activateOnCreate = false, ...competition } = input;
+  return invoke("create_competition", { competition, activate: activateOnCreate });
 }
 
 export async function updateCompetition(

@@ -20,43 +20,8 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-type SortMode = "punkte" | "teiler";
-type Entry = {
-  entryId: string;
-  startOrder: number;
-  rankPunkte?: number | null;
-  rankTeiler?: number | null;
-};
-type Team = {
-  teamId: string;
-  sortOrder: number;
-  rankPunkte?: number | null;
-  rankTeiler?: number | null;
-};
-
-/** Mirror of apps/desktop/src/lib/resultRank.ts (kept local to avoid React import). */
-function entryRank(r: Entry, sortMode: SortMode): number | null {
-  return (sortMode === "teiler" ? r.rankTeiler : r.rankPunkte) ?? null;
-}
-function teamRank(t: Team, sortMode: SortMode): number | null {
-  return (sortMode === "teiler" ? t.rankTeiler : t.rankPunkte) ?? null;
-}
-function compareByEntryRank(a: Entry, b: Entry, sortMode: SortMode): number {
-  const ra = entryRank(a, sortMode);
-  const rb = entryRank(b, sortMode);
-  if (ra == null && rb == null) return a.startOrder - b.startOrder;
-  if (ra == null) return 1;
-  if (rb == null) return -1;
-  return ra - rb;
-}
-function compareByTeamRank(a: Team, b: Team, sortMode: SortMode): number {
-  const ra = teamRank(a, sortMode);
-  const rb = teamRank(b, sortMode);
-  if (ra == null && rb == null) return a.sortOrder - b.sortOrder;
-  if (ra == null) return 1;
-  if (rb == null) return -1;
-  return ra - rb;
-}
+import { entryRank, teamRank, compareByEntryRank, compareByTeamRank } from "../apps/desktop/src/lib/resultRank.ts";
+import type { EntryResultSummary as Entry, TeamResultSummary as Team } from "../packages/domain/src/index.ts";
 
 // --- requestSeq ---
 {
@@ -69,9 +34,9 @@ function compareByTeamRank(a: Team, b: Team, sortMode: SortMode): number {
 
 // --- resultRank ordering ---
 {
-  const a: Entry = { entryId: "a", startOrder: 1, rankPunkte: 2, rankTeiler: 1 };
-  const b: Entry = { entryId: "b", startOrder: 2, rankPunkte: 1, rankTeiler: 2 };
-  const none: Entry = { entryId: "n", startOrder: 3, rankPunkte: null, rankTeiler: null };
+  const a = { entryId: "a", startOrder: 1, rankPunkte: 2, rankTeiler: 1 } as Entry;
+  const b = { entryId: "b", startOrder: 2, rankPunkte: 1, rankTeiler: 2 } as Entry;
+  const none = { entryId: "n", startOrder: 3, rankPunkte: null, rankTeiler: null } as Entry;
 
   assert(entryRank(a, "punkte") === 2, "entryRank punkte");
   assert(entryRank(a, "teiler") === 1, "entryRank teiler");
@@ -80,8 +45,8 @@ function compareByTeamRank(a: Team, b: Team, sortMode: SortMode): number {
   assert(compareByEntryRank(a, b, "teiler") < 0, "compareByEntryRank orders by teiler rank");
   assert(compareByEntryRank(none, a, "punkte") > 0, "unranked sorts after ranked");
 
-  const t1: Team = { teamId: "t1", sortOrder: 0, rankPunkte: 2, rankTeiler: 1 };
-  const t2: Team = { teamId: "t2", sortOrder: 1, rankPunkte: 1, rankTeiler: 2 };
+  const t1 = { teamId: "t1", sortOrder: 0, rankPunkte: 2, rankTeiler: 1 } as Team;
+  const t2 = { teamId: "t2", sortOrder: 1, rankPunkte: 1, rankTeiler: 2 } as Team;
   assert(teamRank(t2, "punkte") === 1, "teamRank punkte");
   assert(compareByTeamRank(t2, t1, "punkte") < 0, "compareByTeamRank orders by punkte");
 }
@@ -135,7 +100,6 @@ function compareByTeamRank(a: Team, b: Team, sortMode: SortMode): number {
     ["apps/desktop/src/views/LiveStandView.tsx", "startEntryPrepared"],
     ["apps/desktop/src/views/bureau/PeoplePanel.tsx", "if (ok) resetForm()"],
     ["apps/desktop/src/views/bureau/CompetitionCreateForm.tsx", "if (!ok) return"],
-    ["apps/desktop/src/views/bureau/TeamsPanel.tsx", "scheduleTeamCount"],
     ["apps/desktop/src/components/RecoveryGate.tsx", "useAsyncAction"],
     ["apps/desktop/src/components/DevPanel.tsx", "useAsyncAction"],
     ["docs/code-guidelines.md", "UI-Gamification"],

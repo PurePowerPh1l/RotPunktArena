@@ -4,12 +4,14 @@ import type {
   EntryStatus,
   ScoringMode,
 } from "@rotpunktarena/domain";
-import * as api from "../../api/commands";
+import * as commands from "../../api/commands";
+import { refreshAfterWrite } from "../../lib/refreshAfterWrite";
 
 export type BureauMutate = (fn: () => Promise<void>) => Promise<boolean>;
 
 export type BureauMutationCtx = {
   mutate: BureauMutate;
+  onRefreshError: (message: string) => void;
   peopleQuery: string;
   selectedId: string | null;
   reloadPeople: (query?: string) => Promise<void>;
@@ -22,18 +24,19 @@ export type BureauMutationCtx = {
   setEntries: (entries: CompetitionEntry[]) => void;
 };
 
-export function createBureauMutations(ctx: BureauMutationCtx) {
+export function createBureauMutations(ctx: BureauMutationCtx, api = commands) {
   const {
     mutate,
     peopleQuery,
     selectedId,
-    reloadPeople,
-    reloadCompetitions,
-    reloadEntries,
-    reloadTeams,
     setSelectedId,
     setEntries,
   } = ctx;
+
+  const reloadPeople = refreshAfterWrite(ctx.reloadPeople, ctx.onRefreshError);
+  const reloadCompetitions = refreshAfterWrite(ctx.reloadCompetitions, ctx.onRefreshError);
+  const reloadEntries = refreshAfterWrite(ctx.reloadEntries, ctx.onRefreshError);
+  const reloadTeams = refreshAfterWrite(ctx.reloadTeams, ctx.onRefreshError);
 
   const reloadTeamsForSelection = () => reloadTeams(selectedId);
 
@@ -95,11 +98,7 @@ export function createBureauMutations(ctx: BureauMutationCtx) {
   }): Promise<string | null> => {
     let createdId: string | null = null;
     const ok = await mutate(async () => {
-      const { activateOnCreate, ...createInput } = input;
-      const c = await api.createCompetition(createInput);
-      if (activateOnCreate) {
-        await api.setCompetitionStatus(c.id, "active");
-      }
+      const c = await api.createCompetition(input);
       await reloadCompetitions();
       setSelectedId(c.id);
       createdId = c.id;
