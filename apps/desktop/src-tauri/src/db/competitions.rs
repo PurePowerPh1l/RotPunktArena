@@ -124,6 +124,23 @@ impl Database {
         Ok(out)
     }
 
+    pub fn create_competition_with_activation(
+        &self,
+        input: CreateCompetition,
+        activate: bool,
+    ) -> Result<Competition, String> {
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| e.to_string())?;
+        let mut created = self.create_competition(input)?;
+        if activate {
+            created = self.set_competition_status(&created.id, competition_status::ACTIVE)?;
+        }
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(created)
+    }
+
     pub fn create_competition(&self, input: CreateCompetition) -> Result<Competition, String> {
         let name = input.name.trim();
         if name.is_empty() {
@@ -242,6 +259,10 @@ impl Database {
         as_template: bool,
         copy_entries: bool,
     ) -> Result<Competition, String> {
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| e.to_string())?;
         let source = self
             .get_competition(source_id)?
             .ok_or_else(|| "Quell-Wettkampf nicht gefunden".to_string())?;
@@ -281,17 +302,13 @@ impl Database {
         };
         if copy_entries {
             let source_entries = self.list_entries(source_id)?;
-            let mut entry_map: Vec<(String, String)> = Vec::new();
-            for e in &source_entries {
-                match self.add_entry(&created.id, &e.person_id) {
-                    Ok(new_e) => entry_map.push((e.id.clone(), new_e.id)),
-                    Err(_) => {}
-                }
+            for entry in source_entries {
+                self.add_entry(&created.id, &entry.person_id)?;
             }
             // Teams are global (person membership); no per-competition copy needed.
         }
-        self.get_competition(&created.id)?
-            .ok_or_else(|| "Wettkampf nicht lesbar".into())
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(created)
     }
 
     pub fn set_competition_team_settings(
@@ -315,11 +332,7 @@ impl Database {
                 "UPDATE competitions
                  SET team_scoring_enabled = ?1, team_count = ?2
                  WHERE id = ?3",
-                params![
-                    if team_scoring_enabled { 1 } else { 0 },
-                    team_count,
-                    id
-                ],
+                params![if team_scoring_enabled { 1 } else { 0 }, team_count, id],
             )
             .map_err(|e| e.to_string())?;
         self.get_competition(id)?
@@ -665,10 +678,7 @@ impl Database {
     }
 
     /// Recovery resume: set entry active without start-guards (shots may already exist).
-    pub fn reactivate_entry_for_resume(
-        &self,
-        entry_id: &str,
-    ) -> Result<CompetitionEntry, String> {
+    pub fn reactivate_entry_for_resume(&self, entry_id: &str) -> Result<CompetitionEntry, String> {
         self.mark_entry_active(entry_id)
     }
 

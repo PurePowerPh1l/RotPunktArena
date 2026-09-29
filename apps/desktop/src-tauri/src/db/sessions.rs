@@ -45,14 +45,40 @@ impl Database {
         entry_id: Option<&str>,
         person_id: Option<&str>,
     ) -> Result<SessionInfo, String> {
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| e.to_string())?;
+        let info = Self::insert_session_in_tx(
+            &tx,
+            shooter_name,
+            competition_id,
+            entry_id,
+            person_id,
+            None,
+            super::session_phase::MATCH,
+        )?;
+        tx.commit().map_err(|e| e.to_string())?;
+        self.spawn_session_boundary_snapshot(&info.id);
+        Ok(info)
+    }
+
+    pub(super) fn insert_session_in_tx(
+        tx: &rusqlite::Transaction<'_>,
+        shooter_name: &str,
+        competition_id: Option<&str>,
+        entry_id: Option<&str>,
+        person_id: Option<&str>,
+        max_shots: Option<i64>,
+        phase: &str,
+    ) -> Result<SessionInfo, String> {
         let id = Uuid::new_v4().to_string();
         let started_at = Utc::now().to_rfc3339();
-        self.conn
-            .execute(
+        tx.execute(
                 "INSERT INTO sessions
                  (id, shooter_name, started_at, competition_id, entry_id, person_id,
-                  next_sequence, recovery_state, last_autosave_at, last_autosave_sequence)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, ?8, 0)",
+                  next_sequence, recovery_state, last_autosave_at, last_autosave_sequence, max_shots, phase)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, ?8, 0, ?9, ?10)",
                 params![
                     id,
                     shooter_name,
@@ -62,10 +88,13 @@ impl Database {
                     person_id,
                     recovery_state::ACTIVE,
                     started_at,
+                    max_shots,
+                    phase,
                 ],
             )
             .map_err(|e| e.to_string())?;
-        let event = self.append_event(
+        let event = append_event_in_tx(
+            tx,
             &id,
             event_kind::SESSION_STARTED,
             "system",
@@ -75,8 +104,9 @@ impl Database {
                 "entryId": entry_id,
                 "personId": person_id,
             }),
+            None,
         )?;
-        self.touch_autosave(&id, Some(event.sequence))?;
+        touch_autosave_in_tx(tx, &id, event.sequence, &started_at)?;
         let info = SessionInfo {
             id,
             shooter_name: shooter_name.to_string(),
@@ -86,9 +116,6 @@ impl Database {
             entry_id: entry_id.map(str::to_string),
             person_id: person_id.map(str::to_string),
         };
-        // WAL-safe VACUUM INTO snapshot on a background thread so session start
-        // returns immediately (best-effort; never blocks on VACUUM I/O).
-        self.spawn_session_boundary_snapshot(&info.id);
         Ok(info)
     }
 
@@ -146,11 +173,7 @@ impl Database {
     }
 
     /// Close an open session with an explicit recovery outcome (`clean` / `safely_closed`).
-    pub fn end_session_with_state(
-        &mut self,
-        session_id: &str,
-        state: &str,
-    ) -> Result<(), String> {
+    pub fn end_session_with_state(&mut self, session_id: &str, state: &str) -> Result<(), String> {
         let ended_at = Utc::now().to_rfc3339();
         self.conn
             .execute(
@@ -256,10 +279,7 @@ pub fn session_phase_in_tx(
 
 /// Allocate the next session event sequence inside an open transaction.
 /// Single writer for `sessions.next_sequence` — Arena and session lifecycle share this.
-pub fn allocate_sequence(
-    tx: &rusqlite::Transaction<'_>,
-    session_id: &str,
-) -> Result<i64, String> {
+pub fn allocate_sequence(tx: &rusqlite::Transaction<'_>, session_id: &str) -> Result<i64, String> {
     let next: i64 = tx
         .query_row(
             "SELECT next_sequence FROM sessions WHERE id = ?1",

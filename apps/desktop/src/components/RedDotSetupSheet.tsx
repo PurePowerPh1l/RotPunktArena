@@ -80,8 +80,9 @@ export function RedDotSetupSheet({ open, onClose, onLinked }: Props) {
     setCandidates([]);
     setSelected(null);
     setPhase("searching");
-    const mem = await liveApi.rfcommListDevices().catch(() => [] as KnownDevice[]);
+    let mem: KnownDevice[] = [];
     try {
+      mem = await liveApi.rfcommListDevices();
       const found = await liveApi.rfcommSetupScan();
       setCandidates(mergeScanWithMemory(found, mem));
       setPhase("found");

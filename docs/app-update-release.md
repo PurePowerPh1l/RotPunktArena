@@ -55,12 +55,12 @@ Hinweis: Unsigned Alltag-Builds ohne Signing-Env können mit diesem Flag scheite
 PowerShell (Windows), Private Key **nicht** committen:
 
 ```powershell
-$env:TAURI_SIGNING_PRIVATE_KEY_PATH = "D:\path\to\reddot-updater.key"
+$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -LiteralPath "D:\path\to\reddot-updater.key" -Raw
 $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<password if any>"
 npm run desktop:build
 ```
 
-Alternativ Key-Inhalt in `TAURI_SIGNING_PRIVATE_KEY` (statt Pfad).
+Der Bundle-Build erwartet den Schlüsselinhalt in `TAURI_SIGNING_PRIVATE_KEY`. Der Pfadparameter `--private-key-path` gehört zum separaten `tauri signer sign`-Befehl.
 
 Erwartete Artefakte (u. a.):
 
