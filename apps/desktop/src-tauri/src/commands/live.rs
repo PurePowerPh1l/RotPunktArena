@@ -144,10 +144,7 @@ pub fn rfcomm_status(
         status: handle.status().as_str().to_string(),
         reason: handle.last_reason(),
         connect_phase: handle.connect_phase().as_str().to_string(),
-        connect_origin: handle
-            .connect_origin()
-            .as_api_str()
-            .map(|s| s.to_string()),
+        connect_origin: handle.connect_origin().as_api_str().map(|s| s.to_string()),
         generation: handle.generation(),
         target: handle.target().map(|t| t.summary()),
         rfcomm_feature: cfg!(feature = "rfcomm"),
@@ -218,7 +215,7 @@ pub fn rfcomm_list_devices(
     app: tauri::AppHandle,
 ) -> Result<Vec<crate::connection::KnownDeviceSummary>, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    Ok(crate::connection::list_known_devices(&data_dir))
+    crate::connection::list_known_devices(&data_dir)
 }
 
 #[tauri::command]
@@ -240,11 +237,12 @@ pub fn rfcomm_forget_device(
     }
     let addr = u64::from_str_radix(&clean, 16).map_err(|e| e.to_string())? & 0xFFFF_FFFF_FFFF;
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let devices = crate::connection::list_known_devices(&data_dir)?;
     let active = handle
         .target()
         .map(|t| t.bt_addr & 0xFFFF_FFFF_FFFF)
         .or_else(|| {
-            crate::connection::list_known_devices(&data_dir)
+            devices
                 .into_iter()
                 .find(|d| d.is_active)
                 .and_then(|d| u64::from_str_radix(&d.bt_addr_hex, 16).ok())

@@ -6,8 +6,12 @@
 
 use crate::transport::rfcomm::target::RfcommTarget;
 use std::fs;
+use std::io::{ErrorKind, Write};
+
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static STORE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
 
 const FILE_NAME: &str = "rfcomm_devices.json";
 const LEGACY_FILE_NAME: &str = "rfcomm_known_target.json";
@@ -120,61 +124,91 @@ fn now_unix() -> u64 {
 }
 
 /// Load the device store; migrates a legacy single-target file once.
-pub fn load_device_store(data_dir: &Path) -> DeviceStore {
-    let path = device_store_path(data_dir);
-    if let Ok(bytes) = fs::read(&path) {
-        if let Ok(store) = serde_json::from_slice::<DeviceStore>(&bytes) {
-            return store;
-        }
-    }
-    migrate_legacy(data_dir).unwrap_or_default()
+pub fn load_device_store(data_dir: &Path) -> Result<DeviceStore, String> {
+    let _guard = STORE_LOCK.lock();
+    read_device_store(data_dir)
 }
 
-/// One-shot migration: legacy known target becomes the active device.
-fn migrate_legacy(data_dir: &Path) -> Option<DeviceStore> {
+fn read_device_store(data_dir: &Path) -> Result<DeviceStore, String> {
+    let path = device_store_path(data_dir);
+    match fs::read(&path) {
+        Ok(bytes) => serde_json::from_slice(&bytes)
+            .map_err(|e| format!("Gerätegedächtnis ist beschädigt ({}): {e}", path.display())),
+        Err(e) if e.kind() == ErrorKind::NotFound => migrate_legacy(data_dir),
+        Err(e) => Err(format!("Gerätegedächtnis konnte nicht gelesen werden: {e}")),
+    }
+}
+
+fn migrate_legacy(data_dir: &Path) -> Result<DeviceStore, String> {
     let legacy = legacy_target_path(data_dir);
-    let bytes = fs::read(&legacy).ok()?;
-    let target = serde_json::from_slice::<RfcommTarget>(&bytes).ok()?;
+    let bytes = match fs::read(&legacy) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(DeviceStore::default()),
+        Err(e) => {
+            return Err(format!(
+                "Altes Gerätegedächtnis konnte nicht gelesen werden: {e}"
+            ))
+        }
+    };
+    let target = serde_json::from_slice::<RfcommTarget>(&bytes)
+        .map_err(|e| format!("Altes Gerätegedächtnis ist beschädigt: {e}"))?;
     let mut store = DeviceStore::default();
-    // Legacy file existed → the device was successfully linked at least once.
     store.set_active(&target, Some(now_unix()));
-    if save_device_store(data_dir, &store).is_ok() {
-        let _ = fs::remove_file(&legacy);
-    }
-    Some(store)
+    save_device_store(data_dir, &store)?;
+    let _ = fs::remove_file(&legacy);
+    Ok(store)
 }
 
-pub fn save_device_store(data_dir: &Path, store: &DeviceStore) -> Result<(), String> {
+fn save_device_store(data_dir: &Path, store: &DeviceStore) -> Result<(), String> {
+    fs::create_dir_all(data_dir).map_err(|e| e.to_string())?;
     let path = device_store_path(data_dir);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
+    let temp = data_dir.join(format!(".{FILE_NAME}.{}.tmp", uuid::Uuid::new_v4()));
     let json = serde_json::to_vec_pretty(store).map_err(|e| e.to_string())?;
-    fs::write(path, json).map_err(|e| e.to_string())
+    let result = (|| -> std::io::Result<()> {
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
+        file.write_all(&json)?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&temp, &path)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    result.map_err(|e| format!("Gerätegedächtnis konnte nicht gespeichert werden: {e}"))
+}
+
+fn update_store<T>(
+    data_dir: &Path,
+    change: impl FnOnce(&mut DeviceStore) -> T,
+) -> Result<T, String> {
+    let _guard = STORE_LOCK.lock();
+    let mut store = read_device_store(data_dir)?;
+    let result = change(&mut store);
+    save_device_store(data_dir, &store)?;
+    Ok(result)
 }
 
 /// Active device as `RfcommTarget` (owner/startup contract, unchanged shape).
-pub fn load_known_target(data_dir: &Path) -> Option<RfcommTarget> {
-    load_device_store(data_dir).active_target()
+pub fn load_known_target(data_dir: &Path) -> Result<Option<RfcommTarget>, String> {
+    Ok(load_device_store(data_dir)?.active_target())
 }
 
 /// Persist `target` as active device (upsert + last-connected timestamp).
 pub fn save_known_target(data_dir: &Path, target: &RfcommTarget) -> Result<(), String> {
-    let mut store = load_device_store(data_dir);
-    store.set_active(target, Some(now_unix()));
-    save_device_store(data_dir, &store)
+    update_store(data_dir, |store| store.set_active(target, Some(now_unix())))
 }
 
 /// „Gerät vergessen“: drop the active device from the store.
 pub fn clear_known_target(data_dir: &Path) -> Result<(), String> {
-    let mut store = load_device_store(data_dir);
-    store.clear_active();
-    save_device_store(data_dir, &store)
+    update_store(data_dir, DeviceStore::clear_active)
 }
 
 /// Remembered devices for the UI — active first, then newest last-connected.
-pub fn list_known_devices(data_dir: &Path) -> Vec<KnownDeviceSummary> {
-    let store = load_device_store(data_dir);
+pub fn list_known_devices(data_dir: &Path) -> Result<Vec<KnownDeviceSummary>, String> {
+    let store = load_device_store(data_dir)?;
     let mut out: Vec<_> = store
         .devices
         .iter()
@@ -186,7 +220,7 @@ pub fn list_known_devices(data_dir: &Path) -> Vec<KnownDeviceSummary> {
             .then(b.last_connected_at.cmp(&a.last_connected_at))
             .then(a.display_name.cmp(&b.display_name))
     });
-    out
+    Ok(out)
 }
 
 /// Remove a remembered device by BD_ADDR.
@@ -194,10 +228,7 @@ pub fn list_known_devices(data_dir: &Path) -> Vec<KnownDeviceSummary> {
 /// Returns `true` if it was the active device (caller should also drop the
 /// Owner bond via `ForgetTarget`).
 pub fn remove_known_device(data_dir: &Path, bt_addr: u64) -> Result<bool, String> {
-    let mut store = load_device_store(data_dir);
-    let was_active = store.remove_addr(bt_addr);
-    save_device_store(data_dir, &store)?;
-    Ok(was_active)
+    update_store(data_dir, |store| store.remove_addr(bt_addr))
 }
 
 #[cfg(test)]
@@ -229,7 +260,7 @@ mod tests {
         let dir = tmp_dir("roundtrip");
         let t = target(0x0018DA070564, "KT RDT ZIE 1");
         save_known_target(&dir, &t).unwrap();
-        assert_eq!(load_known_target(&dir), Some(t));
+        assert_eq!(load_known_target(&dir).unwrap(), Some(t));
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -243,10 +274,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(load_known_target(&dir), Some(t.clone()));
+        assert_eq!(load_known_target(&dir).unwrap(), Some(t.clone()));
         // Legacy file is gone, new store carries the device.
         assert!(!legacy_target_path(&dir).exists());
-        let store = load_device_store(&dir);
+        let store = load_device_store(&dir).unwrap();
         assert_eq!(store.active_addr, Some(t.bt_addr));
         assert_eq!(store.devices.len(), 1);
         assert!(store.devices[0].last_connected_at.is_some());
@@ -261,10 +292,10 @@ mod tests {
         save_known_target(&dir, &a).unwrap();
         save_known_target(&dir, &b).unwrap();
 
-        let store = load_device_store(&dir);
+        let store = load_device_store(&dir).unwrap();
         assert_eq!(store.active_addr, Some(b.bt_addr));
         assert_eq!(store.devices.len(), 2);
-        assert_eq!(load_known_target(&dir), Some(b));
+        assert_eq!(load_known_target(&dir).unwrap(), Some(b));
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -277,8 +308,8 @@ mod tests {
         save_known_target(&dir, &b).unwrap();
 
         clear_known_target(&dir).unwrap();
-        assert_eq!(load_known_target(&dir), None);
-        let store = load_device_store(&dir);
+        assert_eq!(load_known_target(&dir).unwrap(), None);
+        let store = load_device_store(&dir).unwrap();
         assert_eq!(store.active_addr, None);
         assert_eq!(store.devices.len(), 1);
         assert_eq!(store.devices[0].target.bt_addr, a.bt_addr);
@@ -288,7 +319,7 @@ mod tests {
     #[test]
     fn missing_files_yield_empty_store() {
         let dir = tmp_dir("empty");
-        assert_eq!(load_known_target(&dir), None);
+        assert_eq!(load_known_target(&dir).unwrap(), None);
         clear_known_target(&dir).unwrap();
         let _ = fs::remove_dir_all(&dir);
     }
@@ -300,7 +331,7 @@ mod tests {
         let b = target(0xBBBB_BBBB_BBBB, "KT RDT ZIE B");
         save_known_target(&dir, &a).unwrap();
         save_known_target(&dir, &b).unwrap();
-        let list = list_known_devices(&dir);
+        let list = list_known_devices(&dir).unwrap();
         assert_eq!(list.len(), 2);
         assert!(list[0].is_active);
         assert_eq!(list[0].bt_addr_hex, "BBBBBBBBBBBB");
@@ -316,8 +347,8 @@ mod tests {
         save_known_target(&dir, &a).unwrap();
         save_known_target(&dir, &b).unwrap();
         assert!(!remove_known_device(&dir, a.bt_addr).unwrap());
-        assert_eq!(load_known_target(&dir), Some(b));
-        assert_eq!(list_known_devices(&dir).len(), 1);
+        assert_eq!(load_known_target(&dir).unwrap(), Some(b));
+        assert_eq!(list_known_devices(&dir).unwrap().len(), 1);
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -329,10 +360,71 @@ mod tests {
         save_known_target(&dir, &a).unwrap();
         save_known_target(&dir, &b).unwrap();
         assert!(remove_known_device(&dir, b.bt_addr).unwrap());
-        assert_eq!(load_known_target(&dir), None);
-        let list = list_known_devices(&dir);
+        assert_eq!(load_known_target(&dir).unwrap(), None);
+        let list = list_known_devices(&dir).unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].bt_addr_hex, "AAAAAAAAAAAA");
         let _ = fs::remove_dir_all(&dir);
+    }
+    #[test]
+    fn corrupt_store_is_reported_and_never_overwritten_or_migrated() {
+        let dir = tmp_dir("corrupt");
+        let bytes = b"{broken";
+        fs::write(device_store_path(&dir), bytes).unwrap();
+        fs::write(
+            legacy_target_path(&dir),
+            serde_json::to_vec(&target(1, "Old")).unwrap(),
+        )
+        .unwrap();
+        assert!(load_known_target(&dir).is_err());
+        assert!(list_known_devices(&dir).is_err());
+        assert!(save_known_target(&dir, &target(2, "New")).is_err());
+        assert!(clear_known_target(&dir).is_err());
+        assert_eq!(fs::read(device_store_path(&dir)).unwrap(), bytes);
+        assert!(legacy_target_path(&dir).exists());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn concurrent_updates_keep_every_device_and_retries_do_not_duplicate() {
+        let dir = tmp_dir("concurrent");
+        let threads: Vec<_> = (1..=8)
+            .map(|addr| {
+                let dir = dir.clone();
+                std::thread::spawn(move || {
+                    let device = target(addr, "Device");
+                    save_known_target(&dir, &device).unwrap();
+                    save_known_target(&dir, &device).unwrap();
+                })
+            })
+            .collect();
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        assert_eq!(list_known_devices(&dir).unwrap().len(), 8);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn failed_atomic_replace_preserves_old_file_and_cleans_temp() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let dir = tmp_dir("replace_failure");
+        let old = target(1, "Old");
+        save_known_target(&dir, &old).unwrap();
+        let before = fs::read(device_store_path(&dir)).unwrap();
+        // Allow reads but deny replacement while this handle is open.
+        let locked = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(device_store_path(&dir))
+            .unwrap();
+        assert!(save_known_target(&dir, &target(2, "New")).is_err());
+        assert_eq!(fs::read(device_store_path(&dir)).unwrap(), before);
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
+        drop(locked);
+        save_known_target(&dir, &target(2, "New")).unwrap();
+        assert_eq!(list_known_devices(&dir).unwrap().len(), 2);
+        fs::remove_dir_all(dir).unwrap();
     }
 }

@@ -1,7 +1,7 @@
 {
   "name": "rotpunktarena",
   "private": true,
-  "version": "0.1.21",
+  "version": "0.1.22",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -13,9 +13,11 @@
     "build": "npm run tauri --workspace=@rotpunktarena/desktop -- build -- --features simulator,serial,rfcomm",
     "protocol:test": "npm run test --workspace=@rotpunktarena/protocol",
     "verify:ui-hardening": "node --experimental-strip-types tools/verify-ui-hardening.mts",
-    "icons:generate": "node --experimental-strip-types tools/generate-app-icon.mts"
+    "icons:generate": "node --experimental-strip-types tools/generate-app-icon.mts",
+    "test:mutations": "node --experimental-strip-types tools/bureau-mutations.test.mts"
   },
   "devDependencies": {
-    "@resvg/resvg-js": "^2.6.2"
+    "@resvg/resvg-js": "^2.6.2",
+    "esbuild": "^0.28.1"
   }
 }

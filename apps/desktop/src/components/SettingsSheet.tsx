@@ -221,7 +221,7 @@ export function SettingsSheet({
 
   useEffect(() => {
     if (!open || !link.rfcommFeature) return;
-    void reloadKnownDevices().catch(() => {});
+    void reloadKnownDevices().catch((e) => setError(String(e)));
     // Refresh memory list when link target/status changes (after switch/forget).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, link.rfcommFeature, link.hasTarget, link.linked, link.targetName]);
