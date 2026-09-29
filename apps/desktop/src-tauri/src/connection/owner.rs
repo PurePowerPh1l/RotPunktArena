@@ -329,6 +329,7 @@ impl Owner {
 
         // Pump cancel/shutdown while Nuclear runs on a worker.
         // NuclearLink / Start: drop (single-flight; callers attach via poll).
+        let mut pause_for_setup = false;
         let result = loop {
             match rx.try_recv() {
                 Ok(r) => break r,
@@ -356,10 +357,13 @@ impl Owner {
                 }
             }
             match self.cmd_rx.recv_timeout(Duration::from_millis(50)) {
-                Ok(ConnectionCommand::CancelConnect)
-                | Ok(ConnectionCommand::PauseForSetup)
-                | Ok(ConnectionCommand::ForgetTarget) => {
+                Ok(ConnectionCommand::CancelConnect) | Ok(ConnectionCommand::ForgetTarget) => {
                     self.bump_generation();
+                    pause_for_setup = false;
+                }
+                Ok(ConnectionCommand::PauseForSetup) => {
+                    self.bump_generation();
+                    pause_for_setup = true;
                 }
                 Ok(ConnectionCommand::Shutdown) => {
                     self.bump_generation();
@@ -394,7 +398,11 @@ impl Owner {
                 report.failed_step = Some("cancelled");
                 self.log_startup_nuclear(&run_id, &addr_hex, &report, false, "idle");
             }
-            self.set_status(ConnectionStatus::Idle, "Abgebrochen — Verbinden");
+            if pause_for_setup {
+                self.set_status(ConnectionStatus::Discovering, "Bereit zur Gerätesuche");
+            } else {
+                self.set_status(ConnectionStatus::Idle, "Abgebrochen — Verbinden");
+            }
             return;
         }
 
@@ -449,17 +457,20 @@ impl Owner {
                 if origin == ConnectOrigin::StartupAuto {
                     self.log_startup_nuclear(&run_id, &addr_hex, &e.report, false, "idle");
                 }
-                self.diag("nuclear_fail", fail_status, &e.message, None, e.report.winsock);
+                self.diag(
+                    "nuclear_fail",
+                    fail_status,
+                    &e.message,
+                    None,
+                    e.report.winsock,
+                );
                 self.set_connect_origin(ConnectOrigin::None);
                 if origin == ConnectOrigin::StartupAuto {
                     self.set_status(ConnectionStatus::Idle, "Nicht verbunden");
                 } else {
                     self.set_status(
                         ConnectionStatus::NeedsPairing,
-                        &format!(
-                            "Verbindung neu aufsetzen fehlgeschlagen — {}",
-                            e.message
-                        ),
+                        &format!("Verbindung neu aufsetzen fehlgeschlagen — {}", e.message),
                     );
                 }
             }
