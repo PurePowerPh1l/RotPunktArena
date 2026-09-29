@@ -246,11 +246,15 @@ html[data-color-scheme="light"] .sliding-seg.mode-row {
 }
 
 .sliding-seg-btn.on {
-  color: #fff;
+  color: var(--accent-ink);
   background: transparent !important;
   transform: none;
   filter: none;
   box-shadow: none !important;
+}
+
+.sliding-seg.mode-row[data-value="training"] .sliding-seg-btn.on {
+  color: #fff;
 }
 
 .sliding-seg-btn:active:not(:disabled) {

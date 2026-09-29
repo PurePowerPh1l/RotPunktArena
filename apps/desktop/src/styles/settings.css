@@ -173,7 +173,7 @@
   }
 
   .app-frame:not(.is-extra-large-ui) .side-sheet.settings-sheet .settings-hint {
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     line-height: 1.3;
   }
 
@@ -370,7 +370,7 @@ html[data-color-scheme="light"] .settings-section.is-open > .settings-section-to
 }
 
 .settings-section-peek {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   line-height: 1.25;
   color: var(--muted);
   font-weight: 400;
@@ -414,7 +414,7 @@ html[data-color-scheme="light"] .settings-section.is-open > .settings-section-to
 
 .settings-section-title {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.82rem;
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -475,7 +475,7 @@ html[data-color-scheme="light"] .settings-section.is-open > .settings-section-to
 .settings-row-hint,
 .settings-hint {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   line-height: 1.35;
   color: var(--muted);
   font-weight: 400;

@@ -539,7 +539,7 @@
   padding: 0.45rem 0.85rem;
   border-radius: 999px;
   background: rgba(224, 118, 76, 0.92);
-  color: #fff;
+  color: var(--accent-ink);
   font-weight: 650;
   font-size: 0.9rem;
   pointer-events: none;
@@ -567,7 +567,7 @@
 .person-drag-ghost.is-over-drop {
   background: rgba(224, 118, 76, 0.95);
   border-color: transparent;
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 .person-drag-ghost.is-removing {
@@ -610,6 +610,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.start-select-btn {
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  box-shadow: none;
+}
+
+.start-select-btn:hover:not(:disabled) {
+  background: transparent;
+  filter: none;
+  text-decoration: underline;
+}
+
+.start-select-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .start-nk-badge {
