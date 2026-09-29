@@ -37,7 +37,7 @@ impl StandEngine {
             g.session.as_ref().is_some_and(|s| s.ended_at.is_none())
         };
         if stale_open {
-            let _ = self.end_session();
+            self.end_session()?;
         }
 
         self.stop_worker();
@@ -48,50 +48,24 @@ impl StandEngine {
             args.shooter_name.trim().to_string()
         };
 
-        let session = self.with_db_mut(|db| {
-            if let Some(ref entry_id) = args.entry_id {
-                db.activate_entry(entry_id)?;
-            }
-            db.start_session(
+        let endless = args.competition_id.is_none() && args.endless;
+        let training_limit = if endless {
+            None
+        } else {
+            Some(crate::db::normalize_training_series_shots(
+                self.inner.lock().training_series_shots,
+            ))
+        };
+        let last_port = self.log.lock().get_setting("last_port")?;
+        let (session, max_shots, probe) = self.with_db(|db| {
+            db.start_live_session(
                 &name,
                 args.competition_id.as_deref(),
                 args.entry_id.as_deref(),
                 args.person_id.as_deref(),
+                training_limit,
             )
         })?;
-
-        let endless = args.competition_id.is_none() && args.endless;
-        let max_shots = match &args.competition_id {
-            Some(cid) => {
-                self.with_db(|db| db.effective_max_shots(cid, args.entry_id.as_deref()))?
-            }
-            None if endless => None,
-            None => {
-                let n = {
-                    let g = self.inner.lock();
-                    g.training_series_shots
-                };
-                Some(crate::db::normalize_training_series_shots(n))
-            }
-        };
-        // Persist so Arena ingest enforces the limit inside its TX
-        // (closes the race between last accepted shot and series finish).
-        self.with_db_mut(|db| db.set_session_max_shots(&session.id, max_shots))?;
-
-        // Probeschüsse: competition opt-in — session starts in the probe
-        // phase (unscored shots) until `finish_probe` switches to scoring.
-        let probe = match &args.competition_id {
-            Some(cid) => self
-                .with_db(|db| db.get_competition(cid))?
-                .map(|c| c.probe_enabled)
-                .unwrap_or(false),
-            None => false,
-        };
-        if probe {
-            self.with_db_mut(|db| {
-                db.set_session_phase(&session.id, crate::db::session_phase::PROBE)
-            })?;
-        }
 
         {
             let mut g = self.inner.lock();
@@ -118,7 +92,6 @@ impl StandEngine {
         self.sim_control.set_auto_fire(false);
         self.emit_connection(&app);
 
-        let last_port = self.log.lock().get_setting("last_port")?;
         self.stop.store(false, Ordering::SeqCst);
         let gen = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
         let stop_flag = self.stop.clone();
@@ -178,8 +151,8 @@ impl StandEngine {
 
         // Resume in the persisted phase: probe rehydrates probe shots,
         // match rehydrates only scored shots.
-        let probe = self.with_db(|db| db.get_session_phase(session_id))?
-            == crate::db::session_phase::PROBE;
+        let probe =
+            self.with_db(|db| db.get_session_phase(session_id))? == crate::db::session_phase::PROBE;
         let classification = if probe {
             crate::db::shot_classification::PROBE
         } else {

@@ -6,6 +6,7 @@ mod migrate;
 mod people;
 mod recovery;
 mod results;
+mod session_start;
 mod sessions;
 mod snapshots;
 mod teams;
@@ -15,8 +16,8 @@ use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
 pub use competitions::{
-    count_scored_shots_for_limit, session_effective_max_shots, session_tenths_enabled,
-    Competition, CompetitionEntry, CreateCompetition,
+    count_scored_shots_for_limit, session_effective_max_shots, session_tenths_enabled, Competition,
+    CompetitionEntry, CreateCompetition,
 };
 pub use domain_constants::{
     competition_kind, competition_status, entry_status, event_kind, session_phase,
@@ -66,8 +67,10 @@ impl Database {
     fn configure(conn: &Connection) -> Result<(), String> {
         conn.busy_timeout(std::time::Duration::from_millis(3000))
             .map_err(|e| e.to_string())?;
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;")
-            .map_err(|e| e.to_string())?;
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;",
+        )
+        .map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -84,7 +87,9 @@ impl Database {
             .conn
             .prepare("SELECT value FROM settings WHERE key = ?1")
             .map_err(|e| e.to_string())?;
-        let mut rows = stmt.query(rusqlite::params![key]).map_err(|e| e.to_string())?;
+        let mut rows = stmt
+            .query(rusqlite::params![key])
+            .map_err(|e| e.to_string())?;
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
             Ok(Some(row.get(0).map_err(|e| e.to_string())?))
         } else {

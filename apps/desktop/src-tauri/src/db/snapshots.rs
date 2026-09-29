@@ -9,6 +9,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Single-flight guard for background cadence snapshots.
+static SNAPSHOT_WRITE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+
 static CADENCE_SNAPSHOT_RUNNING: AtomicBool = AtomicBool::new(false);
 
 /// Accepted-shot cadence for hybrid snapshots (event-count, not wall-clock).
@@ -42,8 +44,8 @@ impl Database {
 
     /// Async session-boundary snapshot: runs `VACUUM INTO` on a background
     /// thread with a fresh connection (WAL-safe) so session start/end return
-    /// immediately. No single-flight guard — boundary events occur at most once
-    /// per session, so there is nothing to coalesce. No-op for in-memory DBs.
+    /// immediately. Start/end requests are retained; the writer serializes publication.
+    /// No-op for in-memory DBs.
     pub fn spawn_session_boundary_snapshot(&self, session_id: &str) {
         if self.snapshot_dir().is_none() {
             return;
@@ -74,9 +76,7 @@ impl Database {
             return;
         }
         if let Err(e) = self.write_session_snapshot(session_id, session_sequence) {
-            eprintln!(
-                "[reddot] shot-cadence snapshot failed ({session_id} @ {shot_index}): {e}"
-            );
+            eprintln!("[reddot] shot-cadence snapshot failed ({session_id} @ {shot_index}): {e}");
         }
     }
 
@@ -101,13 +101,13 @@ impl Database {
         let path = self.path().to_path_buf();
         let sid = session_id.to_string();
         std::thread::spawn(move || {
-            let result = Database::open(&path)
-                .and_then(|db| db.write_session_snapshot(&sid, session_sequence).map(|_| ()));
+            let result = Database::open(&path).and_then(|db| {
+                db.write_session_snapshot(&sid, session_sequence)
+                    .map(|_| ())
+            });
             CADENCE_SNAPSHOT_RUNNING.store(false, Ordering::SeqCst);
             if let Err(e) = result {
-                eprintln!(
-                    "[reddot] shot-cadence snapshot failed ({sid} @ {shot_index}): {e}"
-                );
+                eprintln!("[reddot] shot-cadence snapshot failed ({sid} @ {shot_index}): {e}");
             }
         });
     }
@@ -118,6 +118,7 @@ impl Database {
         session_id: &str,
         sequence: i64,
     ) -> Result<PathBuf, String> {
+        let _guard = SNAPSHOT_WRITE_LOCK.lock();
         let dir = self
             .snapshot_dir()
             .ok_or_else(|| "Snapshots nur für dateibasierte DBs".to_string())?;
@@ -128,17 +129,32 @@ impl Database {
             .map(|d| d.as_millis())
             .unwrap_or(0);
         let safe_id = sanitize_id(session_id);
-        let file_name = format!("session-{safe_id}-seq-{sequence}-{ms}.sqlite");
+        let file_name = format!(
+            "session-{safe_id}-seq-{sequence}-{ms}-{}.sqlite",
+            uuid::Uuid::new_v4()
+        );
         let dest = dir.join(&file_name);
 
-        self.vacuum_into(&dest)?;
-
-        // `latest` is a copy of an already-consistent VACUUM INTO artifact (not the live WAL DB).
-        let latest = dir.join(SNAPSHOT_LATEST_NAME);
-        if latest.exists() {
-            let _ = std::fs::remove_file(&latest);
+        let temp = dest.with_extension("tmp");
+        let latest_temp = dir.join(".latest.tmp");
+        let result = (|| -> Result<(), String> {
+            self.vacuum_into(&temp)?;
+            std::fs::copy(&temp, &latest_temp).map_err(|e| e.to_string())?;
+            std::fs::OpenOptions::new()
+                .write(true)
+                .open(&latest_temp)
+                .and_then(|file| file.sync_all())
+                .map_err(|e| e.to_string())?;
+            std::fs::rename(&latest_temp, dir.join(SNAPSHOT_LATEST_NAME))
+                .map_err(|e| format!("latest snapshot: {e}"))?;
+            // Only completed snapshots get the public .sqlite name.
+            std::fs::rename(&temp, &dest).map_err(|e| e.to_string())
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_file(&temp);
+            let _ = std::fs::remove_file(&latest_temp);
         }
-        std::fs::copy(&dest, &latest).map_err(|e| format!("latest snapshot: {e}"))?;
+        result?;
 
         retain_session_snapshots(&dir, &safe_id, SNAPSHOT_RETAIN_PER_SESSION)?;
         Ok(dest)
@@ -158,7 +174,13 @@ impl Database {
 fn sanitize_id(session_id: &str) -> String {
     session_id
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -176,14 +198,8 @@ fn retain_session_snapshots(dir: &Path, safe_id: &str, keep: usize) -> Result<()
         .collect();
 
     files.sort_by(|a, b| {
-        let ma = a
-            .metadata()
-            .and_then(|m| m.modified())
-            .ok();
-        let mb = b
-            .metadata()
-            .and_then(|m| m.modified())
-            .ok();
+        let ma = a.metadata().and_then(|m| m.modified()).ok();
+        let mb = b.metadata().and_then(|m| m.modified()).ok();
         ma.cmp(&mb)
     });
 
@@ -240,5 +256,51 @@ mod tests {
             .contains("seq-42"));
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+    #[cfg(windows)]
+    #[test]
+    fn failed_publication_keeps_previous_snapshot_and_retry_is_complete() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let (dir, db) = temp_db();
+        db.set_setting("snapshot_test", "before").unwrap();
+        db.write_session_snapshot("test", 1).unwrap();
+        let snapshots = db.snapshot_dir().unwrap();
+        let latest = snapshots.join(SNAPSHOT_LATEST_NAME);
+        let before = std::fs::read(&latest).unwrap();
+        let locked = std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(&latest)
+            .unwrap();
+        db.set_setting("snapshot_test", "after").unwrap();
+        assert!(db.write_session_snapshot("test", 2).is_err());
+        assert_eq!(std::fs::read(&latest).unwrap(), before);
+        assert_eq!(std::fs::read_dir(&snapshots).unwrap().count(), 2);
+        drop(locked);
+        db.write_session_snapshot("test", 2).unwrap();
+        let snapshot = rusqlite::Connection::open_with_flags(
+            &latest,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
+        assert_eq!(
+            snapshot
+                .query_row("PRAGMA quick_check", [], |r| r.get::<_, String>(0))
+                .unwrap(),
+            "ok"
+        );
+        assert_eq!(
+            snapshot
+                .query_row(
+                    "SELECT value FROM settings WHERE key = 'snapshot_test'",
+                    [],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap(),
+            "after"
+        );
+        drop(snapshot);
+        drop(db);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

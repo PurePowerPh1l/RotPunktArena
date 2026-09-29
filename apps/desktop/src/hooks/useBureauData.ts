@@ -153,6 +153,7 @@ export function useBureauData(opts: Options = {}) {
     () =>
       createBureauMutations({
         mutate,
+        onRefreshError: setLoadError,
         peopleQuery,
         selectedId,
         reloadPeople,

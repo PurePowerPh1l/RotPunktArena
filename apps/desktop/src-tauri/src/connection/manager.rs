@@ -30,14 +30,21 @@ impl ConnectionManager {
     pub fn start(data_dir: PathBuf, event_tx: Option<Sender<ConnectionEvent>>) -> Self {
         let _ = WinsockRuntime::init();
         // PIN hook only around Nuclear (including Startup Nuclear).
-        let known = load_known_target(&data_dir);
+        let (known, load_error) = match load_known_target(&data_dir) {
+            Ok(target) => (target, None),
+            Err(error) => (None, Some(error)),
+        };
         let (cmd_tx, cmd_rx) = mpsc::channel();
         let (sink_tx, sink_rx) = mpsc::sync_channel::<super::sink::SinkChunk>(256);
         let inner = Arc::new(Mutex::new(SharedState {
-            status: ConnectionStatus::Idle,
+            status: if load_error.is_some() {
+                ConnectionStatus::Faulted
+            } else {
+                ConnectionStatus::Idle
+            },
             generation: 0,
             target: known,
-            last_reason: String::new(),
+            last_reason: load_error.clone().unwrap_or_default(),
             connect_phase: super::connect_policy::ConnectPhase::Idle,
             connect_origin: super::connect_policy::ConnectOrigin::None,
             sink_rx: Some(sink_rx),
@@ -54,7 +61,9 @@ impl ConnectionManager {
                 Owner::new(data_dir, cmd_rx, sink_tx, inner, event_tx).run();
             })
             .expect("spawn rfcomm-connection");
-        let _ = cmd_tx.send(ConnectionCommand::Start);
+        if load_error.is_none() {
+            let _ = cmd_tx.send(ConnectionCommand::Start);
+        }
         Self {
             handle,
             _join: join,
