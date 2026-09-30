@@ -73,7 +73,13 @@ export function useBureauData(opts: Options = {}) {
   const reloadPeople = useCallback(
     async (query?: string) => {
       const token = peopleSeq.begin();
-      const list = await api.listPeople(query, includeArchivedPeople);
+      let list: Person[];
+      try {
+        list = await api.listPeople(query, includeArchivedPeople);
+      } catch (e) {
+        if (peopleSeq.isCurrent(token)) setLoadError(String(e));
+        throw e;
+      }
       if (!peopleSeq.isCurrent(token)) return;
       setPeople(list);
     },
@@ -82,7 +88,13 @@ export function useBureauData(opts: Options = {}) {
 
   const reloadCompetitions = useCallback(async () => {
     const token = competitionsSeq.begin();
-    const list = await api.listCompetitions(includeArchived);
+    let list: Competition[];
+    try {
+      list = await api.listCompetitions(includeArchived);
+    } catch (e) {
+      if (competitionsSeq.isCurrent(token)) setLoadError(String(e));
+      throw e;
+    }
     if (!competitionsSeq.isCurrent(token)) return;
     setCompetitions(list);
     setSelectedId((prev) => {
@@ -94,7 +106,13 @@ export function useBureauData(opts: Options = {}) {
   const reloadEntries = useCallback(
     async (competitionId: string) => {
       const token = entriesSeq.begin();
-      const list = await api.listEntries(competitionId);
+      let list: CompetitionEntry[];
+      try {
+        list = await api.listEntries(competitionId);
+      } catch (e) {
+        if (entriesSeq.isCurrent(token)) setLoadError(String(e));
+        throw e;
+      }
       if (!entriesSeq.isCurrent(token)) return;
       setEntries(list);
     },
@@ -105,7 +123,13 @@ export function useBureauData(opts: Options = {}) {
   const reloadTeams = useCallback(
     async (competitionId?: string | null) => {
       const token = teamsSeq.begin();
-      const list = await api.listTeams(competitionId ?? null, includeArchivedTeams);
+      let list: CompetitionTeam[];
+      try {
+        list = await api.listTeams(competitionId ?? null, includeArchivedTeams);
+      } catch (e) {
+        if (teamsSeq.isCurrent(token)) setLoadError(String(e));
+        throw e;
+      }
       if (!teamsSeq.isCurrent(token)) return;
       setTeams(list);
     },
@@ -128,23 +152,26 @@ export function useBureauData(opts: Options = {}) {
   }, [peopleQuery, reloadCompetitions, reloadPeople, refreshSeq]);
 
   useEffect(() => {
-    void refreshAll();
-  }, [refreshAll]);
+    setLoading(true);
+    void reloadCompetitions()
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [reloadCompetitions]);
 
   useEffect(() => {
     if (!selectedId) {
       entriesSeq.begin();
       setEntries([]);
-      void reloadTeams(null).catch((e) => setLoadError(String(e)));
+      void reloadTeams(null).catch(() => {});
       return;
     }
-    void reloadEntries(selectedId).catch((e) => setLoadError(String(e)));
-    void reloadTeams(selectedId).catch((e) => setLoadError(String(e)));
+    void reloadEntries(selectedId).catch(() => {});
+    void reloadTeams(selectedId).catch(() => {});
   }, [selectedId, reloadEntries, reloadTeams, entriesSeq]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
-      void reloadPeople(peopleQuery).catch((e) => setLoadError(String(e)));
+      void reloadPeople(peopleQuery).catch(() => {});
     }, 180);
     return () => window.clearTimeout(t);
   }, [peopleQuery, reloadPeople]);

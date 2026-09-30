@@ -172,28 +172,79 @@ impl Database {
         self.end_session_with_state(session_id, recovery_state::CLEAN)
     }
 
-    /// Close an open session with an explicit recovery outcome (`clean` / `safely_closed`).
-    pub fn end_session_with_state(&mut self, session_id: &str, state: &str) -> Result<(), String> {
+    /// Finish once: event and any dependent changes share the same transaction.
+    pub(super) fn finish_session<T>(
+        &self,
+        session_id: &str,
+        state: &str,
+        after_close: impl FnOnce(&Self) -> Result<T, String>,
+    ) -> Result<Option<T>, String> {
+        let tx = self.conn.unchecked_transaction().map_err(|e| e.to_string())?;
         let ended_at = Utc::now().to_rfc3339();
-        self.conn
-            .execute(
-                "UPDATE sessions
-                 SET ended_at = ?1, recovery_state = ?2,
-                     last_autosave_at = ?1
-                 WHERE id = ?3 AND ended_at IS NULL",
-                params![ended_at, state, session_id],
-            )
-            .map_err(|e| e.to_string())?;
-        self.append_event(
-            session_id,
-            event_kind::SESSION_ENDED,
-            "system",
-            serde_json::json!({}),
-        )?;
-        // WAL-safe VACUUM INTO snapshot after close on a background thread
-        // (best-effort; never blocks session end on VACUUM I/O).
+        let changed = tx.execute(
+            "UPDATE sessions SET ended_at = ?1, recovery_state = ?2, last_autosave_at = ?1
+             WHERE id = ?3 AND ended_at IS NULL",
+            params![ended_at, state, session_id],
+        ).map_err(|e| e.to_string())?;
+        if changed == 0 {
+            if self.get_session(session_id)?.is_none() {
+                return Err("Session nicht gefunden".into());
+            }
+            return Ok(None);
+        }
+        append_event_in_tx(&tx, session_id, event_kind::SESSION_ENDED,
+            "system", serde_json::json!({}), None)?;
+        let result = after_close(self)?;
+        tx.commit().map_err(|e| e.to_string())?;
         self.spawn_session_boundary_snapshot(session_id);
+        Ok(Some(result))
+    }
+
+    pub fn end_session_with_state(&mut self, session_id: &str, state: &str) -> Result<(), String> {
+        self.finish_session(session_id, state, |_| Ok(()))?;
         Ok(())
+    }
+
+    pub fn finish_live_session(
+        &self, session_id: &str, entry_id: Option<&str>, is_training: bool,
+        endless: bool, shot_count: i64,
+    ) -> Result<super::TrainingSaveInfo, String> {
+        let saved = self.finish_session(session_id, recovery_state::CLEAN, |db| {
+            if let Some(entry_id) = entry_id {
+                db.set_entry_status(entry_id, super::entry_status::DONE)?;
+            }
+            if endless && is_training {
+                return Ok(super::TrainingSaveInfo {
+                    saved: false, shot_count,
+                    min_shots: super::TRAINING_HISTORY_MIN_SHOTS,
+                    reason: "endless".into(),
+                });
+            }
+            db.maybe_save_training_history(session_id, is_training)
+        })?;
+        match saved {
+            Some(info) => Ok(info),
+            None if endless && is_training => Ok(super::TrainingSaveInfo {
+                saved: false, shot_count,
+                min_shots: super::TRAINING_HISTORY_MIN_SHOTS,
+                reason: "endless".into(),
+            }),
+            None if !is_training => Ok(super::TrainingSaveInfo::not_training()),
+            None => {
+                let (saved, max_shots): (i64, Option<i64>) = self.conn.query_row(
+                    "SELECT training_saved, max_shots FROM sessions WHERE id = ?1",
+                    params![session_id], |r| Ok((r.get(0)?, r.get(1)?)),
+                ).map_err(|e| e.to_string())?;
+                let shot_count = self.count_session_shots(session_id)?;
+                let min_shots = max_shots.filter(|&n| n > 0)
+                    .map(super::normalize_training_series_shots)
+                    .unwrap_or(super::TRAINING_HISTORY_MIN_SHOTS);
+                Ok(super::TrainingSaveInfo {
+                    saved: saved != 0, shot_count, min_shots,
+                    reason: if saved != 0 { "saved" } else { "already_closed" }.into(),
+                })
+            }
+        }
     }
 
     /// Update autosave marker (same writer path; used from ingest TX via `touch_autosave_in_tx`).
@@ -355,4 +406,24 @@ pub fn touch_autosave_in_tx(
     )
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod finish_tests {
+    use super::*;
+
+    #[test]
+    fn failed_dependent_write_rolls_back_close_and_event() {
+        let mut db = super::super::Database::open_in_memory().unwrap();
+        let session = db.start_session("Rollback", None, None, None).unwrap();
+        let before = db.count_events_kind(event_kind::SESSION_ENDED).unwrap();
+        let result: Result<Option<()>, String> = db.finish_session(
+            &session.id, recovery_state::CLEAN, |_| Err("injected failure".into()),
+        );
+        assert!(result.is_err());
+        assert!(db.get_session(&session.id).unwrap().unwrap().ended_at.is_none());
+        assert_eq!(db.count_events_kind(event_kind::SESSION_ENDED).unwrap(), before);
+        db.end_session(&session.id).unwrap();
+        assert_eq!(db.count_events_kind(event_kind::SESSION_ENDED).unwrap(), before + 1);
+    }
 }

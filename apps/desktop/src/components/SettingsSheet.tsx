@@ -8,27 +8,24 @@ import {
   type AdminAccessState,
 } from "../access";
 import * as api from "../api/commands";
-import * as liveApi from "../api/live";
 import type { DbBackupInfo } from "../api/admin";
-import { useLiveLinkStatus } from "../hooks/useLiveLinkStatus";
 import {
   alertDialog,
   confirmDialog,
 } from "../hooks/useAppDialog";
 import { useAppUpdateContext } from "../hooks/AppUpdateProvider";
-import type { AppUpdateStatus } from "../hooks/useAppUpdate";
 import type { UiPrefsStatus } from "../hooks/useUiPrefs";
 import type { AppView } from "./appNav";
 import { SearchSelect } from "./SearchSelect";
+import { UpdateSettings } from "./settings/UpdateSettings";
+import { ConnectionSettings } from "./settings/ConnectionSettings";
+import { GeneralSettings, AppearanceSettings, ArenaSettings } from "./settings/SettingsPreferences";
 import { SideSheetShell } from "./SideSheetShell";
 import {
-  SettingsChoice,
   SettingsHint,
   SettingsInfoRow,
   SettingsLockedCard,
   SettingsSection,
-  SettingsToggle,
-  type SettingsStatusTone,
 } from "./settings/SettingsParts";
 
 type SettingsSectionId =
@@ -58,81 +55,6 @@ type Props = {
   /** Current main nav view — used when enabling rememberLastView. */
   currentView: AppView;
 };
-
-function connectionStatusLabel(opts: {
-  linked: boolean;
-  hasTarget: boolean;
-  connecting: boolean;
-}): string {
-  if (!opts.hasTarget) return "Kein Gerät ausgewählt";
-  if (opts.linked) return "Verbunden";
-  if (opts.connecting) return "Verbindet…";
-  return "Nicht verbunden";
-}
-
-function connectionStatusTone(opts: {
-  linked: boolean;
-  hasTarget: boolean;
-  connecting: boolean;
-}): SettingsStatusTone {
-  if (!opts.hasTarget) return "neutral";
-  if (opts.linked) return "ok";
-  if (opts.connecting) return "progress";
-  return "idle";
-}
-
-function updateStatusLabel(status: AppUpdateStatus): string {
-  switch (status.kind) {
-    case "idle":
-      return "Noch nicht geprüft";
-    case "checking":
-      return "Suche…";
-    case "upToDate":
-      return "Aktuell";
-    case "available":
-      return `Update ${status.update.version} verfügbar`;
-    case "downloading": {
-      const { downloaded, contentLength } = status.progress;
-      if (contentLength && contentLength > 0) {
-        const pct = Math.min(100, Math.round((downloaded / contentLength) * 100));
-        return `Lade herunter… ${pct}%`;
-      }
-      return "Lade herunter…";
-    }
-    case "installing":
-      return "Installiere…";
-    case "readyToRelaunch":
-      return `Installiert — Neustart nötig (${status.update.version})`;
-    case "needsManualRestart":
-      return `Neustart manuell nötig (${status.update.version})`;
-    case "error":
-      return "Fehler";
-    case "devOnly":
-      return "Nur in installierter App";
-  }
-}
-
-function updateStatusTone(status: AppUpdateStatus): SettingsStatusTone {
-  switch (status.kind) {
-    case "idle":
-      return "neutral";
-    case "checking":
-    case "downloading":
-    case "installing":
-      return "progress";
-    case "upToDate":
-      return "ok";
-    case "available":
-      return "idle";
-    case "readyToRelaunch":
-    case "needsManualRestart":
-      return "idle";
-    case "error":
-      return "idle";
-    case "devOnly":
-      return "neutral";
-  }
-}
 
 function formatBackupWhen(backup: DbBackupInfo | undefined): string {
   if (!backup) return "Noch kein Backup erstellt";
@@ -166,14 +88,9 @@ export function SettingsSheet({
   onRetryUiPrefs,
   currentView,
 }: Props) {
-  const link = useLiveLinkStatus();
   const appUpdate = useAppUpdateContext();
   const [busy, setBusy] = useState(false);
-  const [linkBusy, setLinkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [knownDevices, setKnownDevices] = useState<liveApi.KnownDevice[]>([]);
-  const prefsReady = uiPrefsStatus === "ready" || uiPrefsStatus === "saving";
-  const prefsBusy = uiPrefsStatus === "loading" || uiPrefsStatus === "saving";
   const [backups, setBackups] = useState<DbBackupInfo[]>([]);
   const [selectedBackup, setSelectedBackup] = useState("");
   const [lastCreatedPath, setLastCreatedPath] = useState<string | null>(null);
@@ -191,15 +108,6 @@ export function SettingsSheet({
 
   const latestBackup = useMemo(() => backups[0], [backups]);
 
-  const reloadKnownDevices = async () => {
-    if (!link.rfcommFeature) {
-      setKnownDevices([]);
-      return;
-    }
-    const list = await liveApi.rfcommListDevices();
-    setKnownDevices(list);
-  };
-
   const reloadBackups = async () => {
     const list = await api.listDbBackups();
     setBackups(list);
@@ -214,17 +122,8 @@ export function SettingsSheet({
     setError(null);
     void reloadBackups().catch((e) => setError(String(e)));
     void appUpdate.refreshVersion();
-    void link.refresh();
-    void reloadKnownDevices().catch((e) => setError(String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Verbindung default + reload when sheet opens
   }, [open]);
-
-  useEffect(() => {
-    if (!open || !link.rfcommFeature) return;
-    void reloadKnownDevices().catch((e) => setError(String(e)));
-    // Refresh memory list when link target/status changes (after switch/forget).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, link.rfcommFeature, link.hasTarget, link.linked, link.targetName]);
 
   if (!open) return null;
 
@@ -307,128 +206,6 @@ export function SettingsSheet({
     void requireAdminAuth();
   };
 
-  const connecting =
-    linkBusy ||
-    link.rfcommStatus === "connecting" ||
-    link.rfcommStatus === "discovering" ||
-    link.rfcommStatus === "reconnecting" ||
-    link.status === "searching";
-
-  const hasKnownDevice = link.hasTarget;
-  const canSearchDevice = Boolean(link.rfcommFeature && onSearchDevice);
-  const canReconnect = Boolean(
-    link.rfcommFeature && hasKnownDevice && !link.linked && !connecting,
-  );
-  const canForget = Boolean(link.rfcommFeature && hasKnownDevice && !connecting);
-
-  const onReconnect = () => {
-    if (!canReconnect) return;
-    void (async () => {
-      setLinkBusy(true);
-      setError(null);
-      try {
-        await liveApi.rfcommConnectReddot();
-        await link.refresh();
-      } catch (e) {
-        setError(String(e));
-        await link.refresh();
-      } finally {
-        setLinkBusy(false);
-      }
-    })();
-  };
-
-  const onForgetDevice = () => {
-    if (!canForget) return;
-    const name = link.targetName?.trim() || "das bekannte Gerät";
-    void (async () => {
-      const ok = await confirmDialog({
-        title: "Gerät vergessen?",
-        body: `„${name}“ vergessen?\n\nDie Arena merkt sich dieses Gerät danach nicht mehr. Du kannst später erneut ein Gerät suchen.`,
-        confirmLabel: "Vergessen",
-        danger: true,
-        eyebrow: "Verbindung",
-      });
-      if (!ok) return;
-      setLinkBusy(true);
-      setError(null);
-      try {
-        await liveApi.rfcommForgetTarget();
-        await link.refresh();
-        await reloadKnownDevices();
-      } catch (e) {
-        setError(String(e));
-        await link.refresh();
-      } finally {
-        setLinkBusy(false);
-      }
-    })();
-  };
-
-  const onSwitchKnownDevice = (device: liveApi.KnownDevice) => {
-    if (linkBusy || connecting) return;
-    if (device.isActive && link.linked) return;
-    void (async () => {
-      setLinkBusy(true);
-      setError(null);
-      try {
-        if (device.isActive) {
-          await liveApi.rfcommConnectReddot();
-        } else {
-          await liveApi.rfcommSetupConnect(device.btAddrHex, device.displayName);
-        }
-        await link.refresh();
-        await reloadKnownDevices();
-      } catch (e) {
-        setError(String(e));
-        await link.refresh();
-        await reloadKnownDevices().catch(() => {});
-      } finally {
-        setLinkBusy(false);
-      }
-    })();
-  };
-
-  const onForgetKnownDevice = (device: liveApi.KnownDevice) => {
-    if (linkBusy || connecting) return;
-    void (async () => {
-      const ok = await confirmDialog({
-        title: "Gerät vergessen?",
-        body: `„${device.displayName}“ aus dem Gerätegedächtnis entfernen?`,
-        confirmLabel: "Vergessen",
-        danger: true,
-        eyebrow: "Verbindung",
-      });
-      if (!ok) return;
-      setLinkBusy(true);
-      setError(null);
-      try {
-        await liveApi.rfcommForgetDevice(device.btAddrHex);
-        await link.refresh();
-        await reloadKnownDevices();
-      } catch (e) {
-        setError(String(e));
-        await link.refresh();
-      } finally {
-        setLinkBusy(false);
-      }
-    })();
-  };
-
-  const deviceLabel = hasKnownDevice
-    ? link.targetName?.trim() || "Bekanntes Gerät"
-    : "Kein Gerät ausgewählt";
-  const statusLabel = connectionStatusLabel({
-    linked: link.linked,
-    hasTarget: hasKnownDevice,
-    connecting,
-  });
-  const statusTone = connectionStatusTone({
-    linked: link.linked,
-    hasTarget: hasKnownDevice,
-    connecting,
-  });
-
   const storagePath =
     lastCreatedPath ??
     latestBackup?.path ??
@@ -443,409 +220,30 @@ export function SettingsSheet({
     >
       {error ? <p className="banner-error">{error}</p> : null}
 
-      <SettingsSection
-        title="Allgemein"
-        description="Grundlegende Einstellungen für die App."
-        open={openSection === "allgemein"}
+      <GeneralSettings open={openSection === "allgemein"}
         onOpenChange={() => toggleSection("allgemein")}
-      >
-        {uiPrefsStatus === "loading" ? (
-          <SettingsHint>Einstellungen werden geladen…</SettingsHint>
-        ) : null}
-        {uiPrefsError ? (
-          <p className="banner-error">
-            {uiPrefsError}
-            {onRetryUiPrefs ? (
-              <>
-                {" "}
-                <button type="button" className="ghost" onClick={onRetryUiPrefs}>
-                  Erneut laden
-                </button>
-              </>
-            ) : null}
-          </p>
-        ) : null}
-        {uiPrefsStatus === "error" && !uiPrefsError ? (
-          <p className="banner-error">Nicht gespeichert.</p>
-        ) : null}
-        <SettingsChoice
-          label="Startansicht"
-          value={uiPrefs.startView}
-          disabled={!prefsReady}
-          options={[
-            { value: "live", label: "Arena" },
-            { value: "history", label: "Statistik" },
-            { value: "bureau", label: "Verwaltung" },
-          ]}
-          onChange={(value) =>
-            onUpdateUiPrefs({
-              startView: value as UiPrefs["startView"],
-            })
-          }
-        />
-        <SettingsToggle
-          label="Letzte Ansicht merken"
-          checked={uiPrefs.rememberLastView}
-          disabled={!prefsReady}
-          onChange={(on) => {
-            if (on) {
-              onUpdateUiPrefs({
-                rememberLastView: true,
-                lastView: currentView,
-              });
-            } else {
-              onUpdateUiPrefs({ rememberLastView: false });
-            }
-          }}
-        />
-        <SettingsToggle
-          label="Kompakte Oberfläche"
-          checked={uiPrefs.compactUi}
-          disabled={!prefsReady}
-          onChange={(on) => onUpdateUiPrefs({ compactUi: on })}
-        />
-        <SettingsToggle
-          label="Größere Schrift"
-          hint="Bessere Lesbarkeit auf Distanz."
-          checked={uiPrefs.largeText}
-          disabled={!prefsReady}
-          onChange={(on) => onUpdateUiPrefs({ largeText: on })}
-        />
-        {prefsBusy && prefsReady ? (
-          <SettingsHint>Speichere…</SettingsHint>
-        ) : null}
-      </SettingsSection>
+        uiPrefs={uiPrefs} uiPrefsStatus={uiPrefsStatus} uiPrefsError={uiPrefsError}
+        onRetryUiPrefs={onRetryUiPrefs} onUpdateUiPrefs={onUpdateUiPrefs}
+        currentView={currentView}
+      />
 
-      <SettingsSection
-        title="App & Updates"
-        description="Version, Prüfung und Installation von Updates."
-        open={openSection === "app"}
-        onOpenChange={() => toggleSection("app")}
-      >
-        <div className="settings-info-block">
-          <SettingsInfoRow
-            label="Aktuelle Version"
-            value={appUpdate.version ?? "…"}
-          />
-          <SettingsInfoRow
-            label="Update-Status"
-            value={updateStatusLabel(appUpdate.status)}
-            statusTone={updateStatusTone(appUpdate.status)}
-          />
-        </div>
-        {appUpdate.status.kind === "error" ? (
-          <p className="banner-error">{appUpdate.status.message}</p>
-        ) : null}
-        {appUpdate.status.kind === "needsManualRestart" ? (
-          <p className="banner-error">{appUpdate.status.message}</p>
-        ) : null}
-        {appUpdate.status.kind === "devOnly" ? (
-          <SettingsHint>
-            Updates sind in der Entwicklungsansicht nicht verfügbar. Bitte eine
-            installierte App-Version verwenden.
-          </SettingsHint>
-        ) : appUpdate.status.kind === "available" ? (
-          <SettingsHint>
-            Version {appUpdate.status.update.version} ist verfügbar. Download
-            und Installation starten nur nach Ihrer Bestätigung.
-          </SettingsHint>
-        ) : appUpdate.status.kind === "readyToRelaunch" ? (
-          <SettingsHint>
-            Update {appUpdate.status.update.version} ist installiert, aber noch
-            nicht aktiv. Bitte neu starten — die laufende Sitzung zeigt weiter
-            die alte Version.
-          </SettingsHint>
-        ) : appUpdate.status.kind === "downloading" ||
-          appUpdate.status.kind === "installing" ? (
-          <SettingsHint>
-            Update läuft — Fortschritt im Update-Fenster. Unter Windows schließt
-            sich die App nach dem Download und startet neu.
-          </SettingsHint>
-        ) : appUpdate.status.kind === "needsManualRestart" ? (
-          <SettingsHint>
-            Das Update ist installiert. Bitte die App manuell schließen und
-            erneut öffnen.
-          </SettingsHint>
-        ) : (
-          <SettingsHint>
-            Prüfung nur manuell. Download und Installation nach Bestätigung —
-            Fortschritt erscheint in einem eigenen Fenster.
-          </SettingsHint>
-        )}
-        <div className="settings-connection-actions">
-          {appUpdate.status.kind === "available" ? (
-            <button
-              type="button"
-              className="settings-action-primary"
-              disabled={appUpdate.busy}
-              onClick={() => {
-                if (appUpdate.status.kind !== "available") return;
-                const ver = appUpdate.status.update.version;
-                void (async () => {
-                  const ok = await confirmDialog({
-                    title: "Update installieren?",
-                    body: `Update ${ver} herunterladen und installieren?\n\nDie App schließt sich danach und startet neu.`,
-                    confirmLabel: "Installieren",
-                    eyebrow: "App-Update",
-                  });
-                  if (!ok) return;
-                  appUpdate.beginInstallFromUi();
-                })();
-              }}
-            >
-              Update installieren
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className={
-              appUpdate.status.kind === "available"
-                ? "secondary settings-action-secondary"
-                : "settings-action-primary"
-            }
-            disabled={appUpdate.busy}
-            onClick={() => void appUpdate.checkForUpdates()}
-          >
-            {appUpdate.checking ? "Suche…" : "Nach Updates suchen"}
-          </button>
-          {appUpdate.status.kind === "readyToRelaunch" ||
-          appUpdate.status.kind === "needsManualRestart" ? (
-            <button
-              type="button"
-              className="settings-action-primary"
-              disabled={appUpdate.busy}
-              onClick={() => void appUpdate.relaunchToApply()}
-            >
-              Jetzt neu starten
-            </button>
-          ) : null}
-        </div>
-      </SettingsSection>
+      <UpdateSettings open={openSection === "app"}
+        onOpenChange={() => toggleSection("app")} appUpdate={appUpdate} />
 
-      <SettingsSection
-        title="Darstellung"
-        description="Passe das Erscheinungsbild der App an."
-        open={openSection === "darstellung"}
+      <AppearanceSettings open={openSection === "darstellung"}
         onOpenChange={() => toggleSection("darstellung")}
-      >
-        {uiPrefsStatus === "loading" ? (
-          <SettingsHint>Einstellungen werden geladen…</SettingsHint>
-        ) : null}
-        <SettingsChoice
-          label="Farbschema"
-          value={uiPrefs.colorScheme}
-          disabled={!prefsReady}
-          options={[
-            { value: "system", label: "System" },
-            { value: "light", label: "Hell" },
-            { value: "dark", label: "Dunkel" },
-          ]}
-          onChange={(value) =>
-            onUpdateUiPrefs({
-              colorScheme: value as UiPrefs["colorScheme"],
-            })
-          }
-        />
-        <SettingsToggle
-          label="Reduzierte Bewegungen"
-          hint="Weniger visuelle Bewegung und ruhigere Übergänge."
-          checked={uiPrefs.reducedMotion}
-          disabled={!prefsReady}
-          onChange={(on) => onUpdateUiPrefs({ reducedMotion: on })}
-        />
-        <SettingsToggle
-          label="Extra große Schrift & Buttons"
-          hint="Deutlich größere Typo und Bedienelemente — gut aus Distanz / in der Halle."
-          checked={uiPrefs.extraLargeUi}
-          disabled={!prefsReady}
-          onChange={(on) => onUpdateUiPrefs({ extraLargeUi: on })}
-        />
-        <SettingsHint>
-          Hell/Dunkel steuert Farben; System folgt der Betriebssystem-Einstellung.
-        </SettingsHint>
-      </SettingsSection>
+        uiPrefs={uiPrefs} uiPrefsStatus={uiPrefsStatus}
+        onUpdateUiPrefs={onUpdateUiPrefs}
+      />
 
-      <SettingsSection
-        title="Arena"
-        description="Verhalten und Darstellung in der Arena."
-        open={openSection === "arena"}
+      <ArenaSettings open={openSection === "arena"}
         onOpenChange={() => toggleSection("arena")}
-      >
-        {uiPrefsStatus === "loading" ? (
-          <SettingsHint>Einstellungen werden geladen…</SettingsHint>
-        ) : null}
-        <SettingsChoice
-          label="Trefferanzeige"
-          value={uiPrefs.scoreDisplay}
-          disabled={!prefsReady}
-          options={[
-            { value: "punkte", label: "Punkte zuerst" },
-            { value: "teiler", label: "Teiler zuerst" },
-          ]}
-          onChange={(value) =>
-            onUpdateUiPrefs({
-              scoreDisplay: value as UiPrefs["scoreDisplay"],
-            })
-          }
-        />
-        <SettingsChoice
-          label="Trefferfeedback"
-          value={uiPrefs.hitFeedback}
-          disabled={!prefsReady}
-          options={[
-            { value: "normal", label: "Normal" },
-            { value: "reduced", label: "Reduziert" },
-            { value: "minimal", label: "Minimal" },
-          ]}
-          onChange={(value) =>
-            onUpdateUiPrefs({
-              hitFeedback: value as UiPrefs["hitFeedback"],
-            })
-          }
-        />
-        <SettingsChoice
-          label="Zieldarstellung"
-          value={uiPrefs.targetFit}
-          disabled={!prefsReady}
-          options={[
-            { value: "auto", label: "Automatisch" },
-            { value: "calm", label: "Ruhig" },
-            { value: "aggressive", label: "Aggressiv" },
-          ]}
-          hint="Wie stark die Scheibe an das Fenster angepasst wird."
-          onChange={(value) =>
-            onUpdateUiPrefs({
-              targetFit: value as UiPrefs["targetFit"],
-            })
-          }
-        />
-        <SettingsToggle
-          label="Letzte Wertungsansicht merken"
-          hint="Manuelle Umschaltung Punkte/Teiler im Training speichern."
-          checked={uiPrefs.rememberScoreDisplay}
-          disabled={!prefsReady}
-          onChange={(on) => onUpdateUiPrefs({ rememberScoreDisplay: on })}
-        />
-        <SettingsHint>
-          Im Wettkampf gilt die Wertungsart des Wettbewerbs — die Nutzerpräferenz
-          wird nicht überschrieben.
-        </SettingsHint>
-      </SettingsSection>
+        uiPrefs={uiPrefs} uiPrefsStatus={uiPrefsStatus}
+        onUpdateUiPrefs={onUpdateUiPrefs}
+      />
 
-      <SettingsSection
-        title="Verbindung"
-        description="Gerätegedächtnis und Verbindungsstatus."
-        open={openSection === "verbindung"}
-        onOpenChange={() => toggleSection("verbindung")}
-      >
-        <div className="settings-info-block">
-          <SettingsInfoRow label="Aktives Gerät" value={deviceLabel} />
-          <SettingsInfoRow
-            label="Status"
-            value={statusLabel}
-            statusTone={statusTone}
-          />
-        </div>
-        {knownDevices.length > 0 ? (
-          <ul className="settings-device-list">
-            {knownDevices.map((device) => {
-              const hint = device.isActive
-                ? link.linked
-                  ? "Verbunden"
-                  : "Zuletzt verbunden — tippe zum Reparieren"
-                : "Gemerkt — tippe zum Wechseln";
-              const canTap =
-                !linkBusy &&
-                !connecting &&
-                !(device.isActive && link.linked);
-              return (
-                <li key={device.btAddrHex} className="settings-device-row">
-                  <button
-                    type="button"
-                    className="settings-device-main"
-                    disabled={!canTap}
-                    title={
-                      device.isActive && link.linked
-                        ? "Bereits verbunden"
-                        : device.isActive
-                          ? "Verbindung reparieren"
-                          : "Dieses Gerät verbinden"
-                    }
-                    onClick={() => onSwitchKnownDevice(device)}
-                  >
-                    <span className="settings-device-name">
-                      {device.displayName}
-                    </span>
-                    <span className="settings-device-hint muted">{hint}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost settings-device-forget"
-                    disabled={linkBusy || connecting}
-                    title="Aus dem Gerätegedächtnis entfernen"
-                    onClick={() => onForgetKnownDevice(device)}
-                  >
-                    Vergessen
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-        {connecting ? (
-          <SettingsHint>Verbindung wird hergestellt…</SettingsHint>
-        ) : knownDevices.length === 0 ? (
-          <SettingsHint>
-            Suche nach verfügbaren RedDot-Geräten in der Nähe.
-          </SettingsHint>
-        ) : null}
-        <div className="settings-connection-actions">
-          <button
-            type="button"
-            className="settings-action-primary"
-            disabled={!canSearchDevice || linkBusy}
-            onClick={() => onSearchDevice?.()}
-          >
-            {hasKnownDevice || knownDevices.length > 0
-              ? "Anderes Gerät verbinden"
-              : "Gerät suchen"}
-          </button>
-          <button
-            type="button"
-            className="secondary settings-action-secondary"
-            disabled={!canReconnect}
-            title={
-              !hasKnownDevice
-                ? "Zuerst ein Gerät suchen"
-                : link.linked
-                  ? "Bereits verbunden"
-                  : connecting
-                    ? "Verbindung läuft"
-                    : undefined
-            }
-            onClick={onReconnect}
-          >
-            Neu verbinden
-          </button>
-          {knownDevices.length === 0 ? (
-            <button
-              type="button"
-              className="ghost settings-action-quiet"
-              disabled={!canForget}
-              title={
-                !hasKnownDevice
-                  ? "Kein Gerät gespeichert"
-                  : connecting
-                    ? "Bitte warten, bis die Verbindung abgeschlossen ist"
-                    : undefined
-              }
-              onClick={onForgetDevice}
-            >
-              Gerät vergessen
-            </button>
-          ) : null}
-        </div>
-      </SettingsSection>
+      <ConnectionSettings open={openSection === "verbindung"}
+        onOpenChange={() => toggleSection("verbindung")} onSearchDevice={onSearchDevice} />
 
       <SettingsSection
         title="Daten & Backups"

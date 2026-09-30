@@ -33,25 +33,31 @@ export function useUiPrefs(): UiPrefsState {
   const [error, setError] = useState<string | null>(null);
 
   const confirmedRef = useRef<UiPrefs>(UI_PREFS_LOAD_PLACEHOLDER);
+  const optimisticRef = useRef<UiPrefs>(UI_PREFS_LOAD_PLACEHOLDER);
+  const loadedRef = useRef(false);
+  const loadGeneration = useRef(0);
   const queueRef = useRef<SaveQueueState<UiPrefs>>(emptySaveQueue());
   const mountedRef = useRef(true);
 
   const applyLoaded = useCallback((loaded: UiPrefs) => {
+    loadedRef.current = true;
     confirmedRef.current = loaded;
+    optimisticRef.current = loaded;
     setPrefs(loaded);
     setError(null);
     setStatus("ready");
   }, []);
 
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     setStatus("loading");
     setError(null);
     try {
       const loaded = await settingsApi.getUiPrefs();
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || generation !== loadGeneration.current) return;
       applyLoaded(loaded);
     } catch (e) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || generation !== loadGeneration.current) return;
       setError(String(e));
       setStatus("error");
     }
@@ -62,6 +68,7 @@ export function useUiPrefs(): UiPrefsState {
     void load();
     return () => {
       mountedRef.current = false;
+      loadGeneration.current += 1;
     };
   }, [load]);
 
@@ -77,13 +84,14 @@ export function useUiPrefs(): UiPrefsState {
       while (toSave) {
         const saved = await settingsApi.setUiPrefs(toSave);
         if (!mountedRef.current) return;
+        confirmedRef.current = saved;
         const finished = onSaveFinished(queueRef.current);
         queueRef.current = finished.state;
         if (finished.continueWith) {
           toSave = finished.continueWith;
           continue;
         }
-        confirmedRef.current = saved;
+        optimisticRef.current = saved;
         setPrefs(saved);
         setStatus("ready");
         toSave = null;
@@ -91,6 +99,7 @@ export function useUiPrefs(): UiPrefsState {
     } catch (e) {
       if (!mountedRef.current) return;
       queueRef.current = onSaveFailed();
+      optimisticRef.current = confirmedRef.current;
       setPrefs(confirmedRef.current);
       setError(String(e));
       setStatus("error");
@@ -99,12 +108,11 @@ export function useUiPrefs(): UiPrefsState {
 
   const updatePrefs = useCallback(
     (patch: Partial<UiPrefs>) => {
-      if (status === "loading") return;
-      setPrefs((prev) => {
-        const next = mergeUiPrefsPatch(prev, patch);
-        void flushSave(next);
-        return next;
-      });
+      if (status === "loading" || !loadedRef.current) return;
+      const next = mergeUiPrefsPatch(optimisticRef.current, patch);
+      optimisticRef.current = next;
+      setPrefs(next);
+      void flushSave(next);
     },
     [flushSave, status],
   );

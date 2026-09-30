@@ -179,44 +179,22 @@ impl Database {
         Ok(out)
     }
 
-    /// Safely close an interrupted session (Recovery Gate: "Sicher abschließen").
+    /// Safely close an interrupted session; duplicate requests do nothing.
     pub fn close_interrupted_session(&mut self, session_id: &str) -> Result<(), String> {
-        let session = self
-            .get_session(session_id)?
-            .ok_or_else(|| "Session nicht gefunden".to_string())?;
-        if session.ended_at.is_some() {
-            return Ok(());
-        }
-        // Only scored shots decide the entry outcome — a probe-only session
-        // sends the starter back to `waiting`.
-        let shot_count: i64 = self
-            .conn
-            .query_row(
-                "SELECT COUNT(*) FROM shots
-                 WHERE session_id = ?1 AND classification = 'scored'",
-                params![session_id],
-                |r| r.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-        self.end_session_with_state(session_id, recovery_state::SAFELY_CLOSED)?;
-        if let Some(ref entry_id) = session.entry_id {
-            let status = if shot_count > 0 {
-                entry_status::DONE
-            } else {
-                entry_status::WAITING
-            };
-            let _ = self.set_entry_status(entry_id, status);
-        }
-        let _ = self.maybe_save_training_history(
-            session_id,
-            session.competition_id.is_none(),
-        )?;
+        self.finish_session(session_id, recovery_state::SAFELY_CLOSED, |db| {
+            let session = db.get_session(session_id)?.ok_or("Session nicht gefunden")?;
+            if let Some(entry_id) = session.entry_id.as_deref() {
+                let shot_count: i64 = db.conn.query_row(
+                    "SELECT COUNT(*) FROM shots WHERE session_id = ?1 AND classification = 'scored'",
+                    params![session_id], |r| r.get(0),
+                ).map_err(|e| e.to_string())?;
+                let status = if shot_count > 0 { entry_status::DONE } else { entry_status::WAITING };
+                db.set_entry_status(entry_id, status)?;
+            }
+            db.maybe_save_training_history(session_id, session.competition_id.is_none())?;
+            Ok(())
+        })?;
         Ok(())
-    }
-
-    /// Alias kept for older call sites / tests.
-    pub fn abandon_session(&mut self, session_id: &str) -> Result<(), String> {
-        self.close_interrupted_session(session_id)
     }
 
     /// Events for support dump (optional sessions filter; empty = all open/interrupted).
