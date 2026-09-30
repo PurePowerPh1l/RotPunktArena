@@ -45,14 +45,6 @@ pub fn close_interrupted_session(
 
 /// Legacy alias — same as `close_interrupted_session`.
 #[tauri::command]
-pub fn abandon_session(
-    engine: tauri::State<'_, Arc<StandEngine>>,
-    session_id: String,
-) -> Result<LiveState, String> {
-    engine.close_interrupted_session(&session_id)
-}
-
-#[tauri::command]
 pub fn resume_session(
     app: tauri::AppHandle,
     engine: tauri::State<'_, Arc<StandEngine>>,

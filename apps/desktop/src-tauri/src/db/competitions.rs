@@ -586,24 +586,24 @@ impl Database {
         if current.len() != entry_ids.len() {
             return Err("Startliste unvollständig — bitte neu laden".into());
         }
+        let valid: std::collections::HashSet<_> = current.iter().map(|e| e.id.as_str()).collect();
         let mut seen = std::collections::HashSet::new();
         for id in entry_ids {
-            if !current.iter().any(|e| e.id == *id) {
+            if !valid.contains(id.as_str()) {
                 return Err("Ungültiger Starter in der Reihenfolge".into());
             }
             if !seen.insert(id.as_str()) {
                 return Err("Doppelte Starter-ID".into());
             }
         }
+        let tx = self.conn.unchecked_transaction().map_err(|e| e.to_string())?;
         for (i, id) in entry_ids.iter().enumerate() {
-            self.conn
-                .execute(
-                    "UPDATE competition_entries SET start_order = ?1
-                     WHERE id = ?2 AND competition_id = ?3",
-                    params![(i as i64) + 1, id, competition_id],
-                )
-                .map_err(|e| e.to_string())?;
+            tx.execute(
+                "UPDATE competition_entries SET start_order = ?1 WHERE id = ?2 AND competition_id = ?3",
+                params![(i as i64) + 1, id, competition_id],
+            ).map_err(|e| e.to_string())?;
         }
+        tx.commit().map_err(|e| e.to_string())?;
         self.list_entries(competition_id)
     }
 
@@ -619,40 +619,20 @@ impl Database {
             | entry_status::DONE => status,
             _ => return Err("Ungültiger Starterstatus".into()),
         };
-        // Only one active starter per competition.
         if status == entry_status::ACTIVE {
-            if let Some(entry) = self.get_entry(entry_id)? {
-                self.conn
-                    .execute(
-                        "UPDATE competition_entries SET status = ?1
-                         WHERE competition_id = ?2 AND status = ?3 AND id != ?4",
-                        params![
-                            entry_status::WAITING,
-                            entry.competition_id,
-                            entry_status::ACTIVE,
-                            entry_id
-                        ],
-                    )
-                    .map_err(|e| e.to_string())?;
-            }
-        }
-        self.conn
-            .execute(
+            let entry = self.get_entry(entry_id)?.ok_or("Eintrag nicht gefunden")?;
+            self.conn.execute(
+                "UPDATE competition_entries
+                 SET status = CASE WHEN id = ?1 THEN ?2 ELSE ?3 END
+                 WHERE competition_id = ?4 AND (id = ?1 OR status = ?2)",
+                params![entry_id, entry_status::ACTIVE, entry_status::WAITING, entry.competition_id],
+            ).map_err(|e| e.to_string())?;
+        } else {
+            self.conn.execute(
                 "UPDATE competition_entries SET status = ?1 WHERE id = ?2",
                 params![status, entry_id],
-            )
-            .map_err(|e| e.to_string())?;
-        self.get_entry(entry_id)?
-            .ok_or_else(|| "Eintrag nicht gefunden".into())
-    }
-
-    /// Deprecated: Nachkauf is full series restarts; the series counter is incremented on start.
-    /// Kept as a no-op for transitional UI callers.
-    pub fn set_entry_nachkauf(
-        &self,
-        entry_id: &str,
-        _nachkauf_purchased: i64,
-    ) -> Result<CompetitionEntry, String> {
+            ).map_err(|e| e.to_string())?;
+        }
         self.get_entry(entry_id)?
             .ok_or_else(|| "Eintrag nicht gefunden".into())
     }
@@ -683,21 +663,6 @@ impl Database {
     }
 
     fn mark_entry_active(&self, entry_id: &str) -> Result<CompetitionEntry, String> {
-        let entry = self
-            .get_entry(entry_id)?
-            .ok_or_else(|| "Eintrag nicht gefunden".to_string())?;
-        self.conn
-            .execute(
-                "UPDATE competition_entries SET status = ?1
-                 WHERE competition_id = ?2 AND status = ?3 AND id != ?4",
-                params![
-                    entry_status::WAITING,
-                    entry.competition_id,
-                    entry_status::ACTIVE,
-                    entry_id
-                ],
-            )
-            .map_err(|e| e.to_string())?;
         self.set_entry_status(entry_id, entry_status::ACTIVE)
     }
 
@@ -888,4 +853,42 @@ pub fn session_tenths_enabled(
         )
         .map_err(|e| format!("competition tenths: {e}"))?;
     Ok(tenths != 0)
+}
+
+#[cfg(test)]
+mod atomic_entry_tests {
+    use super::*;
+    use crate::db::{CreatePerson, Database};
+
+    #[test]
+    fn reorder_rolls_back_on_second_update_and_active_switch_is_unique() {
+        let db = Database::open_in_memory().unwrap();
+        let comp = db.create_competition(serde_json::from_value(serde_json::json!({
+            "name": "Atomic", "date": "2026-09-30", "discipline": "LG",
+            "maxShots": 10, "scoringMode": "ringe"
+        })).unwrap()).unwrap();
+        let mut ids = Vec::new();
+        for name in ["Erste", "Zweite"] {
+            let person = db.create_person(CreatePerson {
+                first_name: name.into(), last_name: "Test".into(), club: None,
+            }).unwrap();
+            ids.push(db.add_entry(&comp.id, &person.id).unwrap().id);
+        }
+        db.conn.execute_batch(&format!(
+            "CREATE TRIGGER fail_reorder BEFORE UPDATE OF start_order ON competition_entries \
+             WHEN NEW.id = '{}' BEGIN SELECT RAISE(ABORT, 'injected'); END;", ids[0]
+        )).unwrap();
+        assert!(db.reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()]).is_err());
+        let entries = db.list_entries(&comp.id).unwrap();
+        assert_eq!(entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+            vec![ids[0].as_str(), ids[1].as_str()]);
+        db.conn.execute_batch("DROP TRIGGER fail_reorder;").unwrap();
+        db.reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()]).unwrap();
+        db.reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()]).unwrap();
+        db.set_entry_status(&ids[0], entry_status::ACTIVE).unwrap();
+        db.set_entry_status(&ids[1], entry_status::ACTIVE).unwrap();
+        let entries = db.list_entries(&comp.id).unwrap();
+        assert_eq!(entries.iter().filter(|e| e.status == entry_status::ACTIVE).count(), 1);
+        assert_eq!(db.get_entry(&ids[1]).unwrap().unwrap().status, entry_status::ACTIVE);
+    }
 }

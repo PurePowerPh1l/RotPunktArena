@@ -156,13 +156,6 @@ export async function setEntryStatus(
 }
 
 /** @deprecated No-op; Nachkauf series counter increments on start. */
-export async function setEntryNachkauf(
-  entryId: string,
-  nachkaufPurchased: number,
-): Promise<CompetitionEntry> {
-  return invoke("set_entry_nachkauf", { entryId, nachkaufPurchased });
-}
-
 export async function removeEntry(entryId: string): Promise<void> {
   await invoke("remove_entry", { entryId });
 }

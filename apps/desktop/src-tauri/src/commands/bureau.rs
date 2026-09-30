@@ -148,15 +148,6 @@ pub fn set_entry_status(
 
 /// Deprecated no-op: Nachkauf series counter is incremented on start, not via this command.
 #[tauri::command]
-pub fn set_entry_nachkauf(
-    engine: tauri::State<'_, Arc<StandEngine>>,
-    entry_id: String,
-    nachkauf_purchased: i64,
-) -> Result<CompetitionEntry, String> {
-    engine.with_db(|db| db.set_entry_nachkauf(&entry_id, nachkauf_purchased))
-}
-
-#[tauri::command]
 pub fn remove_entry(
     engine: tauri::State<'_, Arc<StandEngine>>,
     entry_id: String,
