@@ -41,7 +41,6 @@ import {
 } from "../lib/arenaPrefsLogic";
 import { xpPreviewForLiveSeries } from "../training/seriesPulse";
 import * as api from "../api/commands";
-import type { CompetitionCreateInput } from "./bureau/CompetitionCreateForm";
 import type { ArenaHandoff } from "./bureau/StartListPanel";
 import { LiveScoreColumn } from "./live/LiveScoreColumn";
 import { LiveSessionControls } from "./live/LiveSessionControls";
@@ -53,6 +52,7 @@ import { useLiveLinkStatus } from "../hooks/useLiveLinkStatus";
 import { useRedDotSheets } from "../hooks/useRedDotSheets";
 import { useArenaActiveCompetitions } from "../hooks/useArenaActiveCompetitions";
 import { useCompetitionRoster } from "../hooks/useCompetitionRoster";
+import { useArenaRosterActions } from "../hooks/useArenaRosterActions";
 import { useLiveTrainingPresence } from "../hooks/useLiveTrainingPresence";
 import { RedDotSetupSheet } from "../components/RedDotSetupSheet";
 import { RedDotWakeSheet } from "../components/RedDotWakeSheet";
@@ -129,7 +129,7 @@ export function LiveStandView({
     setupRequestNonce,
   });
   const setCompetitionId = onCompetitionIdChange;
-  const { competitions, reloadCompetitions } = useArenaActiveCompetitions({
+  const { competitions, reloadCompetitions, loadError: competitionsLoadError } = useArenaActiveCompetitions({
     arenaVisible,
     competitionsEpoch,
     competitionId,
@@ -148,6 +148,7 @@ export function LiveStandView({
     selectedComp,
     selectedEntry,
     nachkaufEnabled,
+    loadError: rosterLoadError,
   } = useCompetitionRoster({
     competitionId,
     competitions,
@@ -161,7 +162,6 @@ export function LiveStandView({
   const [seriesShots, setSeriesShots] = useState<TrainingSeriesShots>(
     TRAINING_SERIES_SHOTS,
   );
-  const [createBusy, setCreateBusy] = useState(false);
   const [stripFocus, setStripFocus] = useState<"xp" | "liga">("xp");
 
   const baseDisplay = effectiveScoreDisplay({
@@ -227,7 +227,9 @@ export function LiveStandView({
       if (cancelled) return;
       if (entriesList.some((e) => e.id === eid)) setEntryId(eid);
       onArenaHandoffConsumed?.();
-    })();
+    })().catch((error) => {
+      if (!cancelled) live.notify(`Arena-Wechsel fehlgeschlagen: ${String(error)}`);
+    });
     return () => {
       cancelled = true;
     };
@@ -316,104 +318,13 @@ export function LiveStandView({
     live.state?.seriesTeilerTotal,
   );
 
-  const createCompetition = async (input: CompetitionCreateInput): Promise<boolean> => {
-    if (createBusy) return false;
-    setCreateBusy(true);
-    try {
-      const { activateOnCreate, ...createInput } = input;
-      const created = await api.createCompetition(createInput);
-      if (activateOnCreate) {
-        try {
-          await api.setCompetitionStatus(created.id, "active");
-        } catch (e) {
-          live.notify(
-            `Wettkampf angelegt, aber Status konnte nicht auf Aktiv gesetzt werden: ${String(e)}`,
-          );
-          await reloadCompetitions();
-          onBureauCompetitionIdChange?.(created.id);
-          return true;
-        }
-        await reloadCompetitions();
-        onCompetitionIdChange(created.id);
-        onBureauCompetitionIdChange?.(created.id);
-        return true;
-      }
-      await reloadCompetitions();
-      // Draft stays Verwaltung-only; Arena keeps last active selection.
-      onBureauCompetitionIdChange?.(created.id);
-      return true;
-    } catch (e) {
-      live.notify(`Wettkampf konnte nicht angelegt werden: ${String(e)}`);
-      return false;
-    } finally {
-      setCreateBusy(false);
-    }
-  };
-
-  /** Add or select shooter as active starter; in team mode also assign to the team. */
-  const ensureStarter = async (shooterValue: ShooterValue): Promise<boolean> => {
-    if (!competitionId) return false;
-    const trimmed = shooterValue.name.trim();
-    if (!trimmed && !shooterValue.personId) return false;
-
-    let personId = shooterValue.personId;
-    if (!personId) {
-      const promoted = await api.promoteTrainingShooter(trimmed);
-      personId = promoted.person.id;
-    }
-
-    const list = await api.listEntries(competitionId);
-    let entry = list.find((e) => e.personId === personId) ?? null;
-    if (!entry) {
-      try {
-        entry = await api.addEntry(competitionId, personId);
-      } catch (e) {
-        const msg = String(e);
-        if (msg.includes("bereits in der Startliste")) {
-          const refreshed = await api.listEntries(competitionId);
-          entry = refreshed.find((e) => e.personId === personId) ?? null;
-        } else {
-          throw e;
-        }
-      }
-    }
-    if (!entry) return false;
-
-    if (teamScoringEnabled && teamId) {
-      const team = teams.find((t) => t.id === teamId);
-      if (team && !team.memberEntryIds.includes(entry.id)) {
-        await api.addTeamMember(teamId, entry.id);
-        await refreshTeams(competitionId);
-      }
-    }
-
-    await refreshEntries(competitionId);
-    setEntryId(entry.id);
-    return true;
-  };
-
-  /** Create global team (or select if name already exists). */
-  const ensureTeam = async (name: string): Promise<boolean> => {
-    if (!teamScoringEnabled) return false;
-    const trimmed = name.trim();
-    if (!trimmed) return false;
-    const existing = teams.find(
-      (t) => t.name.trim().toLowerCase() === trimmed.toLowerCase(),
-    );
-    if (existing) {
-      setTeamId(existing.id);
-      return true;
-    }
-    try {
-      const created = await api.createTeam(trimmed);
-      await refreshTeams(competitionId || null);
-      setTeamId(created.id);
-      return true;
-    } catch (e) {
-      live.notify(`Team konnte nicht angelegt werden: ${String(e)}`);
-      return false;
-    }
-  };
+  const { createBusy, createCompetition, ensureStarter, ensureTeam } =
+    useArenaRosterActions({
+      competitionId, teamScoringEnabled, teamId, teams,
+      refreshTeams, refreshEntries, setEntryId, setTeamId,
+      reloadCompetitions, onCompetitionIdChange,
+      onBureauCompetitionIdChange, notify: live.notify,
+    });
 
   const handleModeChange = (next: "training" | "competition") => {
     if (next === mode) return;
@@ -531,6 +442,11 @@ export function LiveStandView({
 
   return (
     <div className="stand" data-mode={mode}>
+      {competitionsLoadError || rosterLoadError ? (
+        <p className="banner-error" role="alert">
+          {competitionsLoadError ?? rosterLoadError}
+        </p>
+      ) : null}
       <main className="stage">
         <LiveScoreColumn
           shooterFallback={shooter}

@@ -62,7 +62,7 @@ pub struct TrainingSaveInfo {
     pub saved: bool,
     pub shot_count: i64,
     pub min_shots: i64,
-    /// `saved` | `empty` | `too_short` | `not_training` | `endless`
+    /// `saved` | `empty` | `too_short` | `not_training` | `endless` | `already_closed`
     pub reason: String,
 }
 
