@@ -2,7 +2,6 @@
 
 use super::poll;
 use super::{ConnectionUpdate, LiveState, StandEngine, StartSessionArgs, UiShot};
-use crate::db::entry_status;
 use crate::transport::{ConnectionStatus, TransportKind};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -357,22 +356,9 @@ impl StandEngine {
 
         if let Some((id, ended_at, entry_id, competition_id, endless, shot_count)) = session_meta {
             if ended_at.is_none() {
-                let save_info = self.with_db_mut(|db| {
-                    db.end_session(&id)?;
-                    if let Some(entry_id) = entry_id {
-                        let _ = db.set_entry_status(&entry_id, entry_status::DONE);
-                    }
-                    if endless && competition_id.is_none() {
-                        Ok(crate::db::TrainingSaveInfo {
-                            saved: false,
-                            shot_count,
-                            min_shots: crate::db::TRAINING_HISTORY_MIN_SHOTS,
-                            reason: "endless".into(),
-                        })
-                    } else {
-                        db.maybe_save_training_history(&id, competition_id.is_none())
-                    }
-                })?;
+                let save_info = self.with_db(|db| db.finish_live_session(
+                    &id, entry_id.as_deref(), competition_id.is_none(), endless, shot_count,
+                ))?;
                 let mut g = self.inner.lock();
                 if let Some(s) = g.session.as_mut() {
                     s.ended_at = Some(chrono::Utc::now().to_rfc3339());

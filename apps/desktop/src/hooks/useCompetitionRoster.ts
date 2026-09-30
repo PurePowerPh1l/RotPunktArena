@@ -2,7 +2,7 @@
  * Competition roster: entries/teams lists, selection ids, refresh + race seq.
  * Data/selection only — no handoff, mode, mutations, or start flow.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   Competition,
   CompetitionEntry,
@@ -27,13 +27,22 @@ export function useCompetitionRoster({
   const [entryId, setEntryId] = useState("");
   const [teams, setTeams] = useState<CompetitionTeam[]>([]);
   const [teamId, setTeamId] = useState("");
+  const [entriesError, setEntriesError] = useState<string | null>(null);
+  const [teamsError, setTeamsError] = useState<string | null>(null);
   const entriesSeq = useRef(createRequestSeq()).current;
   const teamsSeq = useRef(createRequestSeq()).current;
 
-  const refreshEntries = async (compId: string) => {
+  const refreshEntries = useCallback(async (compId: string) => {
     const token = entriesSeq.begin();
-    const list = await api.listEntries(compId);
+    let list: CompetitionEntry[];
+    try {
+      list = await api.listEntries(compId);
+    } catch (error) {
+      if (entriesSeq.isCurrent(token)) setEntriesError(String(error));
+      throw error;
+    }
     if (!entriesSeq.isCurrent(token)) return list;
+    setEntriesError(null);
     setEntries(list);
     setEntryId((prev) => {
       if (prev && list.some((e) => e.id === prev)) return prev;
@@ -45,32 +54,41 @@ export function useCompetitionRoster({
       return next?.id ?? "";
     });
     return list;
-  };
+  }, [entriesSeq]);
 
-  const refreshTeams = async (compId: string | null) => {
+  const refreshTeams = useCallback(async (compId: string | null) => {
     const token = teamsSeq.begin();
-    const list = await api.listTeams(compId);
+    let list: CompetitionTeam[];
+    try {
+      list = await api.listTeams(compId);
+    } catch (error) {
+      if (teamsSeq.isCurrent(token)) setTeamsError(String(error));
+      throw error;
+    }
     if (!teamsSeq.isCurrent(token)) return list;
+    setTeamsError(null);
     setTeams(list);
     setTeamId((prev) => {
       if (prev && list.some((t) => t.id === prev)) return prev;
       return list[0]?.id ?? "";
     });
     return list;
-  };
+  }, [teamsSeq]);
 
   useEffect(() => {
     if (!competitionId) {
       entriesSeq.begin();
+      setEntriesError(null);
       teamsSeq.begin();
+      setTeamsError(null);
       setEntries([]);
       setEntryId("");
       setTeams([]);
       setTeamId("");
       return;
     }
-    void refreshEntries(competitionId);
-  }, [competitionId, running, entriesSeq]);
+    void refreshEntries(competitionId).catch(() => {});
+  }, [competitionId, running, entriesSeq, refreshEntries]);
 
   const teamScoringEnabled = Boolean(
     competitions.find((c) => c.id === competitionId)?.teamScoringEnabled,
@@ -79,13 +97,14 @@ export function useCompetitionRoster({
   useEffect(() => {
     if (!teamScoringEnabled) {
       teamsSeq.begin();
+      setTeamsError(null);
       setTeams([]);
       setTeamId("");
       return;
     }
     // Global teams; resolve entry membership for the current competition when set.
-    void refreshTeams(competitionId || null);
-  }, [competitionId, teamScoringEnabled, running, teamsSeq]);
+    void refreshTeams(competitionId || null).catch(() => {});
+  }, [competitionId, teamScoringEnabled, running, teamsSeq, refreshTeams]);
 
   // When team changes, keep entry only if they belong to the team.
   useEffect(() => {
@@ -121,5 +140,6 @@ export function useCompetitionRoster({
     selectedComp,
     selectedEntry,
     nachkaufEnabled,
+    loadError: entriesError ?? teamsError,
   };
 }

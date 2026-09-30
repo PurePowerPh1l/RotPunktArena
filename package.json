@@ -1,7 +1,7 @@
 {
   "name": "rotpunktarena",
   "private": true,
-  "version": "0.1.22",
+  "version": "0.1.23",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -14,7 +14,8 @@
     "protocol:test": "npm run test --workspace=@rotpunktarena/protocol",
     "verify:ui-hardening": "node --experimental-strip-types tools/verify-ui-hardening.mts",
     "icons:generate": "node --experimental-strip-types tools/generate-app-icon.mts",
-    "test:mutations": "node --experimental-strip-types tools/bureau-mutations.test.mts"
+    "test:mutations": "node --experimental-strip-types tools/bureau-mutations.test.mts",
+    "verify": "npm run protocol:test && npm run test:mutations && npm run verify:ui-hardening && npm run test:access --workspace=@rotpunktarena/desktop && npm run test:geometry --workspace=@rotpunktarena/desktop && node --experimental-strip-types apps/desktop/src/lib/uiPrefsLogic.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/prefsPersistence.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/arenaPrefsLogic.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/appearanceLogic.selftest.ts && node --experimental-strip-types tools/prefer-live-simulator.test.mts && npm run build --workspace=@rotpunktarena/desktop && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --features simulator,serial,rfcomm"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

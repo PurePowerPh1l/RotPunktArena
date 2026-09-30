@@ -30,6 +30,16 @@ fn migrations_and_parser_version() {
 }
 
 #[test]
+fn closing_session_twice_writes_one_end_event() {
+    let mut db = ArenaDb::open_in_memory().unwrap();
+    let session = db.start_session("Idempotent", None, None, None).unwrap();
+    db.end_session(&session.id).unwrap();
+    db.end_session(&session.id).unwrap();
+    assert_eq!(db.count_events_kind("session_ended").unwrap(), 1);
+    assert!(db.list_unclean_sessions().unwrap().is_empty());
+}
+
+#[test]
 fn duplicate_frames_yield_exact_shot_count() {
     let mut db = ArenaDb::open_in_memory().unwrap();
     let session = db.start_session("Tester", None, None, None).unwrap();
