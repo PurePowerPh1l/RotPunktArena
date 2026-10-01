@@ -1,0 +1,20 @@
+{
+  "revision": 1,
+  "sessionId": null,
+  "phase": "idle",
+  "status": "disconnected",
+  "transport": "simulator",
+  "port": null,
+  "session": null,
+  "shots": [],
+  "seriesTotal": 0.0,
+  "seriesTeilerTotal": 0.0,
+  "lastShot": null,
+  "autoFire": false,
+  "serialFeature": false,
+  "maxShots": null,
+  "seriesComplete": false,
+  "trainingSave": null,
+  "endlessMode": false,
+  "probeActive": false
+}

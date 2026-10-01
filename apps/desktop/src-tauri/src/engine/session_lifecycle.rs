@@ -271,6 +271,7 @@ impl StandEngine {
     /// clear probe shots from the live UI, and start the scored series.
     pub fn finish_probe(&self, app: &AppHandle) -> Result<LiveState, String> {
         self.finish_probe_transition(|probe_shots, shooter| {
+            self.emit_live(app, Some(format!("Wertung läuft — Probe beendet ({probe_shots} Probeschüsse)")));
             if let Err(error) = app.emit("probe_finished",
                 serde_json::json!({ "probeShots": probe_shots, "shooterName": shooter })) {
                 eprintln!("Probewechsel konnte nicht angezeigt werden: {error}");
@@ -583,6 +584,8 @@ impl StandEngine {
                 detail: None,
             },
         );
+        drop(g);
+        self.emit_live(app, None);
     }
 }
 

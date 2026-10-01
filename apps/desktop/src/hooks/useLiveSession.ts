@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import type { ConnectionUpdate, LiveState, SeriesCompletePayload, UiShot } from "@rotpunktarena/domain";
+import type { LiveState } from "@rotpunktarena/domain";
 import { trainingSaveUiMessage } from "@rotpunktarena/domain";
 import * as api from "../api/commands";
+import { chooseLiveSnapshot } from "../lib/liveRevision.ts";
 import { useAsyncAction } from "./useAsyncAction";
 
 function isRunning(status: LiveState["status"]): boolean {
@@ -32,100 +33,63 @@ function detailAfterReset(s: LiveState): string {
   return "Neue Serie gestartet";
 }
 
+let epochCounter = 0;
+
 export function useLiveSession() {
   const [state, setState] = useState<LiveState | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
   const { busy, run: runExclusive } = useAsyncAction();
-  /** Mirrors whether a snapshot exists — event handlers must not rely on stale closures. */
-  const hasStateRef = useRef(false);
-
-  const refresh = useCallback(async () => {
-    const s = await api.getLiveState();
-    hasStateRef.current = true;
-    setState(s);
+  const activeEpoch = useRef(0);
+  const current = useRef<LiveState | null>(null);
+  const acceptState = useCallback((snapshot: LiveState) => {
+    if (activeEpoch.current === 0) return false;
+    const selected = chooseLiveSnapshot(current.current, snapshot);
+    if (selected === current.current) return false;
+    current.current = selected;
+    setState(selected);
+    return true;
   }, []);
 
+  const refresh = useCallback(async () => {
+    const epoch = activeEpoch.current;
+    const snapshot = await api.getLiveState();
+    if (epoch !== 0 && epoch === activeEpoch.current) acceptState(snapshot);
+  }, [acceptState]);
+
   useEffect(() => {
-    void refresh();
-    let alive = true;
-    const unsubs: Array<() => void> = [];
-    // `listen()` resolves async: if the effect was cleaned up before the
-    // handle arrives (Strict Mode double-invoke, fast unmount), unlisten
-    // immediately instead of leaking the subscription.
-    const track = (unlisten: () => void) => {
-      if (alive) {
-        unsubs.push(unlisten);
-      } else {
-        unlisten();
-      }
-    };
-    (async () => {
-      track(
-        await listen<ConnectionUpdate>("connection", (e) => {
-          setDetail(e.payload.detail ?? null);
-          if (!hasStateRef.current) {
-            // Event arrived before the first snapshot — pull the full state
-            // instead of silently dropping the update.
-            void refresh();
-            return;
+    const epoch = ++epochCounter;
+    activeEpoch.current = epoch;
+    let unlisten: (() => void) | undefined;
+    let resync: ReturnType<typeof setInterval> | undefined;
+    const active = () => activeEpoch.current === epoch;
+    // Subscribe before the initial snapshot. Each event is a complete authoritative
+    // projection, so missing/reordered events are repaired without applying deltas.
+    void (async () => {
+      try {
+        const stop = await listen<{ state: LiveState; detail: string | null }>("live_state", (event) => {
+          if (active() && acceptState(event.payload.state) && event.payload.detail !== null) {
+            setDetail(event.payload.detail);
           }
-          setState((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  status: e.payload.status,
-                  transport: e.payload.transport,
-                  port: e.payload.port,
-                }
-              : prev,
-          );
-        }),
-      );
-      track(
-        await listen<UiShot>("shot", (e) => {
-          setState((prev) => {
-            if (!prev) return prev;
-            if (prev.shots.some((s) => s.shotIndex === e.payload.shotIndex)) {
-              return prev;
-            }
-            return {
-              ...prev,
-              shots: [...prev.shots, e.payload],
-              seriesTotal: e.payload.seriesTotal,
-              seriesTeilerTotal: e.payload.seriesTeilerTotal,
-              lastShot: e.payload,
-              status: "connected",
-            };
-          });
-        }),
-      );
-      track(
-        await listen<{ probeShots: number }>("probe_finished", async (e) => {
-          const s = await api.getLiveState();
-          setState(s);
-          setDetail(
-            `Wertung läuft — Probe beendet (${e.payload.probeShots} Probeschüsse)`,
-          );
-        }),
-      );
-      track(
-        await listen<SeriesCompletePayload>("series_complete", async (e) => {
-          const s = await api.getLiveState();
-          setState(s);
-          const saveMsg = s.trainingSave ? trainingSaveUiMessage(s.trainingSave) : null;
-          setDetail(
-            saveMsg ??
-              `Serie beendet — ${e.payload.shotCount}/${e.payload.maxShots} Schüsse`,
-          );
-        }),
-      );
+        });
+        if (!active()) { stop(); return; }
+        unlisten = stop;
+        const snapshot = await api.getLiveState();
+        if (active()) acceptState(snapshot);
+        if (active()) resync = setInterval(() => {
+          if (active() && document.visibilityState === "visible") {
+            void refresh().catch((error) => { if (active()) setDetail(String(error)); });
+          }
+        }, 5000);
+      } catch (error) {
+        if (active()) setDetail(String(error));
+      }
     })();
     return () => {
-      alive = false;
-      unsubs.forEach((u) => u());
-      unsubs.length = 0;
+      if (active()) activeEpoch.current = 0;
+      unlisten?.();
+      if (resync) clearInterval(resync);
     };
-  }, [refresh]);
+  }, [acceptState, refresh]);
 
   const startTraining = useCallback(
     async (
@@ -137,14 +101,14 @@ export function useLiveSession() {
       await runExclusive(async () => {
         try {
           const s = await api.startTraining(shooterName, useSimulator, personId, endless);
-          setState(s);
+          if (!acceptState(s)) return;
           setDetail(endless ? "Endlosmodus — Schüsse werden nicht gespeichert" : null);
         } catch (e) {
           setDetail(String(e));
         }
       });
     },
-    [runExclusive],
+    [runExclusive, acceptState],
   );
 
   const startEntry = useCallback(
@@ -152,14 +116,14 @@ export function useLiveSession() {
       await runExclusive(async () => {
         try {
           const s = await api.startEntrySession(entryId, useSimulator);
-          setState(s);
+          if (!acceptState(s)) return;
           setDetail(null);
         } catch (e) {
           setDetail(String(e));
         }
       });
     },
-    [runExclusive],
+    [runExclusive, acceptState],
   );
 
   /** Optional prep before Entry-Start in einer Busy-Hülle. */
@@ -173,14 +137,14 @@ export function useLiveSession() {
         try {
           if (prep) await prep();
           const s = await api.startEntrySession(entryId, useSimulator);
-          setState(s);
+          if (!acceptState(s)) return;
           setDetail(null);
         } catch (e) {
           setDetail(String(e));
         }
       });
     },
-    [runExclusive],
+    [runExclusive, acceptState],
   );
 
   /** Stop (falls laufend) + nächsten Entry starten — atomar gegen Doppelklick. */
@@ -191,61 +155,60 @@ export function useLiveSession() {
           const current = await api.getLiveState();
           if (isRunning(current.status)) {
             const ended = await api.endTraining();
-            setState(ended);
-            setDetail(detailAfterStop(ended));
+            if (acceptState(ended)) setDetail(detailAfterStop(ended));
           }
           const s = await api.startEntrySession(nextEntryId, useSimulator);
-          setState(s);
+          if (!acceptState(s)) return;
           setDetail(null);
         } catch (e) {
           setDetail(String(e));
         }
       });
     },
-    [runExclusive],
+    [runExclusive, acceptState],
   );
 
   const stop = useCallback(async () => {
     await runExclusive(async () => {
       try {
         const s = await api.endTraining();
-        setState(s);
+        if (!acceptState(s)) return;
         setDetail(detailAfterStop(s));
       } catch (e) {
         setDetail(String(e));
       }
     });
-  }, [runExclusive]);
+  }, [runExclusive, acceptState]);
 
   /** „Wertung beginnen“ — Probephase beenden, Scheibe leeren, gewertete Serie starten. */
   const finishProbe = useCallback(async () => {
     await runExclusive(async () => {
       try {
         const s = await api.finishProbe();
-        setState(s);
+        if (!acceptState(s)) return;
       } catch (e) {
         setDetail(String(e));
       }
     });
-  }, [runExclusive]);
+  }, [runExclusive, acceptState]);
 
   const resetSeries = useCallback(async () => {
     await runExclusive(async () => {
       try {
         const s = await api.resetTrainingSeries();
-        setState(s);
+        if (!acceptState(s)) return;
         setDetail(detailAfterReset(s));
       } catch (e) {
         setDetail(String(e));
       }
     });
-  }, [runExclusive]);
+  }, [runExclusive, acceptState]);
 
   const setEndlessMode = useCallback(
     async (endless: boolean) => {
       try {
         const s = await api.setTrainingEndless(endless);
-        setState(s);
+        if (!acceptState(s)) return;
         if (endless && s.session && !s.session.endedAt) {
           setDetail("Endlosmodus — Schüsse werden nicht gespeichert");
         }
@@ -253,24 +216,24 @@ export function useLiveSession() {
         setDetail(String(e));
       }
     },
-    [],
+    [acceptState],
   );
 
   const setSeriesShots = useCallback(async (shots: number) => {
     try {
       const s = await api.setTrainingSeriesShots(shots);
-      setState(s);
+      if (!acceptState(s)) return;
     } catch (e) {
       setDetail(String(e));
     }
-  }, []);
+  }, [acceptState]);
 
   const fireAt = useCallback(
     async (x: number, y: number) => {
       await runExclusive(async () => {
         try {
           const s = await api.fireAimShot(x, y);
-          setState(s);
+          if (!acceptState(s)) return;
           if (s.seriesComplete) {
             const saveMsg = s.trainingSave ? trainingSaveUiMessage(s.trainingSave) : null;
             setDetail(
@@ -283,7 +246,7 @@ export function useLiveSession() {
         }
       });
     },
-    [runExclusive],
+    [runExclusive, acceptState],
   );
 
   const fireOnce = useCallback(async () => {
@@ -297,12 +260,12 @@ export function useLiveSession() {
       const next = !state?.autoFire;
       try {
         await api.setAutoFire(next);
-        setState((prev) => (prev ? { ...prev, autoFire: next } : prev));
+        await refresh();
       } catch (e) {
         setDetail(String(e));
       }
     });
-  }, [runExclusive, state?.autoFire]);
+  }, [runExclusive, state?.autoFire, refresh]);
 
   const notify = useCallback((message: string | null) => {
     setDetail(message);
