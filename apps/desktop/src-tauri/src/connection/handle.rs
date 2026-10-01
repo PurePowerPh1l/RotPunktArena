@@ -6,8 +6,12 @@ use super::shared::SharedState;
 use super::sink::SinkChunk;
 use super::status::ConnectionStatus;
 use crate::transport::rfcomm::target::RfcommTarget;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+static NEXT_SINK_LEASE: AtomicU64 = AtomicU64::new(1);
 
 /// Handle used by Tauri / session bridge.
 #[derive(Clone)]
@@ -17,6 +21,30 @@ pub struct ConnectionHandle {
 }
 
 impl ConnectionHandle {
+    pub fn register_sink(&self) -> Result<(u64, u64), String> {
+        let lease = NEXT_SINK_LEASE.fetch_add(1, Ordering::SeqCst);
+        let (reply, receive) = std::sync::mpsc::channel();
+        self.send(ConnectionCommand::RegisterSink { lease, reply })?;
+        match receive.recv_timeout(Duration::from_millis(500)) {
+            Ok(result) => result.map(|epoch| (lease, epoch)),
+            Err(error) => {
+                let (reply, _) = std::sync::mpsc::channel();
+                if let Err(cleanup) = self.send(ConnectionCommand::UnregisterSink { lease, reply })
+                {
+                    eprintln!("Sink-Timeout-Bereinigung: {cleanup}");
+                }
+                Err(format!("Sink-Registrierung: {error}"))
+            }
+        }
+    }
+
+    pub fn unregister_sink(&self, lease: u64) -> Result<bool, String> {
+        let (reply, receive) = std::sync::mpsc::channel();
+        self.send(ConnectionCommand::UnregisterSink { lease, reply })?;
+        receive
+            .recv_timeout(Duration::from_millis(500))
+            .map_err(|e| format!("Sink-Abmeldung: {e}"))
+    }
     pub fn status(&self) -> ConnectionStatus {
         self.inner.lock().unwrap().status
     }
@@ -42,22 +70,17 @@ impl ConnectionHandle {
         self.inner.lock().unwrap().connect_origin
     }
 
-    pub(crate) fn sink_registered(&self) -> bool {
-        self.inner.lock().unwrap().sink_registered
-    }
-
-    pub(crate) fn sink_epoch(&self) -> u64 {
-        self.inner.lock().unwrap().sink_epoch
-    }
-
     pub fn send(&self, cmd: ConnectionCommand) -> Result<(), String> {
         self.cmd_tx
             .send(cmd)
             .map_err(|_| "Connection manager gestoppt".to_string())
     }
 
-    pub(crate) fn try_recv_sink_chunk(&self) -> Option<SinkChunk> {
+    pub(crate) fn try_recv_sink_chunk(&self, epoch: u64) -> Option<SinkChunk> {
         let guard = self.inner.lock().unwrap();
+        if !guard.sink_registered || guard.sink_epoch != epoch {
+            return None;
+        }
         let rx = guard.sink_rx.as_ref()?;
         match rx.try_recv() {
             Ok(c) => Some(c),

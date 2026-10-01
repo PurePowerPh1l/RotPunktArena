@@ -280,7 +280,10 @@ fn main() {
                     std::process::exit(3);
                 }
                 // Live-Session start/stop (Sink only — must not trigger Pair/Connect).
-                let _ = h.send(ConnectionCommand::RegisterSink);
+                let (lease, _) = h.register_sink().unwrap_or_else(|error| {
+                    eprintln!("FAIL register session sink: {error}");
+                    std::process::exit(3);
+                });
                 thread::sleep(session_on);
                 if h.status() != ConnectionStatus::Linked {
                     eprintln!(
@@ -290,7 +293,10 @@ fn main() {
                     let _ = h.send(ConnectionCommand::Shutdown);
                     std::process::exit(3);
                 }
-                let _ = h.send(ConnectionCommand::UnregisterSink);
+                if let Err(error) = h.unregister_sink(lease) {
+                    eprintln!("FAIL unregister session sink: {error}");
+                    std::process::exit(3);
+                }
                 session_cycles += 1;
                 if last_progress.elapsed() >= Duration::from_secs(15 * 60) {
                     eprintln!(
