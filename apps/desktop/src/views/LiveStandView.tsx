@@ -442,6 +442,9 @@ export function LiveStandView({
 
   return (
     <div className="stand" data-mode={mode}>
+      {live.state?.session?.simulated ? (
+        <p className="banner" role="status">Simulatortraining — simulierte Schüsse, keine Wettkampf- oder Trainingsstatistik.</p>
+      ) : null}
       {competitionsLoadError || rosterLoadError ? (
         <p className="banner-error" role="alert">
           {competitionsLoadError ?? rosterLoadError}

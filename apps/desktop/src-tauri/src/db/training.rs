@@ -113,17 +113,17 @@ impl Database {
             return Ok(TrainingSaveInfo::not_training());
         }
 
-        let row: Option<(i64, Option<String>, Option<i64>)> = self
+        let row: Option<(i64, Option<String>, Option<i64>, bool)> = self
             .conn
             .query_row(
-                "SELECT training_saved, competition_id, max_shots FROM sessions WHERE id = ?1",
+                "SELECT training_saved, competition_id, max_shots, simulated FROM sessions WHERE id = ?1",
                 params![session_id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )
             .optional()
             .map_err(|e| e.to_string())?;
 
-        let Some((already_flagged, competition_id, session_max)) = row else {
+        let Some((already_flagged, competition_id, session_max, simulated)) = row else {
             return Ok(TrainingSaveInfo {
                 saved: false,
                 shot_count: 0,
@@ -141,6 +141,9 @@ impl Database {
             .unwrap_or(TRAINING_HISTORY_MIN_SHOTS);
 
         let shot_count = self.count_session_shots(session_id)?;
+        if simulated {
+            return Ok(TrainingSaveInfo { saved: false, shot_count, min_shots, reason: "simulated".into() });
+        }
         if already_flagged != 0 {
             return Ok(TrainingSaveInfo {
                 saved: true,

@@ -7,6 +7,7 @@ use rusqlite::params;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoverySessionInfo {
+    pub simulated: bool,
     pub id: String,
     pub shooter_name: String,
     pub started_at: String,
@@ -40,7 +41,7 @@ impl Database {
             .conn
             .prepare(
                 "SELECT id, shooter_name, started_at, ended_at,
-                        competition_id, entry_id, person_id
+                        competition_id, entry_id, person_id, simulated
                  FROM sessions WHERE id = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -49,6 +50,7 @@ impl Database {
             .map_err(|e| e.to_string())?;
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
             Ok(Some(SessionInfo {
+                simulated: row.get(7).map_err(|e| e.to_string())?,
                 id: row.get(0).map_err(|e| e.to_string())?,
                 shooter_name: row.get(1).map_err(|e| e.to_string())?,
                 started_at: row.get(2).map_err(|e| e.to_string())?,
@@ -72,7 +74,7 @@ impl Database {
                         s.competition_id, s.entry_id, s.person_id,
                         (SELECT COUNT(*) FROM shots sh
                          WHERE sh.session_id = s.id AND sh.classification = 'scored'),
-                        s.last_autosave_sequence, s.last_autosave_at, s.recovery_state
+                        s.last_autosave_sequence, s.last_autosave_at, s.recovery_state, s.simulated
                  FROM sessions s
                  WHERE s.ended_at IS NULL
                    AND s.last_autosave_at IS NOT NULL
@@ -87,6 +89,7 @@ impl Database {
                     _ => recovery_state::INTERRUPTED.to_string(),
                 };
                 Ok(RecoverySessionInfo {
+                    simulated: r.get(10)?,
                     id: r.get(0)?,
                     shooter_name: r.get(1)?,
                     started_at: r.get(2)?,

@@ -58,12 +58,13 @@ impl StandEngine {
         };
         let last_port = self.log.lock().get_setting("last_port")?;
         let (session, max_shots, probe) = self.with_db(|db| {
-            db.start_live_session(
+            db.start_live_session_with_source(
                 &name,
                 args.competition_id.as_deref(),
                 args.entry_id.as_deref(),
                 args.person_id.as_deref(),
                 training_limit,
+                args.use_simulator,
             )
         })?;
 
@@ -142,6 +143,9 @@ impl StandEngine {
             .ok_or_else(|| "Session nicht gefunden".to_string())?;
         if session.ended_at.is_some() {
             return Err("Session ist bereits beendet".into());
+        }
+        if session.simulated != use_simulator {
+            return Err("Recovery muss denselben Hardware-/Simulatormodus wie die gespeicherte Session verwenden".into());
         }
         let open = self.with_db(|db| db.list_unclean_sessions())?;
         if !open.iter().any(|id| id == session_id) {

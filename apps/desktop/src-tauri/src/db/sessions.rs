@@ -16,6 +16,8 @@ pub mod recovery_state {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
+    #[serde(default)]
+    pub simulated: bool,
     pub id: String,
     pub shooter_name: String,
     pub started_at: String,
@@ -121,6 +123,7 @@ impl Database {
         )?;
         touch_autosave_in_tx(tx, &id, event.sequence, &started_at)?;
         let info = SessionInfo {
+            simulated: false,
             id,
             shooter_name: shooter_name.to_string(),
             started_at,

@@ -41,7 +41,8 @@ pub(super) fn handle_shot_frame(
 
     let ingest_started = Instant::now();
     let mode = engine.session_mode_label();
-    let result = log.ingest_raw_frame(session_id, &raw, "device", None);
+    let actor = if transport.kind() == crate::transport::TransportKind::Simulator { "simulator" } else { "device" };
+    let result = log.ingest_raw_frame(session_id, &raw, actor, None);
 
     // ACK only after the persist attempt succeeded (any Ok outcome, incl.
     // Duplicate — device may resend). On persist Err we intentionally do NOT

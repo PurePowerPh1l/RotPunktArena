@@ -70,10 +70,12 @@ pub fn list_training_shooters(
 
 #[tauri::command]
 pub fn clear_training_history(
+    session: tauri::State<'_, crate::commands::AdminSession>,
     engine: tauri::State<'_, Arc<StandEngine>>,
     person_id: Option<String>,
     shooter_name: Option<String>,
 ) -> Result<i64, String> {
+    session.require()?;
     engine.with_db(|db| {
         db.clear_training_history(person_id.as_deref(), shooter_name.as_deref())
     })
@@ -81,8 +83,10 @@ pub fn clear_training_history(
 
 #[tauri::command]
 pub fn promote_training_shooter(
+    session: tauri::State<'_, crate::commands::AdminSession>,
     engine: tauri::State<'_, Arc<StandEngine>>,
     shooter_name: String,
 ) -> Result<crate::db::PromoteTrainingShooterResult, String> {
+    session.require()?;
     engine.with_db(|db| db.promote_training_shooter(&shooter_name))
 }

@@ -19,7 +19,7 @@ pub struct DbBackupInfo {
     pub modified_at: Option<String>,
 }
 
-fn backups_dir(app: &AppHandle) -> Result<PathBuf, String> {
+fn backups_dir<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let dir = data_dir.join("backups");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -80,8 +80,8 @@ pub fn list_db_backups(app: AppHandle) -> Result<Vec<DbBackupInfo>, String> {
 
 /// Replace the live DB file with a backup (session must be stopped).
 #[tauri::command]
-pub fn restore_db_backup(
-    app: AppHandle,
+pub fn restore_db_backup<R: tauri::Runtime>(
+    app: AppHandle<R>,
     engine: tauri::State<'_, Arc<StandEngine>>,
     session: tauri::State<'_, AdminSession>,
     name: String,
@@ -96,6 +96,7 @@ pub fn restore_db_backup(
         return Err("Backup nicht gefunden".into());
     }
     engine.swap_database_file(&src)?;
+    session.lock();
     Ok(src.to_string_lossy().into_owned())
 }
 
@@ -107,5 +108,7 @@ pub fn reset_all_database(
     session: tauri::State<'_, AdminSession>,
 ) -> Result<(), String> {
     session.require()?;
-    engine.reset_database_to_empty()
+    engine.reset_database_to_empty()?;
+    session.lock();
+    Ok(())
 }
