@@ -119,7 +119,7 @@ export function TrainingHeroPanel({
           <p className="train-stat-hint">niedriger = besser</p>
         </article>
         <article className="train-stat">
-          <p className="train-stat-label">Beste Serie</p>
+          <p className="train-stat-label">Beste / 10 Schüsse</p>
           <p className="train-stat-value">{fmtStat(stats.bestSerie)}</p>
           <p className="train-stat-hint">Best-Teiler {fmtStat(stats.bestTeiler)}</p>
         </article>
@@ -129,7 +129,7 @@ export function TrainingHeroPanel({
           <p className="train-stat-hint">{stats.shotCount} SchÃ¼sse</p>
         </article>
         <article className="train-stat">
-          <p className="train-stat-label">Letzte Serie</p>
+          <p className="train-stat-label">Letzte / 10 Schüsse</p>
           <p className="train-stat-value">
             {stats.lastSerie != null ? fmtStat(stats.lastSerie) : "â€”"}
           </p>

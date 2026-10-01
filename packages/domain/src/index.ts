@@ -245,6 +245,8 @@ export function trainingSaveUiMessage(info: TrainingSaveInfo): string | null {
       return "Serie beendet — keine Schüsse, nichts gespeichert";
     case "endless":
       return `Endlosmodus beendet (${info.shotCount} Schüsse) — nicht in Statistik`;
+    case "simulated":
+      return `Simulatorserie beendet (${info.shotCount} Schüsse) — nicht in Statistik`;
     default:
       return null;
   }

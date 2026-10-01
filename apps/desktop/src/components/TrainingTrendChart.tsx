@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { TrainingSessionSummary } from "@rotpunktarena/domain";
 import type { ScoreDisplayMode } from "./TargetFace";
 import { fmtStat } from "../training/stats";
+import { tenShotPoints } from "../training/comparison";
 
 type Props = {
   sessions: TrainingSessionSummary[];
@@ -12,7 +13,7 @@ type Props = {
 };
 
 function valueOf(s: TrainingSessionSummary, metric: ScoreDisplayMode): number {
-  return metric === "teiler" ? s.teilerAvg : s.punkteTotal;
+  return metric === "teiler" ? s.teilerAvg : tenShotPoints(s);
 }
 
 function finiteOr(v: number, fallback: number): number {

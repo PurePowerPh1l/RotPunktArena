@@ -1,3 +1,4 @@
+import { TRAINING_HISTORY_WINDOW } from "../training/comparison";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   EntryResultSummary,
@@ -129,10 +130,10 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
         setError(null);
         const needLeague = opts?.refreshLeague || !leagueCache.current;
         const [hist, optsList, allForLeague] = await Promise.all([
-          api.listTrainingHistory(200, apiFilter),
+          api.listTrainingHistory(TRAINING_HISTORY_WINDOW, apiFilter),
           api.listTrainingShooters(),
           needLeague
-            ? api.listTrainingHistory(200)
+            ? api.listTrainingHistory(TRAINING_HISTORY_WINDOW)
             : Promise.resolve(leagueCache.current!),
         ]);
         if (!loadSeq.isCurrent(token)) return;
@@ -432,6 +433,7 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
         <div className="hist-training-wrap">
           {error ? <p className="banner-error">{error}</p> : null}
 
+          <p className="hint">Auswertung der zuletzt geladenen maximal {TRAINING_HISTORY_WINDOW} Serien im gewählten Zeitraum; Liga je Schütze im zuletzt geladenen Gesamtfenster. Punktevergleiche auf zehn Schüsse normiert. Keine Gesamtstatistik über die vollständige Historie.</p>
           <div className="hist-filter-row">
             <ShooterFilterBar
               shooters={shooters}
