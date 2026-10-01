@@ -317,7 +317,9 @@ impl Database {
         team_scoring_enabled: bool,
         team_count: i64,
     ) -> Result<Competition, String> {
-        let _ = self
+        let tx = rusqlite::Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let previous = self
             .get_competition(id)?
             .ok_or_else(|| "Wettkampf nicht gefunden".to_string())?;
         let team_count = if !team_scoring_enabled {
@@ -327,6 +329,9 @@ impl Database {
         } else {
             team_count.min(20)
         };
+        if previous.team_scoring_enabled != team_scoring_enabled || previous.team_count != team_count {
+            self.assert_competition_rules_editable(id)?;
+        }
         self.conn
             .execute(
                 "UPDATE competitions
@@ -335,6 +340,7 @@ impl Database {
                 params![if team_scoring_enabled { 1 } else { 0 }, team_count, id],
             )
             .map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())?;
         self.get_competition(id)?
             .ok_or_else(|| "Wettkampf nicht gefunden".into())
     }
@@ -344,7 +350,9 @@ impl Database {
         id: &str,
         input: CreateCompetition,
     ) -> Result<Competition, String> {
-        let _ = self
+        let tx = rusqlite::Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let previous = self
             .get_competition(id)?
             .ok_or_else(|| "Wettkampf nicht gefunden".to_string())?;
         let name = input.name.trim();
@@ -381,6 +389,12 @@ impl Database {
         } else {
             input.discipline.trim().to_string()
         };
+        if previous.max_shots != max_shots || previous.scoring_mode != scoring
+            || previous.nachkauf_enabled != nachkauf_enabled || previous.team_scoring_enabled != team_scoring_enabled
+            || previous.team_count != team_count || previous.kind != kind || previous.discipline != discipline
+            || previous.tenths_enabled != input.tenths_enabled || previous.probe_enabled != input.probe_enabled {
+            self.assert_competition_rules_editable(id)?;
+        }
         self.conn
             .execute(
                 "UPDATE competitions SET
@@ -414,8 +428,17 @@ impl Database {
                 ],
             )
             .map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())?;
         self.get_competition(id)?
             .ok_or_else(|| "Wettkampf nicht gefunden".into())
+    }
+
+    fn assert_competition_rules_editable(&self, id: &str) -> Result<(), String> {
+        let started: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sessions WHERE competition_id = ?1)", params![id], |r| r.get(0),
+        ).map_err(|e| e.to_string())?;
+        if started { return Err("Wertungsregeln sind nach dem ersten Sessionstart unveränderlich — bitte neuen Wettkampf aus Vorlage erstellen".into()); }
+        Ok(())
     }
 
     pub fn get_competition(&self, id: &str) -> Result<Option<Competition>, String> {
@@ -835,24 +858,79 @@ pub fn session_tenths_enabled(
     tx: &rusqlite::Transaction<'_>,
     session_id: &str,
 ) -> Result<bool, String> {
-    let competition_id: Option<String> = tx
+    let tenths: i64 = tx
         .query_row(
-            "SELECT competition_id FROM sessions WHERE id = ?1",
+            "SELECT COALESCE(json_extract(rules_json, '$.tenthsEnabled'), 1) FROM sessions WHERE id = ?1",
             params![session_id],
             |r| r.get(0),
         )
         .map_err(|e| format!("session for tenths: {e}"))?;
-    let Some(cid) = competition_id else {
-        return Ok(true);
-    };
-    let tenths: i64 = tx
-        .query_row(
-            "SELECT COALESCE(tenths_enabled, 1) FROM competitions WHERE id = ?1",
-            params![cid],
-            |r| r.get(0),
-        )
-        .map_err(|e| format!("competition tenths: {e}"))?;
     Ok(tenths != 0)
+}
+
+#[cfg(test)]
+mod rule_tests {
+    use super::*;
+
+    fn input(tenths: bool) -> CreateCompetition {
+        serde_json::from_value(serde_json::json!({
+            "name": "Fixture", "date": "2026-10-01", "discipline": "Luftgewehr",
+            "maxShots": 10, "scoringMode": "ringe", "tenthsEnabled": tenths,
+        })).unwrap()
+    }
+
+    #[test]
+    fn rules_can_change_before_start_and_are_frozen_during_and_after_session() {
+        let mut db = Database::open_in_memory().unwrap();
+        let competition = db.create_competition(input(false)).unwrap();
+        db.update_competition(&competition.id, input(true)).unwrap();
+        let session = db.start_session("Fixture", Some(&competition.id), None, None).unwrap();
+        for closed in [false, true] {
+            if closed { db.end_session(&session.id).unwrap(); }
+            assert!(db.update_competition(&competition.id, input(false)).unwrap_err().contains("unveränderlich"));
+            assert!(db.set_competition_team_settings(&competition.id, true, 5).is_err());
+            assert!(db.get_competition(&competition.id).unwrap().unwrap().tenths_enabled);
+            let mut renamed = input(true);
+            renamed.name = "Renamed".into();
+            db.update_competition(&competition.id, renamed).unwrap();
+        }
+    }
+
+    #[test]
+    fn session_scoring_reads_snapshot_even_if_current_rules_change_outside_api() {
+        let mut db = Database::open_in_memory().unwrap();
+        let competition = db.create_competition(input(true)).unwrap();
+        let session = db.start_session("Fixture", Some(&competition.id), None, None).unwrap();
+        for current_tenths in [1, 0] {
+            db.conn.execute("UPDATE competitions SET tenths_enabled=?1 WHERE id=?2", params![current_tenths, competition.id]).unwrap();
+            let mut frame = crate::protocol::build_synthetic_shot_frame("09.5", "001.00", "00001", "00002").unwrap();
+            crate::protocol::stamp_frame_nonce(&mut frame);
+            let crate::arena::IngestOutcome::Accepted(accepted) = db.ingest_raw_frame(&session.id, &frame, "test", None).unwrap() else { panic!("shot rejected") };
+            assert_eq!(accepted.score, 9.5);
+        }
+        let (json, origin): (String, String) = db.conn.query_row("SELECT rules_json, rules_origin FROM sessions WHERE id=?1", [&session.id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(origin, "captured");
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&json).unwrap()["tenthsEnabled"], 1);
+    }
+
+    #[test]
+    fn legacy_migration_marks_current_baseline_without_recalculating_stored_shots() {
+        let mut db = Database::open_in_memory().unwrap();
+        let competition = db.create_competition(input(true)).unwrap();
+        let session = db.start_session("Fixture", Some(&competition.id), None, None).unwrap();
+        let frame = crate::protocol::build_synthetic_shot_frame("09.5", "001.00", "00001", "00002").unwrap();
+        db.ingest_raw_frame(&session.id, &frame, "test", None).unwrap();
+        db.conn.execute_batch("ALTER TABLE sessions DROP COLUMN rules_json;
+            ALTER TABLE sessions DROP COLUMN rules_origin; DELETE FROM schema_migrations WHERE version=18;
+            UPDATE competitions SET tenths_enabled=0;").unwrap();
+        db.migrate().unwrap();
+        let (origin, score): (String, f64) = db.conn.query_row(
+            "SELECT rules_origin, (SELECT score FROM shots WHERE session_id=s.id LIMIT 1) FROM sessions s WHERE id=?1",
+            [&session.id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(origin, "legacy_current");
+        assert_eq!(score, 9.5);
+        assert!(db.update_competition(&competition.id, input(true)).is_err());
+    }
 }
 
 #[cfg(test)]
