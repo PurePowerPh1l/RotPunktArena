@@ -68,7 +68,7 @@ impl Database {
         conn.busy_timeout(std::time::Duration::from_millis(3000))
             .map_err(|e| e.to_string())?;
         conn.execute_batch(
-            "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;",
+            "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;",
         )
         .map_err(|e| e.to_string())?;
         Ok(())
@@ -106,5 +106,49 @@ impl Database {
             )
             .map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod durability_tests {
+    use super::*;
+
+    #[test]
+    fn every_file_connection_uses_full_durability() {
+        let directory = std::env::temp_dir().join(format!("rotpunkt-durability-{}", uuid::Uuid::new_v4()));
+        let path = directory.join("fixture.sqlite");
+        for _ in 0..2 {
+            let db = Database::open(&path).unwrap();
+            assert_eq!(db.conn.query_row("PRAGMA synchronous", [], |r| r.get::<_, i64>(0)).unwrap(), 2);
+            assert_eq!(db.conn.query_row("PRAGMA journal_mode", [], |r| r.get::<_, String>(0)).unwrap(), "wal");
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn measure_committed_shot_latency_normal_vs_full() {
+        let directory = std::env::temp_dir().join(format!("rotpunkt-latency-{}", uuid::Uuid::new_v4()));
+        for mode in ["NORMAL", "FULL"] {
+            let path = directory.join(format!("{mode}.sqlite"));
+            let mut db = Database::open(&path).unwrap();
+            db.conn.execute_batch(&format!("PRAGMA synchronous={mode}")).unwrap();
+            // No boundary jobs: this isolates the real Arena commit path.
+            db.conn.execute("INSERT INTO sessions (id, shooter_name, started_at, next_sequence, phase)
+                VALUES ('latency-fixture', 'Fixture', '2026-10-01', 1, 'match')", []).unwrap();
+            let mut latencies = Vec::new();
+            for _ in 0..200 {
+                let mut frame = crate::protocol::build_synthetic_shot_frame("10.0", "001.00", "00001", "00002").unwrap();
+                crate::protocol::stamp_frame_nonce(&mut frame);
+                let start = std::time::Instant::now();
+                assert!(matches!(db.ingest_raw_frame("latency-fixture", &frame, "test", None).unwrap(), crate::arena::IngestOutcome::Accepted(_)));
+                latencies.push(start.elapsed().as_secs_f64() * 1000.0);
+            }
+            latencies.sort_by(f64::total_cmp);
+            println!("shot commit {mode}: n=200 median={:.3}ms p95={:.3}ms max={:.3}ms", latencies[100], latencies[190], latencies[199]);
+            drop(db);
+            let reopened = Database::open(&path).unwrap();
+            assert_eq!(reopened.count_session_shots("latency-fixture").unwrap(), 200);
+        }
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }
