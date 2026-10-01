@@ -264,6 +264,16 @@ impl StandEngine {
     /// End the probe phase ("Wertung beginnen"): persist `match` phase,
     /// clear probe shots from the live UI, and start the scored series.
     pub fn finish_probe(&self, app: &AppHandle) -> Result<LiveState, String> {
+        self.finish_probe_transition(|probe_shots, shooter| {
+            if let Err(error) = app.emit("probe_finished",
+                serde_json::json!({ "probeShots": probe_shots, "shooterName": shooter })) {
+                eprintln!("Probewechsel konnte nicht angezeigt werden: {error}");
+            }
+        })
+    }
+
+    fn finish_probe_transition(&self, notify: impl FnOnce(i64, String)) -> Result<LiveState, String> {
+        let _transition = self.ingest_gate.lock();
         let (session_id, probe_shots, shooter) = {
             let g = self.inner.lock();
             let s = g
@@ -277,16 +287,7 @@ impl StandEngine {
             (s.id.clone(), g.shots.len() as i64, s.shooter_name.clone())
         };
 
-        self.with_db_mut(|db| {
-            db.set_session_phase(&session_id, crate::db::session_phase::MATCH)?;
-            db.append_event(
-                &session_id,
-                crate::db::event_kind::PROBE_FINISHED,
-                "operator",
-                serde_json::json!({ "probeShots": probe_shots }),
-            )?;
-            Ok::<(), String>(())
-        })?;
+        self.with_db(|db| db.finish_probe_phase(&session_id, probe_shots))?;
 
         {
             let mut g = self.inner.lock();
@@ -296,10 +297,7 @@ impl StandEngine {
             g.series_teiler_total = 0.0;
             g.series_complete = false;
         }
-        let _ = app.emit(
-            "probe_finished",
-            serde_json::json!({ "probeShots": probe_shots, "shooterName": shooter }),
-        );
+        notify(probe_shots, shooter);
         Ok(self.snapshot())
     }
 
@@ -561,5 +559,59 @@ impl StandEngine {
                 detail: None,
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+    use crate::db::Database;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    #[test]
+    fn ingest_waits_for_probe_commit_projection_reset_and_notification() {
+        let mut db = Database::open_in_memory().unwrap();
+        let session = db.start_session("Fixture", None, None, None).unwrap();
+        db.set_session_phase(&session.id, "probe").unwrap();
+        let engine = Arc::new(StandEngine::new(db));
+        {
+            let mut state = engine.inner.lock();
+            state.session = Some(session.clone());
+            state.probe_active = true;
+        }
+        let (notified, notification) = mpsc::channel();
+        let (release, wait_release) = mpsc::channel();
+        let transition_engine = engine.clone();
+        let transition = std::thread::spawn(move || transition_engine.finish_probe_transition(|_, _| {
+            notified.send(()).unwrap();
+            wait_release.recv().unwrap();
+        }).unwrap());
+        notification.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(engine.ingest_gate.try_lock().is_none());
+        let ingest_engine = engine.clone();
+        let (ready, wait_ready) = mpsc::channel();
+        let ingest = std::thread::spawn(move || {
+            ready.send(()).unwrap();
+            let _gate = ingest_engine.ingest_gate.lock();
+            let frame = crate::protocol::build_synthetic_shot_frame("10.0", "001.00", "00001", "00002").unwrap();
+            let crate::arena::IngestOutcome::Accepted(a) = ingest_engine.with_db_mut(|db|
+                db.ingest_raw_frame(&session.id, &frame, "test", None)).unwrap() else { panic!("shot rejected") };
+            assert_eq!(a.shot_index, 1);
+            ingest_engine.apply_shot(UiShot {
+                shot_index: 1, value_raw: a.value_raw, distance_raw: a.distance_raw,
+                x: a.x, y: a.y, value_display: a.score,
+                distance_display: a.distance_raw as f64 / 10.0,
+                series_total: a.series_total, series_teiler_total: a.series_teiler_total,
+            });
+        });
+        wait_ready.recv_timeout(Duration::from_secs(2)).unwrap();
+        release.send(()).unwrap();
+        assert!(!transition.join().unwrap().probe_active);
+        ingest.join().unwrap();
+        let state = engine.snapshot();
+        assert!(!state.probe_active);
+        assert_eq!(state.shots.len(), 1);
+        assert_eq!(state.series_total, 10.0);
     }
 }

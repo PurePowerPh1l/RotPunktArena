@@ -38,6 +38,19 @@ pub struct StoredEvent {
 }
 
 impl Database {
+    pub fn finish_probe_phase(&self, session_id: &str, probe_shots: i64) -> Result<(), String> {
+        let tx = rusqlite::Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let changed = tx.execute(
+            "UPDATE sessions SET phase = 'match' WHERE id = ?1 AND phase = 'probe' AND ended_at IS NULL",
+            params![session_id],
+        ).map_err(|e| e.to_string())?;
+        if changed != 1 { return Err("Keine offene Probephase".into()); }
+        append_event_in_tx(&tx, session_id, event_kind::PROBE_FINISHED, "operator",
+            serde_json::json!({ "probeShots": probe_shots }), None)?;
+        tx.commit().map_err(|e| e.to_string())
+    }
+
     pub fn start_session(
         &mut self,
         shooter_name: &str,
@@ -411,6 +424,29 @@ pub fn touch_autosave_in_tx(
 #[cfg(test)]
 mod finish_tests {
     use super::*;
+
+    #[test]
+    fn probe_transition_rolls_back_phase_and_event_then_accepts_first_scored_shot() {
+        let mut db = Database::open_in_memory().unwrap();
+        let session = db.start_session("Probe fixture", None, None, None).unwrap();
+        db.set_session_phase(&session.id, super::super::session_phase::PROBE).unwrap();
+        let mut frame = crate::protocol::build_synthetic_shot_frame("10.0", "001.00", "00001", "00002").unwrap();
+        assert!(matches!(db.ingest_raw_frame(&session.id, &frame, "test", None).unwrap(), crate::arena::IngestOutcome::Accepted(_)));
+        db.conn.execute_batch("CREATE TRIGGER fail_probe BEFORE INSERT ON events WHEN NEW.kind = 'probe_finished' BEGIN SELECT RAISE(ABORT, 'injected'); END;").unwrap();
+        assert!(db.finish_probe_phase(&session.id, 1).is_err());
+        assert_eq!(db.get_session_phase(&session.id).unwrap(), "probe");
+        assert_eq!(db.count_events_kind(event_kind::PROBE_FINISHED).unwrap(), 0);
+        db.conn.execute_batch("DROP TRIGGER fail_probe").unwrap();
+        db.finish_probe_phase(&session.id, 1).unwrap();
+        assert!(db.finish_probe_phase(&session.id, 1).is_err());
+        crate::protocol::stamp_frame_nonce(&mut frame);
+        let crate::arena::IngestOutcome::Accepted(accepted) = db.ingest_raw_frame(&session.id, &frame, "test", None).unwrap() else { panic!("first scored shot rejected") };
+        assert_eq!(accepted.shot_index, 1);
+        assert_eq!(accepted.series_total, 10.0);
+        assert_eq!(db.load_session_ui_shots(&session.id, "probe").unwrap().len(), 1);
+        assert_eq!(db.load_session_ui_shots(&session.id, "scored").unwrap().len(), 1);
+        assert_eq!(db.count_events_kind(event_kind::PROBE_FINISHED).unwrap(), 1);
+    }
 
     #[test]
     fn failed_dependent_write_rolls_back_close_and_event() {

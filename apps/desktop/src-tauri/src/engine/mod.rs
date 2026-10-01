@@ -95,6 +95,8 @@ struct SharedInner {
 }
 
 pub struct StandEngine {
+    /// Lock order: ingest_gate -> log -> inner. Covers commit through projection.
+    ingest_gate: Mutex<()>,
     log: Mutex<Database>,
     inner: Mutex<SharedInner>,
     sim_control: SimulatorControl,
@@ -117,6 +119,7 @@ pub struct StartSessionArgs {
 impl StandEngine {
     pub fn new(log: Database) -> Self {
         Self {
+            ingest_gate: Mutex::new(()),
             log: Mutex::new(log),
             inner: Mutex::new(SharedInner {
                 status: ConnectionStatus::Disconnected,
