@@ -97,6 +97,7 @@ struct SharedInner {
 pub struct StandEngine {
     /// Lock order: ingest_gate -> log -> inner. Covers commit through projection.
     ingest_gate: Mutex<()>,
+    lifecycle_gate: Mutex<()>,
     log: Mutex<Database>,
     inner: Mutex<SharedInner>,
     sim_control: SimulatorControl,
@@ -104,6 +105,7 @@ pub struct StandEngine {
     /// Bumped on each start/stop so stale workers stop applying state.
     generation: AtomicU64,
     worker: Mutex<Option<JoinHandle<()>>>,
+    retired_workers: Mutex<Vec<JoinHandle<()>>>,
 }
 
 pub struct StartSessionArgs {
@@ -120,6 +122,7 @@ impl StandEngine {
     pub fn new(log: Database) -> Self {
         Self {
             ingest_gate: Mutex::new(()),
+            lifecycle_gate: Mutex::new(()),
             log: Mutex::new(log),
             inner: Mutex::new(SharedInner {
                 status: ConnectionStatus::Disconnected,
@@ -141,6 +144,7 @@ impl StandEngine {
             stop: Arc::new(AtomicBool::new(false)),
             generation: AtomicU64::new(0),
             worker: Mutex::new(None),
+            retired_workers: Mutex::new(Vec::new()),
         }
     }
 
@@ -152,92 +156,67 @@ impl StandEngine {
         f(&mut self.log.lock())
     }
 
-    /// Stop any live worker and clear in-memory session UI state.
-    fn clear_live_ui_state(&self) {
-        self.stop_worker();
-        let mut g = self.inner.lock();
-        g.session = None;
-        g.shots.clear();
-        g.series_total = 0.0;
-        g.series_teiler_total = 0.0;
-        g.series_complete = false;
-        g.last_training_save = None;
-        g.max_shots = None;
-        g.auto_fire = false;
-        g.status = ConnectionStatus::Disconnected;
-        g.port = None;
-        g.probe_active = false;
-    }
-
-    /// Replace the on-disk DB with `source` (backup). Live session must be idle.
+    /// Replace contents atomically while SQLite retains the live file/connection.
     pub fn swap_database_file(&self, source: &std::path::Path) -> Result<(), String> {
-        if self.is_running() {
-            return Err("Bitte zuerst die laufende Session in der Arena beenden".into());
-        }
-        if !source.is_file() {
-            return Err("Backup-Datei nicht gefunden".into());
-        }
-        self.clear_live_ui_state();
-
-        let live_path = {
-            let mut guard = self.log.lock();
-            let path = guard.path().to_path_buf();
-            if path.to_string_lossy() == ":memory:" {
-                return Err("In-Memory-DB kann nicht aus Datei wiederhergestellt werden".into());
-            }
-            // Release file locks before replacing the file.
-            *guard = Database::open_in_memory().map_err(|e| e.to_string())?;
-            path
-        };
-
-        let (wal, shm) = (
-            std::path::PathBuf::from(format!("{}-wal", live_path.display())),
-            std::path::PathBuf::from(format!("{}-shm", live_path.display())),
-        );
-        let _ = std::fs::remove_file(&wal);
-        let _ = std::fs::remove_file(&shm);
-        if live_path.exists() {
-            std::fs::remove_file(&live_path).map_err(|e| format!("Alte DB entfernen: {e}"))?;
-        }
-        std::fs::copy(source, &live_path).map_err(|e| format!("Backup kopieren: {e}"))?;
-
-        let new_db = Database::open(&live_path).map_err(|e| e.to_string())?;
-        *self.log.lock() = new_db;
-        Ok(())
+        self.replace_database(Some(source))
     }
 
-    /// Replace live DB with a freshly migrated empty database (same path).
     pub fn reset_database_to_empty(&self) -> Result<(), String> {
+        self.replace_database(None)
+    }
+
+    fn replace_database(&self, source: Option<&std::path::Path>) -> Result<(), String> {
+        let _lifecycle = self.lifecycle_gate.lock();
         if self.is_running() {
             return Err("Bitte zuerst die laufende Session in der Arena beenden".into());
         }
-        self.clear_live_ui_state();
-
-        let live_path = {
-            let mut guard = self.log.lock();
-            let path = guard.path().to_path_buf();
-            if path.to_string_lossy() == ":memory:" {
-                *guard = Database::open_in_memory().map_err(|e| e.to_string())?;
-                return Ok(());
+        self.stop_worker();
+        let workers = std::mem::take(&mut *self.retired_workers.lock());
+        let mut worker_failed = false;
+        for worker in workers {
+            if worker.join().is_err() {
+                eprintln!("Poll-Worker ist während Wartungsbarriere fehlgeschlagen");
+                worker_failed = true;
             }
-            *guard = Database::open_in_memory().map_err(|e| e.to_string())?;
-            path
-        };
-
-        let (wal, shm) = (
-            std::path::PathBuf::from(format!("{}-wal", live_path.display())),
-            std::path::PathBuf::from(format!("{}-shm", live_path.display())),
-        );
-        let _ = std::fs::remove_file(&wal);
-        let _ = std::fs::remove_file(&shm);
-        if live_path.exists() {
-            std::fs::remove_file(&live_path).map_err(|e| format!("Alte DB entfernen: {e}"))?;
         }
-        let new_db = Database::open(&live_path).map_err(|e| e.to_string())?;
-        *self.log.lock() = new_db;
+        if worker_failed { return Err("Worker-Abschluss fehlgeschlagen; Live-DB bleibt erhalten".into()); }
+        let _ingest = self.ingest_gate.lock();
+        let mut live = self.log.lock();
+        let _snapshots = crate::db::pause_snapshots();
+        if live.path().as_os_str() == ":memory:" {
+            return Err("Restore/Reset benötigt eine dateibasierte Live-DB".into());
+        }
+        let parent = live.path().parent().ok_or("Live-DB ohne Verzeichnis")?;
+        let id = uuid::Uuid::new_v4();
+        let staging = parent.join(format!(".replacement-{id}.sqlite"));
+        let rollback = parent.join(format!("restore-rollback-{id}.sqlite"));
+        let result = Database::prepare_replacement(source, &staging)
+            .and_then(|candidate| live.replace_contents(&candidate, &rollback));
+        // Candidate connection has closed; these are uniquely owned staging files.
+        for path in [staging.clone(), std::path::PathBuf::from(format!("{}-wal", staging.display())),
+            std::path::PathBuf::from(format!("{}-shm", staging.display()))] {
+            if let Err(error) = std::fs::remove_file(&path) {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    eprintln!("Staging-Datei konnte nicht entfernt werden ({}): {error}", path.display());
+                }
+            }
+        }
+        result?;
+        // Keep validated rollback file; clear UI only after committed replacement.
+        let mut state = self.inner.lock();
+        state.session = None;
+        state.shots.clear();
+        state.series_total = 0.0;
+        state.series_teiler_total = 0.0;
+        state.series_complete = false;
+        state.last_training_save = None;
+        state.max_shots = None;
+        state.auto_fire = false;
+        state.status = ConnectionStatus::Disconnected;
+        state.port = None;
+        state.probe_active = false;
         Ok(())
     }
-
     pub fn snapshot(&self) -> LiveState {
         let g = self.inner.lock();
         LiveState {

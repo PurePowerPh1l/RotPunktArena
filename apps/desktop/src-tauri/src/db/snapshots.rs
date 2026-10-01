@@ -5,13 +5,11 @@
 
 use super::Database;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Single-flight guard for background cadence snapshots.
 static SNAPSHOT_WRITE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
 
-static CADENCE_SNAPSHOT_RUNNING: AtomicBool = AtomicBool::new(false);
 
 /// Accepted-shot cadence for hybrid snapshots (event-count, not wall-clock).
 pub const SNAPSHOT_EVERY_N_SHOTS: i64 = 100;
@@ -47,20 +45,7 @@ impl Database {
     /// immediately. Start/end requests are retained; the writer serializes publication.
     /// No-op for in-memory DBs.
     pub fn spawn_session_boundary_snapshot(&self, session_id: &str) {
-        if self.snapshot_dir().is_none() {
-            return;
-        }
-        let path = self.path().to_path_buf();
-        let sid = session_id.to_string();
-        std::thread::spawn(move || {
-            let result = Database::open(&path).and_then(|db| {
-                let seq = db.last_event_sequence(&sid).unwrap_or(0);
-                db.write_session_snapshot(&sid, seq).map(|_| ())
-            });
-            if let Err(e) = result {
-                eprintln!("[reddot] session boundary snapshot failed ({sid}): {e}");
-            }
-        });
+        super::snapshot_worker::enqueue(self, session_id, None);
     }
 
     /// After an accepted shot (outside ingest TX): snapshot when `shot_index % N == 0`.
@@ -92,24 +77,7 @@ impl Database {
         if i64::from(shot_index) % SNAPSHOT_EVERY_N_SHOTS != 0 {
             return;
         }
-        if self.snapshot_dir().is_none() {
-            return;
-        }
-        if CADENCE_SNAPSHOT_RUNNING.swap(true, Ordering::SeqCst) {
-            return;
-        }
-        let path = self.path().to_path_buf();
-        let sid = session_id.to_string();
-        std::thread::spawn(move || {
-            let result = Database::open(&path).and_then(|db| {
-                db.write_session_snapshot(&sid, session_sequence)
-                    .map(|_| ())
-            });
-            CADENCE_SNAPSHOT_RUNNING.store(false, Ordering::SeqCst);
-            if let Err(e) = result {
-                eprintln!("[reddot] shot-cadence snapshot failed ({sid} @ {shot_index}): {e}");
-            }
-        });
+        super::snapshot_worker::enqueue(self, session_id, Some(session_sequence));
     }
 
     /// Consistent snapshot via [`Database::vacuum_into`], then retention + `latest.sqlite`.
@@ -160,7 +128,7 @@ impl Database {
         Ok(dest)
     }
 
-    fn last_event_sequence(&self, session_id: &str) -> Result<i64, String> {
+    pub(super) fn last_event_sequence(&self, session_id: &str) -> Result<i64, String> {
         self.conn
             .query_row(
                 "SELECT COALESCE(MAX(sequence), 0) FROM events WHERE session_id = ?1",

@@ -23,6 +23,7 @@ impl StandEngine {
         app: AppHandle,
         args: StartSessionArgs,
     ) -> Result<LiveState, String> {
+        let _lifecycle = self.lifecycle_gate.lock();
         if self.is_running() {
             return Ok(self.snapshot());
         }
@@ -129,6 +130,7 @@ impl StandEngine {
         session_id: &str,
         use_simulator: bool,
     ) -> Result<LiveState, String> {
+        let _lifecycle = self.lifecycle_gate.lock();
         if self.is_running() {
             return Err("Es läuft bereits eine Session — zuerst beenden".into());
         }
@@ -314,15 +316,13 @@ impl StandEngine {
         Ok(self.snapshot())
     }
 
-    /// Signal stop and detach join — never block the UI/command thread.
+    /// Signal stop; retain handles for the maintenance shutdown barrier.
     pub fn stop_worker(&self) {
         self.stop.store(true, Ordering::SeqCst);
         self.generation.fetch_add(1, Ordering::SeqCst);
         self.sim_control.notify();
         if let Some(h) = self.worker.lock().take() {
-            thread::spawn(move || {
-                let _ = h.join();
-            });
+            self.retired_workers.lock().push(h);
         }
         let mut g = self.inner.lock();
         g.status = ConnectionStatus::Disconnected;
@@ -333,6 +333,7 @@ impl StandEngine {
     /// Training history uses [`Database::maybe_save_training_history`] (DB count + min shots).
     /// Endless training never sets `training_saved` (no history / stats).
     pub fn end_session(&self) -> Result<LiveState, String> {
+        let _transition = self.ingest_gate.lock();
         let session_meta = {
             let g = self.inner.lock();
             g.session.as_ref().map(|s| {

@@ -166,6 +166,23 @@ const MIGRATIONS: &[Migration] = &[
     },
 ];
 
+pub(super) fn validate_backup_schema(conn: &Connection) -> Result<(), String> {
+    let versions = conn.prepare("SELECT version, name FROM schema_migrations ORDER BY version")
+        .map_err(|e| format!("Keine RotPunktArena-Sicherung: {e}"))?
+        .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    if versions.is_empty() || versions.len() > MIGRATIONS.len() {
+        return Err("Leeres oder neueres Backup-Schema wird nicht unterstützt".into());
+    }
+    for ((version, name), migration) in versions.iter().zip(MIGRATIONS.iter()) {
+        if *version != migration.version || name != migration.name {
+            return Err(format!("Unbekannte Backup-Migration {version} ({name})"));
+        }
+    }
+    Ok(())
+}
+
 pub fn apply_migrations(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         r#"
