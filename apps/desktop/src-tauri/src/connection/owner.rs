@@ -42,6 +42,8 @@ pub(crate) struct Owner {
     pub(crate) link_name: Option<String>,
     /// Coherent sink enabled+epoch (sole Owner state; snapshot in pump_linked).
     pub(crate) sink_fanout: SinkFanout,
+    sink_lease: Option<u64>,
+    latest_sink_lease: u64,
     pub(crate) parser: RedDotStreamParser,
     pub(crate) next_enq: Instant,
     pub(crate) io_fail_streak: u32,
@@ -78,6 +80,8 @@ impl Owner {
             socket: None,
             link_name: None,
             sink_fanout: SinkFanout::default(),
+            sink_lease: None,
+            latest_sink_lease: 0,
             parser: RedDotStreamParser::new(),
             next_enq: Instant::now(),
             io_fail_streak: 0,
@@ -203,18 +207,41 @@ impl Owner {
                 self.set_status(ConnectionStatus::NeedsTarget, "forgotten");
                 false
             }
-            ConnectionCommand::RegisterSink => {
-                // Epoch unchanged; Bridge captures shared.sink_epoch after this flips registered.
+            ConnectionCommand::RegisterSink { lease, reply } => {
+                if lease <= self.latest_sink_lease {
+                    if let Err(error) = reply.send(Err("Veraltete Sink-Registrierung".into())) {
+                        eprintln!("Sink-Registrierungsantwort: {error}");
+                    }
+                    return false;
+                }
+                self.latest_sink_lease = lease;
+                let epoch = self.sink_fanout.epoch.wrapping_add(1);
+                if reply.send(Ok(epoch)).is_err() {
+                    // Caller timed out: never install an ownerless sink.
+                    return false;
+                }
+                self.sink_lease = Some(lease);
                 self.sink_fanout = SinkFanout {
                     enabled: true,
-                    epoch: self.sink_fanout.epoch,
+                    epoch,
                 };
+                self.parser = RedDotStreamParser::new();
                 let mut g = self.shared.lock().unwrap();
+                if let Some(rx) = g.sink_rx.as_mut() {
+                    while rx.try_recv().is_ok() {}
+                }
                 g.sink_epoch = self.sink_fanout.epoch;
                 g.sink_registered = true;
                 false
             }
-            ConnectionCommand::UnregisterSink => {
+            ConnectionCommand::UnregisterSink { lease, reply } => {
+                if self.sink_lease != Some(lease) {
+                    if let Err(error) = reply.send(false) {
+                        eprintln!("Sink-Abmeldungsantwort: {error}");
+                    }
+                    return false;
+                }
+                self.sink_lease = None;
                 let prev = self.sink_fanout.epoch;
                 self.sink_fanout = SinkFanout {
                     enabled: false,
@@ -227,6 +254,9 @@ impl Owner {
                 }
                 g.sink_epoch = self.sink_fanout.epoch;
                 g.sink_registered = false;
+                if let Err(error) = reply.send(true) {
+                    eprintln!("Sink-Abmeldungsantwort: {error}");
+                }
                 false
             }
             ConnectionCommand::WriteBytes(data) => {
@@ -623,4 +653,108 @@ pub(crate) fn switch_forget_addr(
     current
         .map(|a| a & 0xFFFF_FFFF_FFFF)
         .filter(|a| *a != new_addr & 0xFFFF_FFFF_FFFF)
+}
+
+#[cfg(test)]
+mod lease_tests {
+    use super::*;
+    use crate::connection::handle::ConnectionHandle;
+    use std::sync::mpsc;
+
+    fn fixture() -> (Owner, ConnectionHandle) {
+        let (cmd_tx, cmd_rx) = mpsc::channel();
+        let (sink_tx, sink_rx) = mpsc::sync_channel(8);
+        let shared = Arc::new(Mutex::new(SharedState {
+            status: ConnectionStatus::Linked,
+            generation: 0,
+            target: None,
+            last_reason: String::new(),
+            connect_phase: ConnectPhase::Idle,
+            connect_origin: ConnectOrigin::None,
+            sink_rx: Some(sink_rx),
+            sink_registered: false,
+            sink_epoch: 0,
+        }));
+        let handle = ConnectionHandle {
+            cmd_tx,
+            inner: shared.clone(),
+        };
+        (
+            Owner::new(PathBuf::new(), cmd_rx, sink_tx, shared, None),
+            handle,
+        )
+    }
+
+    fn register(owner: &mut Owner, lease: u64) -> Result<u64, String> {
+        let (reply, receive) = mpsc::channel();
+        owner.handle_cmd(ConnectionCommand::RegisterSink { lease, reply });
+        receive.recv().unwrap()
+    }
+
+    fn unregister(owner: &mut Owner, lease: u64) -> bool {
+        let (reply, receive) = mpsc::channel();
+        owner.handle_cmd(ConnectionCommand::UnregisterSink { lease, reply });
+        receive.recv().unwrap()
+    }
+
+    #[test]
+    fn delayed_old_close_cannot_remove_or_drain_new_sink() {
+        let (mut owner, handle) = fixture();
+        let old_epoch = register(&mut owner, 1).unwrap();
+        let new_epoch = register(&mut owner, 2).unwrap();
+        owner
+            .sink_tx
+            .send(super::super::sink::SinkChunk {
+                epoch: new_epoch,
+                bytes: vec![42],
+                diag: None,
+            })
+            .unwrap();
+        assert!(!unregister(&mut owner, 1));
+        assert!(owner.sink_fanout.enabled);
+        assert_eq!(owner.sink_lease, Some(2));
+        assert!(handle.try_recv_sink_chunk(old_epoch).is_none());
+        assert_eq!(
+            handle.try_recv_sink_chunk(new_epoch).unwrap().bytes,
+            vec![42]
+        );
+        assert!(register(&mut owner, 1).is_err());
+        assert!(register(&mut owner, 2).is_err());
+        assert!(unregister(&mut owner, 2));
+        assert!(!unregister(&mut owner, 2));
+        assert!(!owner.sink_fanout.enabled);
+    }
+
+    #[test]
+    fn timed_out_registration_does_not_replace_current_owner() {
+        let (mut owner, _) = fixture();
+        let epoch = register(&mut owner, 1).unwrap();
+        let (reply, receive) = mpsc::channel();
+        drop(receive);
+        owner.handle_cmd(ConnectionCommand::RegisterSink { lease: 2, reply });
+        assert_eq!(owner.sink_lease, Some(1));
+        assert_eq!(owner.sink_fanout.epoch, epoch);
+        assert!(unregister(&mut owner, 1));
+        assert!(register(&mut owner, 3).is_ok());
+    }
+
+    #[test]
+    fn bridge_open_and_close_wait_for_their_own_confirmation() {
+        use crate::transport::Transport;
+        let (mut owner, handle) = fixture();
+        let join = std::thread::spawn(move || {
+            for _ in 0..4 {
+                let command = owner.cmd_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+                owner.handle_cmd(command);
+            }
+            owner.sink_fanout
+        });
+        let mut first = super::super::bridge::RfcommBridgeTransport::new(handle.clone());
+        let mut second = super::super::bridge::RfcommBridgeTransport::new(handle);
+        first.open().unwrap();
+        second.open().unwrap();
+        first.close().unwrap();
+        second.close().unwrap();
+        assert!(!join.join().unwrap().enabled);
+    }
 }

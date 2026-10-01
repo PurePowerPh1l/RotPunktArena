@@ -27,7 +27,9 @@ pub struct DevDiagnostics {
 }
 
 #[tauri::command]
-pub fn dev_diagnostics(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<DevDiagnostics, String> {
+pub fn dev_diagnostics(
+    engine: tauri::State<'_, Arc<StandEngine>>,
+) -> Result<DevDiagnostics, String> {
     let snap = engine.snapshot();
     engine.with_db(|db| {
         let session_id = snap.session.as_ref().map(|s| s.id.clone());
@@ -61,13 +63,17 @@ pub fn dev_diagnostics(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<Dev
 /// Inject a test shot through Arena ingest and verify it lands in SQLite + UI.
 /// Writes real shot data, so it requires the server-side admin unlock.
 #[tauri::command]
-pub fn dev_inject_test_shot(
-    app: AppHandle,
+pub fn dev_inject_test_shot<R: tauri::Runtime>(
+    app: AppHandle<R>,
     engine: tauri::State<'_, Arc<StandEngine>>,
     session: tauri::State<'_, AdminSession>,
     x: Option<i32>,
     y: Option<i32>,
 ) -> Result<LiveState, String> {
     session.require()?;
-    engine.fire_aim_shot(&app, f64::from(x.unwrap_or(40)), f64::from(y.unwrap_or(-25)))
+    engine.fire_aim_shot(
+        &app,
+        f64::from(x.unwrap_or(40)),
+        f64::from(y.unwrap_or(-25)),
+    )
 }

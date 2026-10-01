@@ -84,7 +84,7 @@ export function AdminAuthSheet({ stackedSecondary = false }: Props) {
       <SideSheetSection label="Admin-Passwort">
         <p className="settings-hint">
           {mode === "setup"
-            ? "Lege ein Admin-Passwort fest, um geschützte Aktionen freizuschalten."
+            ? "Lege ein Admin-Passwort mit mindestens acht Zeichen fest, um geschützte Aktionen freizuschalten."
             : "Gib das Admin-Passwort ein, um fortzufahren."}
         </p>
         <label className="field">

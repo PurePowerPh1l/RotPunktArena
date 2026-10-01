@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "cases": [
+    {"name":"tenths", "fields":["10.5","012.30","00123","-0045"], "expected":[105,1230,123,-45]},
+    {"name":"signed", "fields":["-1.5","+12.30","+0123","00000"], "expected":[-15,1230,123,0]},
+    {"name":"integer", "fields":["0105","001230","00000","00000"], "expected":[105,1230,0,0]},
+    {"name":"prefix", "fields":["1x.5","012.30","00123","-0045"], "expected":null},
+    {"name":"nan", "fields":["xxxx","012.30","00123","-0045"], "expected":null},
+    {"name":"two-dots", "fields":["1..5","012.30","00123","-0045"], "expected":null},
+    {"name":"trailing-dot", "fields":["105.","012.30","00123","-0045"], "expected":null},
+    {"name":"space", "fields":[" 105","012.30","00123","-0045"], "expected":null},
+    {"name":"distance-prefix", "fields":["10.5","01x.30","00123","-0045"], "expected":null},
+    {"name":"coordinate-prefix", "fields":["10.5","012.30","12x34","-0045"], "expected":null},
+    {"name":"coordinate-decimal", "fields":["10.5","012.30","001.2","-0045"], "expected":null},
+    {"name":"coordinate-space", "fields":["10.5","012.30","00123","-004 "], "expected":null}
+  ]
+}

@@ -7,6 +7,7 @@ use rusqlite::params;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoverySessionInfo {
+    pub simulated: bool,
     pub id: String,
     pub shooter_name: String,
     pub started_at: String,
@@ -40,15 +41,14 @@ impl Database {
             .conn
             .prepare(
                 "SELECT id, shooter_name, started_at, ended_at,
-                        competition_id, entry_id, person_id
+                        competition_id, entry_id, person_id, simulated
                  FROM sessions WHERE id = ?1",
             )
             .map_err(|e| e.to_string())?;
-        let mut rows = stmt
-            .query(params![session_id])
-            .map_err(|e| e.to_string())?;
+        let mut rows = stmt.query(params![session_id]).map_err(|e| e.to_string())?;
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
             Ok(Some(SessionInfo {
+                simulated: row.get(7).map_err(|e| e.to_string())?,
                 id: row.get(0).map_err(|e| e.to_string())?,
                 shooter_name: row.get(1).map_err(|e| e.to_string())?,
                 started_at: row.get(2).map_err(|e| e.to_string())?,
@@ -72,7 +72,7 @@ impl Database {
                         s.competition_id, s.entry_id, s.person_id,
                         (SELECT COUNT(*) FROM shots sh
                          WHERE sh.session_id = s.id AND sh.classification = 'scored'),
-                        s.last_autosave_sequence, s.last_autosave_at, s.recovery_state
+                        s.last_autosave_sequence, s.last_autosave_at, s.recovery_state, s.simulated
                  FROM sessions s
                  WHERE s.ended_at IS NULL
                    AND s.last_autosave_at IS NOT NULL
@@ -87,6 +87,7 @@ impl Database {
                     _ => recovery_state::INTERRUPTED.to_string(),
                 };
                 Ok(RecoverySessionInfo {
+                    simulated: r.get(10)?,
                     id: r.get(0)?,
                     shooter_name: r.get(1)?,
                     started_at: r.get(2)?,
@@ -253,17 +254,45 @@ impl Database {
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        if dest.exists() {
-            std::fs::remove_file(dest).map_err(|e| e.to_string())?;
-        }
         let dest_str = dest
             .to_str()
             .ok_or_else(|| "Ungültiger Export-Pfad".to_string())?;
-        // Checkpoint first so WAL content is durable.
-        let _ = self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-        self.conn
-            .execute("VACUUM INTO ?1", params![dest_str])
-            .map_err(|e| format!("VACUUM INTO: {e}"))?;
-        Ok(())
+        // Reserve only a new destination. Never erase an earlier usable backup.
+        let output = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(dest)
+            .map_err(|e| format!("Neue Sicherungsdatei {}: {e}", dest.display()))?;
+        let result = (|| {
+            // VACUUM reads a consistent SQLite/WAL snapshot; no live checkpoint needed.
+            self.conn
+                .execute("VACUUM INTO ?1", params![dest_str])
+                .map_err(|e| format!("VACUUM INTO: {e}"))?;
+            let check = rusqlite::Connection::open_with_flags(
+                dest,
+                rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+            )
+            .map_err(|e| e.to_string())?;
+            let integrity: String = check
+                .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+                .map_err(|e| e.to_string())?;
+            if integrity != "ok" {
+                return Err(format!("Sicherungsintegrität: {integrity}"));
+            }
+            drop(check);
+            output
+                .sync_all()
+                .map_err(|e| format!("Sicherung synchronisieren: {e}"))
+        })();
+        drop(output);
+        if result.is_err() {
+            if let Err(error) = std::fs::remove_file(dest) {
+                eprintln!(
+                    "Fehlgeschlagene Sicherungsdatei {} konnte nicht entfernt werden: {error}",
+                    dest.display()
+                );
+            }
+        }
+        result
     }
 }

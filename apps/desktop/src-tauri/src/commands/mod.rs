@@ -2,6 +2,8 @@
 
 mod admin;
 mod admin_auth;
+#[cfg(test)]
+mod authorization_tests;
 mod bureau;
 mod dev;
 mod live;

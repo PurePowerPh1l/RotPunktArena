@@ -148,6 +148,10 @@ pub fn run_nuclear_link(
 }
 
 /// Forget → Pair → RFCOMM with phase labels, cooperative cancel, and soak report.
+#[expect(
+    clippy::result_large_err,
+    reason = "rare diagnostic failure owns its complete report; public report contract retained"
+)]
 pub fn run_nuclear_link_with(
     bt_addr: u64,
     display_name: &str,
@@ -170,23 +174,28 @@ pub fn run_nuclear_link_with(
         NuclearFail { message, report }
     };
 
-    let check =
-        |is_cancelled: &mut dyn FnMut() -> bool, report: &NuclearRunReport| -> Result<(), NuclearFail> {
-            if is_cancelled() {
-                Err(NuclearFail {
-                    message: "Abgebrochen".into(),
-                    report: {
-                        let mut r = report.clone();
-                        r.cancelled = true;
-                        r.failed_step = Some("cancelled");
-                        r.duration_ms = wall.elapsed().as_millis() as u64;
-                        r
-                    },
-                })
-            } else {
-                Ok(())
-            }
-        };
+    #[expect(
+        clippy::result_large_err,
+        reason = "same complete diagnostic report as the enclosing operation"
+    )]
+    let check = |is_cancelled: &mut dyn FnMut() -> bool,
+                 report: &NuclearRunReport|
+     -> Result<(), NuclearFail> {
+        if is_cancelled() {
+            Err(NuclearFail {
+                message: "Abgebrochen".into(),
+                report: {
+                    let mut r = report.clone();
+                    r.cancelled = true;
+                    r.failed_step = Some("cancelled");
+                    r.duration_ms = wall.elapsed().as_millis() as u64;
+                    r
+                },
+            })
+        } else {
+            Ok(())
+        }
+    };
 
     auth_hook::reset_auth_callback_count();
 

@@ -15,7 +15,8 @@
 use reddot_desktop_lib::rfcomm::{
     discovery::{bond_state, find_reddot_candidate},
     spp_com::{self, SppComAction},
-    target::RfcommTarget, RfcommSocket, WinsockRuntime,
+    target::RfcommTarget,
+    RfcommSocket, WinsockRuntime,
 };
 use std::path::PathBuf;
 use std::time::{Duration, Instant};

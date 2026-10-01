@@ -7,7 +7,8 @@
 use reddot_desktop_lib::rfcomm::{
     auth_hook,
     discovery::{bond_state, find_reddot_candidate},
-    target::RfcommTarget, ByteTransport, RfcommSocket, WinsockRuntime, SPP_SERVICE_UUID,
+    target::RfcommTarget,
+    ByteTransport, RfcommSocket, WinsockRuntime, SPP_SERVICE_UUID,
 };
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -59,9 +60,7 @@ fn drain_auth_notes() {
                 "  [authHook] PIN auto — Dialog nicht anfassen (kein Tippen, kein Abbrechen)"
             );
         } else if n.contains("send_rc=") {
-            eprintln!(
-                "  [authHook] Antwort fehlgeschlagen — Dialog evtl. abgebrochen/geraced"
-            );
+            eprintln!("  [authHook] Antwort fehlgeschlagen — Dialog evtl. abgebrochen/geraced");
         }
     }
 }
@@ -81,10 +80,7 @@ fn enq_write(sock: &mut RfcommSocket) -> Result<(), String> {
 }
 
 /// Connect, settle, one ENQ — product-like link proof.
-fn connect_verified(
-    target: &RfcommTarget,
-    timeout: Duration,
-) -> Result<RfcommSocket, String> {
+fn connect_verified(target: &RfcommTarget, timeout: Duration) -> Result<RfcommSocket, String> {
     let mut sock = connect_once(target, timeout)?;
     drain_auth_notes();
     std::thread::sleep(POST_CONNECT_SETTLE);
@@ -146,20 +142,14 @@ fn warm_until_linked(target: &RfcommTarget) -> Option<RfcommSocket> {
         t0.elapsed()
     );
     if !saw_auth {
-        eprintln!(
-            "  hint: kein AuthEx — Ziel tief schlafend/aus, oder BT-Stack hängt."
-        );
-        eprintln!(
-            "  hint: Ziel kurz AUS/AN, ggf. Windows-Bluetooth togglen, dann Soak erneut."
-        );
+        eprintln!("  hint: kein AuthEx — Ziel tief schlafend/aus, oder BT-Stack hängt.");
+        eprintln!("  hint: Ziel kurz AUS/AN, ggf. Windows-Bluetooth togglen, dann Soak erneut.");
     }
     None
 }
 
 fn hold_enq_loop(target: &RfcommTarget, sock: RfcommSocket) -> usize {
-    eprintln!(
-        "Phase B: hold + {HOLD_ENQ_TARGET}× ENQ (1× reclaim on link loss)…"
-    );
+    eprintln!("Phase B: hold + {HOLD_ENQ_TARGET}× ENQ (1× reclaim on link loss)…");
     let mut sock = Some(sock);
     let mut enq_ok = 0usize;
     let mut fail_streak = 0u32;
@@ -265,9 +255,7 @@ fn reconnect_phase(target: &RfcommTarget) -> usize {
 
 fn main() {
     eprintln!("=== bt_soak (warm + hold + reconnect) ===");
-    eprintln!(
-        "MANUAL: Ziel AN. PIN-Dialog nicht tippen/abbrechen wenn AuthEx schon antwortet."
-    );
+    eprintln!("MANUAL: Ziel AN. PIN-Dialog nicht tippen/abbrechen wenn AuthEx schon antwortet.");
     let _ = WinsockRuntime::init();
     if let Err(e) = auth_hook::install_reddot_pin_hook() {
         eprintln!("WARN PIN-Hook: {e}");
@@ -290,7 +278,10 @@ fn main() {
             );
         }
         Ok(Some(b)) => {
-            eprintln!("FAIL Bond nicht authentifiziert (remembered={})", b.remembered);
+            eprintln!(
+                "FAIL Bond nicht authentifiziert (remembered={})",
+                b.remembered
+            );
             std::process::exit(4);
         }
         Ok(None) => {

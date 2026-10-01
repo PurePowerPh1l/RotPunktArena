@@ -6,12 +6,14 @@
 
 use rusqlite::Connection;
 
+type MigrationStep = fn(&Connection) -> Result<(), String>;
+
 struct Migration {
     version: i64,
     name: &'static str,
     sql: Option<&'static str>,
     /// Custom migrator when SQL batch is insufficient (schema rewrites).
-    custom: Option<fn(&Connection) -> Result<(), String>>,
+    custom: Option<MigrationStep>,
 }
 
 const MIGRATIONS: &[Migration] = &[
@@ -164,7 +166,66 @@ const MIGRATIONS: &[Migration] = &[
         sql: None,
         custom: Some(migrate_v16_probe_phase),
     },
+    Migration {
+        version: 17, name: "session_simulation_provenance",
+        sql: Some("ALTER TABLE sessions ADD COLUMN simulated INTEGER NOT NULL DEFAULT 0 CHECK(simulated IN (0,1));"),
+        custom: None,
+    },
+    Migration {
+        version: 18, name: "session_rule_snapshot",
+        sql: None, custom: Some(migrate_v18_session_rules),
+    },
 ];
+
+fn migrate_v18_session_rules(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "ALTER TABLE sessions ADD COLUMN rules_json TEXT;
+        ALTER TABLE sessions ADD COLUMN rules_origin TEXT NOT NULL DEFAULT 'legacy_current';",
+    )
+    .map_err(|e| e.to_string())?;
+    let has_competitions: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='competitions' AND type='table')",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let source = if has_competitions {
+        "competitions c ON c.id = sessions.competition_id"
+    } else {
+        "(SELECT NULL AS tenths_enabled, NULL AS max_shots, NULL AS scoring_mode,
+            NULL AS nachkauf_enabled, NULL AS team_scoring_enabled, NULL AS team_count,
+            NULL AS probe_enabled, NULL AS discipline) c ON 0"
+    };
+    conn.execute_batch(&format!("UPDATE sessions SET rules_json = (SELECT json_object(
+        'version', 1, 'tenthsEnabled', COALESCE(c.tenths_enabled, 1),
+        'maxShots', COALESCE(sessions.max_shots, c.max_shots), 'scoringMode', COALESCE(c.scoring_mode, 'ringe'),
+        'nachkaufEnabled', COALESCE(c.nachkauf_enabled, 0), 'teamScoringEnabled', COALESCE(c.team_scoring_enabled, 0),
+        'teamCount', COALESCE(c.team_count, 3), 'probeEnabled', COALESCE(c.probe_enabled, 0),
+        'discipline', COALESCE(c.discipline, 'training')) FROM (SELECT 1) LEFT JOIN {source});"))
+        .map_err(|e| e.to_string())
+}
+
+pub(super) fn validate_backup_schema(conn: &Connection) -> Result<(), String> {
+    let versions = conn
+        .prepare("SELECT version, name FROM schema_migrations ORDER BY version")
+        .map_err(|e| format!("Keine RotPunktArena-Sicherung: {e}"))?
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if versions.is_empty() || versions.len() > MIGRATIONS.len() {
+        return Err("Leeres oder neueres Backup-Schema wird nicht unterstützt".into());
+    }
+    for ((version, name), migration) in versions.iter().zip(MIGRATIONS.iter()) {
+        if *version != migration.version || name != migration.name {
+            return Err(format!("Unbekannte Backup-Migration {version} ({name})"));
+        }
+    }
+    Ok(())
+}
 
 pub fn apply_migrations(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
@@ -394,10 +455,8 @@ fn migrate_v6_sessions_person(conn: &Connection) -> Result<(), String> {
         "person_id",
         "ALTER TABLE sessions ADD COLUMN person_id TEXT REFERENCES people(id)",
     )?;
-    conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS idx_sessions_person ON sessions(person_id);",
-    )
-    .map_err(|e| e.to_string())?;
+    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_sessions_person ON sessions(person_id);")
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -614,11 +673,8 @@ fn migrate_v15_competition_tenths(conn: &Connection) -> Result<(), String> {
         "tenths_enabled",
         "ALTER TABLE competitions ADD COLUMN tenths_enabled INTEGER NOT NULL DEFAULT 0",
     )?;
-    conn.execute(
-        "UPDATE competitions SET tenths_enabled = 1",
-        [],
-    )
-    .map_err(|e| format!("v15 tenths backfill: {e}"))?;
+    conn.execute("UPDATE competitions SET tenths_enabled = 1", [])
+        .map_err(|e| format!("v15 tenths backfill: {e}"))?;
     Ok(())
 }
 
@@ -683,7 +739,11 @@ fn migrate_v12_global_teams(conn: &Connection) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
         let legacy: Vec<(String, String, i64)> = stmt
             .query_map([], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                ))
             })
             .map_err(|e| e.to_string())?
             .collect::<Result<Vec<_>, _>>()
@@ -754,7 +814,8 @@ fn ensure_column(conn: &Connection, table: &str, column: &str, sql: &str) -> Res
     if table_has_column(conn, table, column) {
         return Ok(());
     }
-    conn.execute(sql, []).map_err(|e| format!("{table}.{column}: {e}"))?;
+    conn.execute(sql, [])
+        .map_err(|e| format!("{table}.{column}: {e}"))?;
     Ok(())
 }
 
@@ -773,7 +834,7 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(v, 16);
+        assert_eq!(v, 18);
         assert!(table_has_column(&conn, "events", "sequence"));
         assert!(table_has_column(&conn, "sessions", "next_sequence"));
         assert!(table_has_column(&conn, "sessions", "competition_id"));
@@ -781,7 +842,11 @@ mod tests {
         assert!(table_has_column(&conn, "sessions", "person_id"));
         assert!(table_has_column(&conn, "sessions", "training_saved"));
         assert!(table_has_column(&conn, "sessions", "last_autosave_at"));
-        assert!(table_has_column(&conn, "sessions", "last_autosave_sequence"));
+        assert!(table_has_column(
+            &conn,
+            "sessions",
+            "last_autosave_sequence"
+        ));
         assert!(table_has_column(&conn, "competitions", "nachkauf_enabled"));
         assert!(table_has_column(&conn, "competitions", "nachkauf_shots"));
         assert!(table_has_column(
@@ -789,7 +854,11 @@ mod tests {
             "competition_entries",
             "nachkauf_purchased"
         ));
-        assert!(table_has_column(&conn, "competitions", "team_scoring_enabled"));
+        assert!(table_has_column(
+            &conn,
+            "competitions",
+            "team_scoring_enabled"
+        ));
         assert!(table_has_column(&conn, "competitions", "team_count"));
         assert!(table_has_column(&conn, "competitions", "kind"));
         assert!(table_exists(&conn, "competition_teams"));

@@ -1,8 +1,8 @@
 //! Connection / worker lifecycle emits for the poll loop.
 
+use super::super::{emit_conn, ConnectionUpdate, StandEngine};
 use crate::db::Database;
 use crate::transport::{ConnectionStatus, Transport};
-use super::super::{emit_conn, ConnectionUpdate, StandEngine};
 use tauri::AppHandle;
 
 pub(super) fn on_nak(

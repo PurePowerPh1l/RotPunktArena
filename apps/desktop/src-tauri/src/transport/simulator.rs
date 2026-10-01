@@ -139,7 +139,10 @@ impl Transport for SimulatorTransport {
 
     fn write_all(&mut self, data: &[u8]) -> io::Result<()> {
         if !self.open {
-            return Err(io::Error::new(io::ErrorKind::NotConnected, "simulator closed"));
+            return Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "simulator closed",
+            ));
         }
         for &b in data {
             match b {
@@ -162,7 +165,10 @@ impl Transport for SimulatorTransport {
 
     fn read_timeout(&mut self, buf: &mut [u8], timeout: Duration) -> io::Result<usize> {
         if !self.open {
-            return Err(io::Error::new(io::ErrorKind::NotConnected, "simulator closed"));
+            return Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "simulator closed",
+            ));
         }
         if self.rx.is_empty() {
             std::thread::sleep(timeout.min(Duration::from_millis(5)));
@@ -171,8 +177,8 @@ impl Transport for SimulatorTransport {
             }
         }
         let n = buf.len().min(self.rx.len());
-        for i in 0..n {
-            buf[i] = self.rx.pop_front().unwrap();
+        for slot in buf.iter_mut().take(n) {
+            *slot = self.rx.pop_front().unwrap();
         }
         Ok(n)
     }

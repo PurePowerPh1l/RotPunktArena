@@ -83,7 +83,10 @@ fn winrt_connect(addr: u64) -> Result<(), String> {
         .ok()
         .and_then(|v| v.Size().ok())
         .unwrap_or(0);
-    eprintln!("  cached: error={err:?} services={n} ({:.0?})", t1.elapsed());
+    eprintln!(
+        "  cached: error={err:?} services={n} ({:.0?})",
+        t1.elapsed()
+    );
 
     if n == 0 || err != BluetoothError::Success {
         eprintln!("  retry GetRfcommServicesForIdAsync(SPP, Uncached)…");
@@ -99,7 +102,10 @@ fn winrt_connect(addr: u64) -> Result<(), String> {
             .ok()
             .and_then(|v| v.Size().ok())
             .unwrap_or(0);
-        eprintln!("  uncached: error={err:?} services={n} ({:.0?})", t2.elapsed());
+        eprintln!(
+            "  uncached: error={err:?} services={n} ({:.0?})",
+            t2.elapsed()
+        );
     }
 
     if err != BluetoothError::Success {
@@ -154,10 +160,7 @@ fn main() {
             .flatten()
             .expect("Kein Known-Target / Candidate — erst Setup/Pair")
     });
-    eprintln!(
-        "Target {} @ {:012X}",
-        target.display_name, target.bt_addr
-    );
+    eprintln!("Target {} @ {:012X}", target.display_name, target.bt_addr);
     print_bond("before", target.bt_addr);
 
     match bond_state(target.bt_addr) {

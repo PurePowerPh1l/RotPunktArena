@@ -61,10 +61,10 @@ mod win {
     use super::*;
     use ::windows::core::PCWSTR;
     use ::windows::Win32::Devices::DeviceAndDriverInstallation::{
-        SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsW,
-        SetupDiGetDeviceInstanceIdW, SetupDiGetDeviceRegistryPropertyW, CM_Disable_DevNode,
-        CM_Enable_DevNode, CM_Locate_DevNodeW, CM_LOCATE_DEVNODE_NORMAL, CR_SUCCESS,
-        DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
+        CM_Disable_DevNode, CM_Enable_DevNode, CM_Locate_DevNodeW, SetupDiDestroyDeviceInfoList,
+        SetupDiEnumDeviceInfo, SetupDiGetClassDevsW, SetupDiGetDeviceInstanceIdW,
+        SetupDiGetDeviceRegistryPropertyW, CM_LOCATE_DEVNODE_NORMAL, CR_SUCCESS, DIGCF_ALLCLASSES,
+        DIGCF_PRESENT, HDEVINFO, SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
     };
 
     struct ComNode {
@@ -149,20 +149,17 @@ mod win {
             if devs.is_invalid() {
                 return out;
             }
-            let mut info = SP_DEVINFO_DATA::default();
-            info.cbSize = std::mem::size_of::<SP_DEVINFO_DATA>() as u32;
+            let mut info = SP_DEVINFO_DATA {
+                cbSize: std::mem::size_of::<SP_DEVINFO_DATA>() as u32,
+                ..Default::default()
+            };
             let mut idx = 0u32;
             while SetupDiEnumDeviceInfo(devs, idx, &mut info).is_ok() {
                 idx += 1;
                 let mut id_buf = vec![0u16; 512];
                 let mut required = 0u32;
-                if SetupDiGetDeviceInstanceIdW(
-                    devs,
-                    &info,
-                    Some(&mut id_buf),
-                    Some(&mut required),
-                )
-                .is_err()
+                if SetupDiGetDeviceInstanceIdW(devs, &info, Some(&mut id_buf), Some(&mut required))
+                    .is_err()
                 {
                     continue;
                 }
@@ -231,10 +228,7 @@ mod win {
                     disabled().lock().unwrap().insert(node.instance_id.clone());
                     did_disable = Some((node.instance_id, node.com));
                 } else {
-                    last_busy = Some((
-                        node.com,
-                        format!("CM_Disable_DevNode={:?}", cr),
-                    ));
+                    last_busy = Some((node.com, format!("CM_Disable_DevNode={:?}", cr)));
                 }
             }
         }

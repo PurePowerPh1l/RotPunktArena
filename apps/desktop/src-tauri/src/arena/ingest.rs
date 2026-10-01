@@ -174,6 +174,11 @@ pub(crate) fn reject_limit(
 /// Accept a shot: event → shots projection → frame ok → autosave marker.
 /// `classification` is `scored` or `probe` (Probeschuss — unscored, own
 /// index/total sequence so the probe phase never mixes into results).
+// Explicit lifecycle/transaction inputs keep ownership visible at this boundary.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "existing explicit ownership boundary; avoid a generic context object"
+)]
 pub(crate) fn accept(
     tx: &Transaction<'_>,
     session_id: &str,
@@ -187,8 +192,7 @@ pub(crate) fn accept(
 ) -> Result<AcceptedShot, String> {
     let shot_index = count_shots(tx, session_id, classification)? + 1;
     let series_total = sum_scores(tx, session_id, classification)? + shot.value_display;
-    let series_teiler_total =
-        sum_teiler(tx, session_id, classification)? + shot.distance_display;
+    let series_teiler_total = sum_teiler(tx, session_id, classification)? + shot.distance_display;
     let shot_row_id = Uuid::new_v4().to_string();
 
     let payload = serde_json::json!({
@@ -294,11 +298,7 @@ fn count_shots(
     Ok(n as i32)
 }
 
-fn sum_scores(
-    tx: &Transaction<'_>,
-    session_id: &str,
-    classification: &str,
-) -> Result<f64, String> {
+fn sum_scores(tx: &Transaction<'_>, session_id: &str, classification: &str) -> Result<f64, String> {
     let n: f64 = tx
         .query_row(
             "SELECT COALESCE(SUM(score), 0) FROM shots
@@ -310,11 +310,7 @@ fn sum_scores(
     Ok(n)
 }
 
-fn sum_teiler(
-    tx: &Transaction<'_>,
-    session_id: &str,
-    classification: &str,
-) -> Result<f64, String> {
+fn sum_teiler(tx: &Transaction<'_>, session_id: &str, classification: &str) -> Result<f64, String> {
     let n: f64 = tx
         .query_row(
             "SELECT COALESCE(SUM(CAST(distance_raw AS REAL) / 10.0), 0)

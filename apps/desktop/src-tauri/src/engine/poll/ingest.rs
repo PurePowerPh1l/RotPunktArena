@@ -1,12 +1,12 @@
 //! Arena ingest of a raw shot frame + UI emit on Accepted.
 
+use super::super::{emit_conn, ConnectionUpdate, StandEngine, UiShot};
+use super::emit;
 use crate::arena::IngestOutcome;
 use crate::connection::shot_latency::{self, TracedShotFrame};
 use crate::db::Database;
 use crate::protocol::encode_ack;
 use crate::transport::{ConnectionStatus, Transport};
-use super::super::{emit_conn, ConnectionUpdate, StandEngine, UiShot};
-use super::emit;
 use std::sync::Arc;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
@@ -15,6 +15,11 @@ use tauri::{AppHandle, Emitter};
 /// (generation stale after Accepted).
 ///
 /// `latency_trace`: DIAGNOSE-ONLY provenance from Bridge/Owner; never changes accept/emit.
+// Explicit lifecycle/transaction inputs keep ownership visible at this boundary.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "existing explicit ownership boundary; avoid a generic context object"
+)]
 pub(super) fn handle_shot_frame(
     app: &AppHandle,
     engine: &Arc<StandEngine>,
@@ -29,6 +34,7 @@ pub(super) fn handle_shot_frame(
     latency_trace: Option<TracedShotFrame>,
 ) -> bool {
     emit::ensure_connected(app, engine, generation, transport, connected);
+    let transition = engine.ingest_gate.lock();
 
     // Fast poll gate (not sole authority — Arena re-checks ended_at in TX).
     let poll_ok = still_active() && engine.poll_session_accepting(session_id);
@@ -40,7 +46,12 @@ pub(super) fn handle_shot_frame(
 
     let ingest_started = Instant::now();
     let mode = engine.session_mode_label();
-    let result = log.ingest_raw_frame(session_id, &raw, "device", None);
+    let actor = if transport.kind() == crate::transport::TransportKind::Simulator {
+        "simulator"
+    } else {
+        "device"
+    };
+    let result = log.ingest_raw_frame(session_id, &raw, actor, None);
 
     // ACK only after the persist attempt succeeded (any Ok outcome, incl.
     // Duplicate — device may resend). On persist Err we intentionally do NOT
@@ -71,6 +82,7 @@ pub(super) fn handle_shot_frame(
             if engine.apply_shot(ui.clone()) {
                 let shot_event_emitted = Instant::now();
                 let _ = app.emit("shot", ui);
+                engine.emit_live(app, None);
                 // DIAGNOSE-ONLY — best-effort; never gates Accepted/emit.
                 if let Some(traced) = latency_trace {
                     shot_latency::append_accepted_shot(
@@ -83,7 +95,12 @@ pub(super) fn handle_shot_frame(
                     );
                 }
             }
-            engine.finish_series_if_needed(app, i64::from(accepted.shot_index));
+            drop(transition);
+            if let Err(error) =
+                engine.finish_series_for_session(app, session_id, i64::from(accepted.shot_index))
+            {
+                report_completion_failure(app, engine, error);
+            }
             // Hybrid snapshot on a background thread — the poll loop keeps
             // draining the sink instead of blocking on VACUUM I/O.
             log.spawn_maybe_snapshot_after_shot(
@@ -105,7 +122,11 @@ pub(super) fn handle_shot_frame(
             max_shots,
             current_shots,
         }) => {
-            engine.finish_series_if_needed(app, current_shots);
+            drop(transition);
+            if let Err(error) = engine.finish_series_for_session(app, session_id, current_shots) {
+                report_completion_failure(app, engine, error);
+                return true;
+            }
             emit_conn(
                 app,
                 engine,
@@ -150,5 +171,31 @@ pub(super) fn handle_shot_frame(
             );
             false
         }
+    }
+}
+
+fn report_completion_failure(app: &AppHandle, engine: &StandEngine, error: String) {
+    engine.emit_live(
+        app,
+        Some(format!(
+            "Session-Abschluss fehlgeschlagen — erneut beenden: {error}"
+        )),
+    );
+    eprintln!("Session-Abschluss fehlgeschlagen: {error}");
+    // end_session stops the worker and advances generation even when persistence
+    // fails. Publish directly so the error is not suppressed by the stale gate.
+    let state = engine.snapshot();
+    if let Err(emit_error) = app.emit(
+        "connection",
+        ConnectionUpdate {
+            status: ConnectionStatus::Disconnected,
+            transport: state.transport,
+            port: state.port,
+            detail: Some(format!(
+                "Session-Abschluss fehlgeschlagen — erneut beenden: {error}"
+            )),
+        },
+    ) {
+        eprintln!("Abschlussfehler konnte nicht angezeigt werden: {emit_error}");
     }
 }

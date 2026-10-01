@@ -73,32 +73,41 @@ pub fn finish_probe(
 }
 
 #[tauri::command]
-pub fn queue_sim_shot(
-    app: tauri::AppHandle,
+pub fn queue_sim_shot<R: tauri::Runtime>(
+    session: tauri::State<'_, crate::commands::AdminSession>,
+    app: tauri::AppHandle<R>,
     engine: tauri::State<'_, Arc<StandEngine>>,
     value_ascii: String,
     distance_ascii: String,
     x_ascii: String,
     y_ascii: String,
 ) -> Result<(), String> {
+    session.require()?;
     engine
         .inject_synthetic_shot(&app, &value_ascii, &distance_ascii, &x_ascii, &y_ascii)
         .map(|_| ())
 }
 
 #[tauri::command]
-pub fn fire_aim_shot(
-    app: tauri::AppHandle,
+pub fn fire_aim_shot<R: tauri::Runtime>(
+    session: tauri::State<'_, crate::commands::AdminSession>,
+    app: tauri::AppHandle<R>,
     engine: tauri::State<'_, Arc<StandEngine>>,
     x: f64,
     y: f64,
 ) -> Result<LiveState, String> {
+    session.require()?;
     engine.fire_aim_shot(&app, x, y)
 }
 
 #[tauri::command]
-pub fn set_auto_fire(engine: tauri::State<'_, Arc<StandEngine>>, on: bool) {
-    engine.set_auto_fire(on);
+pub fn set_auto_fire(
+    engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, crate::commands::AdminSession>,
+    on: bool,
+) -> Result<(), String> {
+    session.require()?;
+    engine.set_auto_fire(on)
 }
 
 #[tauri::command]

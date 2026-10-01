@@ -39,10 +39,8 @@ export function RecoveryGate({ sessions: initial, onResolved }: Props) {
 
   const resume = async (id: string) => {
     await run(async () => {
-      // Hardware sessions must resume on hardware — simulator only when the
-      // RFCOMM/hardware link feature is not available (legacy field name).
-      const live = await api.getLiveState().catch(() => null);
-      const useSimulator = live ? live.serialFeature !== true : true;
+      // Resume the persisted source; compilation features do not identify a session.
+      const useSimulator = sessions.find((session) => session.id === id)?.simulated === true;
       await api.resumeSession(id, useSimulator);
       const next = await api.listRecoverySessions();
       setSessions(next);

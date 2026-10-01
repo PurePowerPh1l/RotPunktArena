@@ -15,5 +15,8 @@ jobs:
           node-version: '22'
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - run: npm ci
+      - run: npm ci --prefix tools/sniffer
       - run: npm run verify

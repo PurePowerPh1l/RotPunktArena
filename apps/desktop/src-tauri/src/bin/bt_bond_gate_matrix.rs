@@ -23,7 +23,9 @@ use reddot_desktop_lib::connection::{forget_reddot_bonds, run_nuclear_link};
 use reddot_desktop_lib::rfcomm::{
     auth_hook,
     discovery::{bond_state, find_reddot_candidate, remove_bond},
-    spp_com, target::RfcommTarget, RfcommSocket, WinsockRuntime,
+    spp_com,
+    target::RfcommTarget,
+    RfcommSocket, WinsockRuntime,
 };
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -69,7 +71,7 @@ fn soft_wake_once_cap(
     page: Duration,
     pause: Duration,
 ) -> Result<u32, String> {
-    let _ = auth_hook::install_reddot_pin_hook().map_err(|e| e.to_string())?;
+    auth_hook::install_reddot_pin_hook().map_err(|e| e.to_string())?;
     auth_hook::allow_auto_pin_for(target.bt_addr);
     let _ = spp_com::release_channel_for(target.bt_addr);
 
@@ -120,10 +122,7 @@ fn main() {
     }
 
     let target = resolve();
-    eprintln!(
-        "Target {} @ {:012X}",
-        target.display_name, target.bt_addr
-    );
+    eprintln!("Target {} @ {:012X}", target.display_name, target.bt_addr);
     print_bond(target.bt_addr, "start");
 
     let page = Duration::from_secs(12);

@@ -23,7 +23,9 @@ use reddot_desktop_lib::rfcomm::{
         bond_state, find_reddot_candidate, pair_with_pin_report, BondState, PairApiReport,
         REDDOT_PAIR_PIN,
     },
-    spp_com, target::RfcommTarget, RfcommSocket, WinsockRuntime,
+    spp_com,
+    target::RfcommTarget,
+    RfcommSocket, WinsockRuntime,
 };
 use serde::Serialize;
 use std::fs::{create_dir_all, OpenOptions};
@@ -221,9 +223,7 @@ fn run_variant(variant: Variant, target: &RfcommTarget, run_id: &str) {
 
     let bond0 = bond_state(target.bt_addr).ok().flatten();
     let (initial_bond, initial_connected) = bond_label(bond0);
-    eprintln!(
-        "  initialBond={initial_bond} connected={initial_connected:?}"
-    );
+    eprintln!("  initialBond={initial_bond} connected={initial_connected:?}");
     wait_enter("  Enter = Lauf starten (Soft-Toast beobachten)… ");
 
     let wall = Instant::now();
@@ -244,15 +244,13 @@ fn run_variant(variant: Variant, target: &RfcommTarget, run_id: &str) {
     let _ = drain_auth_notes();
 
     match variant {
-        Variant::A => {
-            match rfcomm_once(target) {
-                Ok(()) => {
-                    rfcomm_result = "ok".into();
-                    linked = true;
-                }
-                Err(e) => rfcomm_result = format!("fail:{e}"),
+        Variant::A => match rfcomm_once(target) {
+            Ok(()) => {
+                rfcomm_result = "ok".into();
+                linked = true;
             }
-        }
+            Err(e) => rfcomm_result = format!("fail:{e}"),
+        },
         Variant::L1 | Variant::L2 => {
             if let Err(e) = auth_hook::install_reddot_pin_hook() {
                 rfcomm_result = format!("hook_fail:{e}");
@@ -286,11 +284,8 @@ fn run_variant(variant: Variant, target: &RfcommTarget, run_id: &str) {
             auth_hook::allow_auto_pin_for(target.bt_addr);
             hook_installed = true;
 
-            let report = pair_with_pin_report(
-                target.bt_addr,
-                &target.display_name,
-                REDDOT_PAIR_PIN,
-            );
+            let report =
+                pair_with_pin_report(target.bt_addr, &target.display_name, REDDOT_PAIR_PIN);
             pair_api_result = pair_result_str(&report);
             let (n, last) = drain_auth_notes();
             auth_callback_count = n;
@@ -298,10 +293,8 @@ fn run_variant(variant: Variant, target: &RfcommTarget, run_id: &str) {
             eprintln!("  pairApiResult={pair_api_result}");
             eprintln!("  authCallbackCount={auth_callback_count}");
 
-            light_useful = Some(matches!(
-                report,
-                PairApiReport::Success { .. }
-            ) && auth_callback_count >= 1);
+            light_useful =
+                Some(matches!(report, PairApiReport::Success { .. }) && auth_callback_count >= 1);
 
             if variant == Variant::L2 {
                 release_attempted = true;
@@ -349,20 +342,14 @@ fn run_variant(variant: Variant, target: &RfcommTarget, run_id: &str) {
                 auth_hook::allow_auto_pin_for(target.bt_addr);
                 hook_installed = true;
                 let t_pair = Instant::now();
-                let mut report = pair_with_pin_report(
-                    target.bt_addr,
-                    &target.display_name,
-                    REDDOT_PAIR_PIN,
-                );
+                let mut report =
+                    pair_with_pin_report(target.bt_addr, &target.display_name, REDDOT_PAIR_PIN);
                 // After Forget, precheck should not short-circuit; retry once if needed.
                 if matches!(report, PairApiReport::AlreadyAuthenticated { .. }) {
                     eprintln!("  pair unexpected alreadyAuth after Forget — retry once");
                     std::thread::sleep(Duration::from_secs(1));
-                    report = pair_with_pin_report(
-                        target.bt_addr,
-                        &target.display_name,
-                        REDDOT_PAIR_PIN,
-                    );
+                    report =
+                        pair_with_pin_report(target.bt_addr, &target.display_name, REDDOT_PAIR_PIN);
                 }
                 pair_ms = Some(t_pair.elapsed().as_millis());
                 pair_api_result = pair_result_str(&report);
@@ -370,7 +357,10 @@ fn run_variant(variant: Variant, target: &RfcommTarget, run_id: &str) {
                 auth_callback_count = n;
                 pin_response_result = last;
                 bond_after_pair = Some(bond_snapshot(target.bt_addr));
-                eprintln!("  pairApiResult={pair_api_result} pairMs={}", pair_ms.unwrap());
+                eprintln!(
+                    "  pairApiResult={pair_api_result} pairMs={}",
+                    pair_ms.unwrap()
+                );
                 eprintln!("  authCallbackCount={auth_callback_count}");
                 eprintln!("  bondAfterPair={}", bond_after_pair.as_ref().unwrap());
 
@@ -413,14 +403,10 @@ fn run_variant(variant: Variant, target: &RfcommTarget, run_id: &str) {
 
     // Decisive metric for L1/L2
     if matches!(variant, Variant::L1 | Variant::L2) {
-        let useful = pair_api_result.starts_with("success")
-            && auth_callback_count >= 1
-            && !toast
-            && linked;
+        let useful =
+            pair_api_result.starts_with("success") && auth_callback_count >= 1 && !toast && linked;
         light_useful = Some(useful);
-        eprintln!(
-            "  decisive: pair!=alreadyAuth & authCb>=1 & !toast & linked → {useful}"
-        );
+        eprintln!("  decisive: pair!=alreadyAuth & authCb>=1 & !toast & linked → {useful}");
     }
 
     append_log(&RunLog {
@@ -462,10 +448,7 @@ fn main() {
         eprintln!("FAIL kein Known/Candidate");
         std::process::exit(4);
     };
-    eprintln!(
-        "Target {} @ {:012X}",
-        target.display_name, target.bt_addr
-    );
+    eprintln!("Target {} @ {:012X}", target.display_name, target.bt_addr);
 
     let arg = std::env::args().nth(1).unwrap_or_else(|| "all".into());
     let variants: Vec<Variant> = if arg.eq_ignore_ascii_case("all") {
@@ -477,10 +460,7 @@ fn main() {
         std::process::exit(1);
     };
 
-    let run_id = format!(
-        "r{}",
-        chrono::Utc::now().format("%Y%m%dT%H%M%S")
-    );
+    let run_id = format!("r{}", chrono::Utc::now().format("%Y%m%dT%H%M%S"));
     eprintln!("runId={run_id}");
 
     for (i, v) in variants.iter().enumerate() {
@@ -497,6 +477,8 @@ fn main() {
     }
 
     eprintln!("\n======== DONE ========");
-    eprintln!("Messwert Light: pairApiResult=success AND authCallbackCount>=1 AND !toast AND linked");
+    eprintln!(
+        "Messwert Light: pairApiResult=success AND authCallbackCount>=1 AND !toast AND linked"
+    );
     eprintln!("Wenn L1 oft alreadyAuthenticated → Light == A, nicht Produkt-Start.");
 }

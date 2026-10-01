@@ -4,12 +4,8 @@
 //! (Epoch + Pause-ACK). `LegacyFanout` dokumentiert weiterhin den Pre-C2-Istbruch
 //! (kein ACK) als Kontrastmodell — nicht der Produktionspfad.
 
-use super::sink::{
-    apply_fanout_bytes, chunk_bytes_for_poll, FanoutApply, SinkChunk, SinkFanout,
-};
-use crate::protocol::{
-    build_synthetic_shot_frame, encode_ack, Incoming, RedDotStreamParser, ACK,
-};
+use super::sink::{apply_fanout_bytes, chunk_bytes_for_poll, FanoutApply, SinkChunk, SinkFanout};
+use crate::protocol::{build_synthetic_shot_frame, encode_ack, Incoming, RedDotStreamParser, ACK};
 
 const SHOT_LEN: usize = 59;
 
@@ -299,7 +295,10 @@ fn t9_after_unregister_full_frame_never_enters_queue_for_b() {
     assert!(o.queue.is_empty());
     assert_eq!(o.acks, 1);
     o.register();
-    assert!(o.queue.is_empty(), "T9: Endgrenzen-Frame nicht für B gequeued");
+    assert!(
+        o.queue.is_empty(),
+        "T9: Endgrenzen-Frame nicht für B gequeued"
+    );
 }
 
 #[test]

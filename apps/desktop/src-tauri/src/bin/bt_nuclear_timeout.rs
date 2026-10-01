@@ -10,7 +10,7 @@ use reddot_desktop_lib::rfcomm::WinsockRuntime;
 use std::time::{Duration, Instant};
 
 /// Unlikely to be a live RedDot; still a valid 48-bit form.
-const DEAD_ADDR: u64 = 0x0018_DA_FF_FF_FE;
+const DEAD_ADDR: u64 = 0x0018_DAFF_FFFE;
 const WALL_MAX: Duration = Duration::from_secs(120);
 
 fn main() {

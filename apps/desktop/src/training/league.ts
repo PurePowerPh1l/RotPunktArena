@@ -1,4 +1,5 @@
 import type { TrainingSessionSummary } from "@rotpunktarena/domain";
+import { tenShotPoints } from "./comparison.ts";
 
 /**
  * UI-only competitive league (parallel to soft XP levels).
@@ -219,9 +220,9 @@ export function leagueFromSessions(sessions: TrainingSessionSummary[]): LeagueRa
   }
 
   const placement = sessions.slice(0, PLACEMENT_SERIES);
-  let sr = pointsToSr(avg(placement.map((s) => s.punkteTotal)));
+  let sr = pointsToSr(avg(placement.map(tenShotPoints)));
   for (const s of sessions.slice(PLACEMENT_SERIES)) {
-    sr = applySerieToSr(sr, s.punkteTotal);
+    sr = applySerieToSr(sr, tenShotPoints(s));
   }
   return rankFromSr(sr, sessions.length);
 }

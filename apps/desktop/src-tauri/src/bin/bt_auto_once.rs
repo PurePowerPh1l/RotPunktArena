@@ -9,7 +9,9 @@
 
 use reddot_desktop_lib::rfcomm::{
     discovery::{bond_state, find_reddot_candidate},
-    spp_com, target::RfcommTarget, RfcommSocket, WinsockRuntime,
+    spp_com,
+    target::RfcommTarget,
+    RfcommSocket, WinsockRuntime,
 };
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -45,10 +47,7 @@ fn main() {
         eprintln!("FAIL kein Known/Candidate — Exit 4");
         std::process::exit(4);
     };
-    eprintln!(
-        "Target {} @ {:012X}",
-        target.display_name, target.bt_addr
-    );
+    eprintln!("Target {} @ {:012X}", target.display_name, target.bt_addr);
 
     match bond_state(target.bt_addr) {
         Ok(Some(b)) if b.authenticated => {

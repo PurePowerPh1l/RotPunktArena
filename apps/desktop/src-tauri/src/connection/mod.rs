@@ -7,7 +7,7 @@ mod backoff;
 mod bridge;
 mod command;
 mod connect_policy;
-pub use connect_policy::{BondLookup, ConnectOrigin, ConnectPhase};
+pub use connect_policy::{needs_pairing_ui, BondLookup, ConnectOrigin, ConnectPhase};
 pub(crate) mod diag;
 mod event;
 mod handle;
@@ -19,8 +19,8 @@ mod owner;
 mod persist;
 mod setup_flow;
 mod shared;
-mod sink;
 pub(crate) mod shot_latency;
+mod sink;
 mod status;
 mod timing;
 

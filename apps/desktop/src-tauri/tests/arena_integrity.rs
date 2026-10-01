@@ -26,7 +26,7 @@ fn temp_db_path() -> PathBuf {
 #[test]
 fn migrations_and_parser_version() {
     let _db = ArenaDb::open_in_memory().unwrap();
-    assert_eq!(PARSER_VERSION, "reddot-stx-v1");
+    assert_eq!(PARSER_VERSION, "reddot-stx-v2");
 }
 
 #[test]
@@ -73,9 +73,15 @@ fn duplicate_frames_yield_exact_shot_count() {
     assert_eq!(accepted, UNIQUE);
     assert_eq!(duplicates, UNIQUE * DUP_EACH);
     assert_eq!(ui_emits, UNIQUE);
-    assert_eq!(db.count_session_shots(&session.id).unwrap() as usize, UNIQUE);
+    assert_eq!(
+        db.count_session_shots(&session.id).unwrap() as usize,
+        UNIQUE
+    );
     assert_eq!(db.count_frames().unwrap() as usize, UNIQUE);
-    assert_eq!(db.count_events_kind("shot_received").unwrap() as usize, UNIQUE);
+    assert_eq!(
+        db.count_events_kind("shot_received").unwrap() as usize,
+        UNIQUE
+    );
 }
 
 #[test]
@@ -104,7 +110,10 @@ fn reopen_shows_shot_exactly_once() {
         let mut db = ArenaDb::open(&path).unwrap();
         let session = db.start_session("Recover", None, None, None).unwrap();
         let frame = unique_frame(42);
-        match db.ingest_raw_frame(&session.id, &frame, "device", None).unwrap() {
+        match db
+            .ingest_raw_frame(&session.id, &frame, "device", None)
+            .unwrap()
+        {
             IngestOutcome::Accepted(_) => {}
             other => panic!("expected accepted, got {other:?}"),
         }
@@ -117,7 +126,10 @@ fn reopen_shows_shot_exactly_once() {
         let mut db = ArenaDb::open(&path).unwrap();
         assert_eq!(db.count_session_shots(&session_id).unwrap(), 1);
         let frame = unique_frame(42);
-        match db.ingest_raw_frame(&session_id, &frame, "device", None).unwrap() {
+        match db
+            .ingest_raw_frame(&session_id, &frame, "device", None)
+            .unwrap()
+        {
             IngestOutcome::Duplicate { .. } => {}
             other => panic!("expected duplicate after restart, got {other:?}"),
         }
@@ -130,8 +142,8 @@ fn reopen_shows_shot_exactly_once() {
 
 #[test]
 fn golden_hex_replay_uses_same_ingest_pipeline() {
-    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../docs/captures/synthetic-shot.hex");
+    let fixture =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../docs/captures/synthetic-shot.hex");
     let text = std::fs::read_to_string(&fixture).expect("golden fixture");
     let chunks = parse_hex_capture(&text).unwrap();
     assert!(chunks.iter().any(|c| c.first() == Some(&0x02)));
@@ -155,7 +167,10 @@ fn golden_hex_replay_uses_same_ingest_pipeline() {
         }
         for msg in parser.push(&buf[..n]) {
             if let Incoming::ShotFrame(raw) = msg {
-                match db.ingest_raw_frame(&session.id, &raw, "replay", None).unwrap() {
+                match db
+                    .ingest_raw_frame(&session.id, &raw, "replay", None)
+                    .unwrap()
+                {
                     IngestOutcome::Accepted(_) => accepted += 1,
                     IngestOutcome::Duplicate { .. } => {}
                     IngestOutcome::ParseFailed { error, .. } => panic!("{error}"),
@@ -180,7 +195,9 @@ fn golden_hex_replay_uses_same_ingest_pipeline() {
         }
         for msg in parser2.push(&buf[..n]) {
             if let Incoming::ShotFrame(raw) = msg {
-                let _ = db.ingest_raw_frame(&session.id, &raw, "replay", None).unwrap();
+                let _ = db
+                    .ingest_raw_frame(&session.id, &raw, "replay", None)
+                    .unwrap();
             }
         }
     }
@@ -432,8 +449,18 @@ fn probe_phase_shots_unscored_and_excluded_from_limit_and_results() {
     let results = db.list_competition_results(&comp.id).unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].shot_count, 3);
-    assert_eq!(db.load_session_ui_shots(&session.id, "probe").unwrap().len(), 5);
-    assert_eq!(db.load_session_ui_shots(&session.id, "scored").unwrap().len(), 3);
+    assert_eq!(
+        db.load_session_ui_shots(&session.id, "probe")
+            .unwrap()
+            .len(),
+        5
+    );
+    assert_eq!(
+        db.load_session_ui_shots(&session.id, "scored")
+            .unwrap()
+            .len(),
+        3
+    );
 }
 
 #[test]
@@ -534,8 +561,8 @@ fn emergency_export_zip_contains_db_and_manifest() {
 
         let file = std::fs::File::create(&zip_path).unwrap();
         let mut zip = zip::ZipWriter::new(file);
-        let opts =
-            zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        let opts = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
         zip.start_file("reddot.sqlite", opts).unwrap();
         let mut db_bytes = std::fs::File::open(&staging).unwrap();
         std::io::copy(&mut db_bytes, &mut zip).unwrap();
@@ -718,10 +745,7 @@ fn parse_failed_stores_frame_and_event_without_shot() {
     let session = db.start_session("Bad", None, None, None).unwrap();
     let bad = b"\x02not-a-valid-stx-frame\x03";
 
-    match db
-        .ingest_raw_frame(&session.id, bad, "test", None)
-        .unwrap()
-    {
+    match db.ingest_raw_frame(&session.id, bad, "test", None).unwrap() {
         IngestOutcome::ParseFailed { frame_id, error } => {
             assert!(!frame_id.is_empty());
             assert!(!error.is_empty());
@@ -767,11 +791,7 @@ fn hybrid_vacuum_snapshots_on_session_and_every_n_shots() {
                 // Cadence snapshot is the caller's job since the ACK/emit
                 // decoupling (mirrors engine poll + synthetic inject).
                 IngestOutcome::Accepted(a) => {
-                    db.try_maybe_snapshot_after_shot(
-                        &session.id,
-                        a.shot_index,
-                        a.session_sequence,
-                    );
+                    db.try_maybe_snapshot_after_shot(&session.id, a.shot_index, a.session_sequence);
                 }
                 o => panic!("expected Accepted at shot {}, got {o:?}", i + 1),
             }
@@ -798,11 +818,7 @@ fn hybrid_vacuum_snapshots_on_session_and_every_n_shots() {
 /// Poll for background boundary snapshots up to a timeout, returning the final
 /// count. Boundary snapshots run on a separate thread, so a direct read can
 /// race ahead of the `VACUUM INTO`.
-fn wait_for_snap_count(
-    snap_dir: &std::path::Path,
-    session_id: &str,
-    at_least: usize,
-) -> usize {
+fn wait_for_snap_count(snap_dir: &std::path::Path, session_id: &str, at_least: usize) -> usize {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
         let count = count_session_snap_files(snap_dir, session_id);

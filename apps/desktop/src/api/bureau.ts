@@ -1,3 +1,4 @@
+import { invokeAdmin } from "./invokeAdmin";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   Competition,
@@ -25,7 +26,7 @@ export async function createPerson(input: {
   lastName: string;
   club?: string | null;
 }): Promise<Person> {
-  return invoke("create_person", { person: input });
+  return invokeAdmin("create_person", { person: input });
 }
 
 export async function updatePerson(
@@ -36,18 +37,18 @@ export async function updatePerson(
     club?: string | null;
   },
 ): Promise<Person> {
-  return invoke("update_person", { id, person: input });
+  return invokeAdmin("update_person", { id, person: input });
 }
 
 export async function deletePerson(id: string): Promise<void> {
-  await invoke("delete_person", { id });
+  await invokeAdmin("delete_person", { id });
 }
 
 export async function setPersonArchived(
   id: string,
   archived: boolean,
 ): Promise<Person> {
-  return invoke("set_person_archived", { id, archived });
+  return invokeAdmin("set_person_archived", { id, archived });
 }
 
 export async function listCompetitions(
@@ -72,7 +73,7 @@ export async function createCompetition(input: {
   activateOnCreate?: boolean;
 }): Promise<Competition> {
   const { activateOnCreate = false, ...competition } = input;
-  return invoke("create_competition", { competition, activate: activateOnCreate });
+  return invokeAdmin("create_competition", { competition, activate: activateOnCreate });
 }
 
 export async function updateCompetition(
@@ -92,7 +93,7 @@ export async function updateCompetition(
     probeEnabled?: boolean;
   },
 ): Promise<Competition> {
-  return invoke("update_competition", { id, competition: input });
+  return invokeAdmin("update_competition", { id, competition: input });
 }
 
 export async function createFromCompetition(input: {
@@ -102,7 +103,7 @@ export async function createFromCompetition(input: {
   asTemplate?: boolean;
   copyEntries?: boolean;
 }): Promise<Competition> {
-  return invoke("create_from_competition", {
+  return invokeAdmin("create_from_competition", {
     sourceId: input.sourceId,
     name: input.name ?? null,
     date: input.date ?? null,
@@ -115,7 +116,7 @@ export async function setCompetitionStatus(
   id: string,
   status: CompetitionStatus,
 ): Promise<Competition> {
-  return invoke("set_competition_status", { id, status });
+  return invokeAdmin("set_competition_status", { id, status });
 }
 
 export async function setCompetitionTeamSettings(
@@ -123,7 +124,7 @@ export async function setCompetitionTeamSettings(
   teamScoringEnabled: boolean,
   teamCount: number,
 ): Promise<Competition> {
-  return invoke("set_competition_team_settings", {
+  return invokeAdmin("set_competition_team_settings", {
     id,
     teamScoringEnabled,
     teamCount,
@@ -138,33 +139,33 @@ export async function addEntry(
   competitionId: string,
   personId: string,
 ): Promise<CompetitionEntry> {
-  return invoke("add_entry", { competitionId, personId });
+  return invokeAdmin("add_entry", { competitionId, personId });
 }
 
 export async function reorderEntries(
   competitionId: string,
   entryIds: string[],
 ): Promise<CompetitionEntry[]> {
-  return invoke("reorder_entries", { competitionId, entryIds });
+  return invokeAdmin("reorder_entries", { competitionId, entryIds });
 }
 
 export async function setEntryStatus(
   entryId: string,
   status: EntryStatus,
 ): Promise<CompetitionEntry> {
-  return invoke("set_entry_status", { entryId, status });
+  return invokeAdmin("set_entry_status", { entryId, status });
 }
 
 /** @deprecated No-op; Nachkauf series counter increments on start. */
 export async function removeEntry(entryId: string): Promise<void> {
-  await invoke("remove_entry", { entryId });
+  await invokeAdmin("remove_entry", { entryId });
 }
 
 export async function cloneEntries(
   fromCompetitionId: string,
   toCompetitionId: string,
 ): Promise<CompetitionEntry[]> {
-  return invoke("clone_entries", { fromCompetitionId, toCompetitionId });
+  return invokeAdmin("clone_entries", { fromCompetitionId, toCompetitionId });
 }
 
 export async function listCompetitionResults(
@@ -208,50 +209,50 @@ export async function createTeam(
   // Back-compat: createTeam(competitionId, name) or createTeam(name)
   const name = maybeName ?? nameOrCompetitionId;
   const competitionId = maybeName != null ? nameOrCompetitionId : null;
-  return invoke("create_team", { name, competitionId });
+  return invokeAdmin("create_team", { name, competitionId });
 }
 
 export async function renameTeam(teamId: string, name: string): Promise<CompetitionTeam> {
-  return invoke("rename_team", { teamId, name });
+  return invokeAdmin("rename_team", { teamId, name });
 }
 
 export async function setTeamArchived(
   teamId: string,
   archived: boolean,
 ): Promise<CompetitionTeam> {
-  return invoke("set_team_archived", { teamId, archived });
+  return invokeAdmin("set_team_archived", { teamId, archived });
 }
 
 export async function removeTeam(teamId: string): Promise<void> {
-  await invoke("remove_team", { teamId });
+  await invokeAdmin("remove_team", { teamId });
 }
 
 export async function addTeamMember(
   teamId: string,
   entryId: string,
 ): Promise<CompetitionTeam> {
-  return invoke("add_team_member", { teamId, entryId });
+  return invokeAdmin("add_team_member", { teamId, entryId });
 }
 
 export async function removeTeamMember(
   teamId: string,
   entryId: string,
 ): Promise<CompetitionTeam> {
-  return invoke("remove_team_member", { teamId, entryId });
+  return invokeAdmin("remove_team_member", { teamId, entryId });
 }
 
 export async function addTeamPerson(
   teamId: string,
   personId: string,
 ): Promise<CompetitionTeam> {
-  return invoke("add_team_person", { teamId, personId });
+  return invokeAdmin("add_team_person", { teamId, personId });
 }
 
 export async function removeTeamPerson(
   teamId: string,
   personId: string,
 ): Promise<CompetitionTeam> {
-  return invoke("remove_team_person", { teamId, personId });
+  return invokeAdmin("remove_team_person", { teamId, personId });
 }
 
 export async function listTeamResults(
