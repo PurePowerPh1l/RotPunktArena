@@ -3,10 +3,14 @@ use super::Database;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 use std::path::PathBuf;
 use std::sync::mpsc::{self, SyncSender, TrySendError};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::JoinHandle;
 
 static GENERATION: RwLock<u64> = RwLock::new(0);
-static WORKER: Mutex<Option<SyncSender<Job>>> = Mutex::new(None);
+static WORKER: Mutex<Option<Service>> = Mutex::new(None);
+static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 const QUEUE_CAPACITY: usize = 16;
+struct Service { sender: SyncSender<Job>, worker: JoinHandle<()> }
 
 struct Job { path: PathBuf, session: String, sequence: Option<i64>, generation: u64 }
 
@@ -14,6 +18,7 @@ pub(super) fn enqueue(db: &Database, session: &str, sequence: Option<i64>) {
     if db.snapshot_dir().is_none() { return; }
     let generation = *GENERATION.read();
     let mut service = WORKER.lock();
+    if SHUTTING_DOWN.load(Ordering::SeqCst) { return; }
     if service.is_none() {
         let (send, receive) = mpsc::sync_channel::<Job>(QUEUE_CAPACITY);
         match std::thread::Builder::new().name("reddot-snapshots".into()).spawn(move || {
@@ -31,16 +36,33 @@ pub(super) fn enqueue(db: &Database, session: &str, sequence: Option<i64>) {
                 if let Err(error) = result { eprintln!("Snapshot fehlgeschlagen ({}): {error}", job.session); }
             }
         }) {
-            Ok(_) => *service = Some(send),
+            Ok(worker) => *service = Some(Service { sender: send, worker }),
             Err(error) => { eprintln!("Snapshot-Worker konnte nicht starten: {error}"); return; }
         }
     }
-    if let Some(sender) = service.as_ref() {
-        match sender.try_send(Job { path: db.path().to_path_buf(), session: session.into(), sequence, generation }) {
+    if let Some(active) = service.as_ref() {
+        match active.sender.try_send(Job { path: db.path().to_path_buf(), session: session.into(), sequence, generation }) {
             Ok(()) => {}
             Err(TrySendError::Full(_)) => eprintln!("Snapshot-Queue voll (max. {QUEUE_CAPACITY}); Sicherungsanforderung übersprungen"),
-            Err(TrySendError::Disconnected(_)) => { eprintln!("Snapshot-Worker beendet; nächste Anforderung startet ihn neu"); *service = None; }
+            Err(TrySendError::Disconnected(_)) => {
+                if let Some(active) = service.take() {
+                    if active.worker.join().is_err() { eprintln!("Snapshot-Worker ist fehlgeschlagen"); }
+                }
+                eprintln!("Snapshot-Worker beendet; nächste Anforderung startet ihn neu");
+            }
         }
+    }
+}
+
+/// Final application shutdown: finish active I/O, invalidate queued work and join.
+pub(crate) fn shutdown_snapshots() {
+    SHUTTING_DOWN.store(true, Ordering::SeqCst);
+    let barrier = pause_snapshots();
+    let service = WORKER.lock().take();
+    drop(barrier); // queued jobs must acquire the read lock before they can exit.
+    if let Some(Service { sender, worker }) = service {
+        drop(sender);
+        if worker.join().is_err() { eprintln!("Snapshot-Worker beim Shutdown fehlgeschlagen"); }
     }
 }
 

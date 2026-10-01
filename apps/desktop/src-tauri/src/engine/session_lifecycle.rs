@@ -328,9 +328,28 @@ impl StandEngine {
         if let Some(h) = self.worker.lock().take() {
             self.retired_workers.lock().push(h);
         }
+        // A worker can call stop itself. Only join handles already finished here.
+        let mut retired = self.retired_workers.lock();
+        let mut index = 0;
+        while index < retired.len() {
+            if retired[index].is_finished() {
+                if retired.swap_remove(index).join().is_err() {
+                    eprintln!("Beendeter Poll-Worker ist fehlgeschlagen");
+                }
+            } else { index += 1; }
+        }
+        drop(retired);
         let mut g = self.inner.lock();
         g.status = ConnectionStatus::Disconnected;
         g.auto_fire = false;
+    }
+
+    pub fn shutdown(&self) {
+        let _lifecycle = self.lifecycle_gate.lock();
+        self.stop_worker();
+        for worker in std::mem::take(&mut *self.retired_workers.lock()) {
+            if worker.join().is_err() { eprintln!("Poll-Worker beim Shutdown fehlgeschlagen"); }
+        }
     }
 
     /// Idempotent: safe if already stopped / no open session.
