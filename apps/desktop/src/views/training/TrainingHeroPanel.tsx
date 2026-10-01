@@ -104,7 +104,7 @@ export function TrainingHeroPanel({
 
       <div className="train-stat-grid">
         <article className="train-stat">
-          <p className="train-stat-label">Ø Serie</p>
+          <p className="train-stat-label">Ø / 10 Schüsse</p>
           <p className="train-stat-value">{fmtStat(stats.avgSeriePunkte)}</p>
           <p className="train-stat-hint">Punkte</p>
         </article>
@@ -119,7 +119,7 @@ export function TrainingHeroPanel({
           <p className="train-stat-hint">niedriger = besser</p>
         </article>
         <article className="train-stat">
-          <p className="train-stat-label">Beste / 10 Sch�sse</p>
+          <p className="train-stat-label">Beste / 10 Schüsse</p>
           <p className="train-stat-value">{fmtStat(stats.bestSerie)}</p>
           <p className="train-stat-hint">Best-Teiler {fmtStat(stats.bestTeiler)}</p>
         </article>
@@ -129,11 +129,11 @@ export function TrainingHeroPanel({
           <p className="train-stat-hint">{stats.shotCount} Schüsse</p>
         </article>
         <article className="train-stat">
-          <p className="train-stat-label">Letzte / 10 Sch�sse</p>
+          <p className="train-stat-label">Letzte / 10 Schüsse</p>
           <p className="train-stat-value">
             {stats.lastSerie != null ? fmtStat(stats.lastSerie) : "—"}
           </p>
-          <p className="train-stat-hint">Σ Punkte</p>
+          <p className="train-stat-hint">Punkte / 10 Schüsse</p>
         </article>
       </div>
 

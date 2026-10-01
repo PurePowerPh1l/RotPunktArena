@@ -433,7 +433,7 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
         <div className="hist-training-wrap">
           {error ? <p className="banner-error">{error}</p> : null}
 
-          <p className="hint">Auswertung der zuletzt geladenen maximal {TRAINING_HISTORY_WINDOW} Serien im gewählten Zeitraum; Liga je Schütze im zuletzt geladenen Gesamtfenster. Punktevergleiche auf zehn Schüsse normiert. Keine Gesamtstatistik über die vollständige Historie.</p>
+          <p className="hint">Auswertung der zuletzt geladenen maximal {TRAINING_HISTORY_WINDOW} Serien im gewÃ¤hlten Zeitraum; Liga je SchÃ¼tze im zuletzt geladenen Gesamtfenster. Punktevergleiche auf zehn SchÃ¼sse normiert. Keine Gesamtstatistik Ã¼ber die vollstÃ¤ndige Historie.</p>
           <div className="hist-filter-row">
             <ShooterFilterBar
               shooters={shooters}
@@ -483,7 +483,7 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
                   value={metric}
                   onChange={setMetric}
                   options={[
-                    { value: "punkte", label: "Î£ Punkte" },
+                    { value: "punkte", label: "Punkte / 10 SchÃ¼sse" },
                     { value: "teiler", label: "Ã˜ Teiler" },
                   ]}
                 />

@@ -66,7 +66,7 @@ export function TrainingProgressPeek({
 
       <div className="hist-progress-peek-stats">
         <div className="hist-peek-stat">
-          <span className="hist-peek-stat-label">Ø Serie</span>
+          <span className="hist-peek-stat-label">Ø / 10 Schüsse</span>
           <strong>{fmtStat(stats.avgSeriePunkte)}</strong>
         </div>
         <div className="hist-peek-stat">
