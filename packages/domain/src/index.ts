@@ -157,6 +157,7 @@ export interface UiShot {
 }
 
 export interface LiveState {
+  contractVersion: 1;
   revision: number;
   sessionId: string | null;
   phase: "idle" | "probe" | "match" | "closed";
