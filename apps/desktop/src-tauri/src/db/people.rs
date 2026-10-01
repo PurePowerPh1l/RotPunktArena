@@ -273,8 +273,27 @@ impl Database {
     /// Permanently remove a shooter. Start-list entries and linked training
     /// sessions (incl. shots/frames/events) are removed.
     pub fn delete_person(&self, id: &str) -> Result<(), String> {
+        // Reserve the writer before checking references: another connection
+        // cannot start a linked session between the check and the deletion.
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(|e| e.to_string())?;
         if self.get_person(id)?.is_none() {
             return Err("Schütze nicht gefunden".into());
+        }
+        let active: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sessions s
+             WHERE s.ended_at IS NULL AND (s.person_id = ?1 OR s.entry_id IN
+               (SELECT id FROM competition_entries WHERE person_id = ?1)))",
+                params![id],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if active {
+            return Err("Schütze wird in einer offenen Session verwendet — zuerst beenden".into());
         }
 
         // Team memberships cascade via entry FK; clear entry refs on sessions first.
@@ -311,6 +330,13 @@ impl Database {
 
         self.delete_training_sessions_for_person(id)?;
 
+        self.conn
+            .execute(
+                "UPDATE sessions SET person_id = NULL WHERE person_id = ?1",
+                params![id],
+            )
+            .map_err(|e| e.to_string())?;
+
         let n = self
             .conn
             .execute("DELETE FROM people WHERE id = ?1", params![id])
@@ -318,6 +344,7 @@ impl Database {
         if n == 0 {
             return Err("Schütze nicht gefunden".into());
         }
+        tx.commit().map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -392,6 +419,128 @@ fn map_person(row: &rusqlite::Row<'_>) -> rusqlite::Result<Person> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn deletion_fixture() -> (Database, String, String) {
+        let mut db = Database::open_in_memory().unwrap();
+        let person = db
+            .create_person(CreatePerson {
+                first_name: "Fixture".into(),
+                last_name: "Deletion".into(),
+                club: None,
+            })
+            .unwrap();
+        let competition = db
+            .create_competition(
+                serde_json::from_value(serde_json::json!({
+                    "name": "Fixture", "date": "2026-10-01", "discipline": "Luftgewehr",
+                    "maxShots": 10, "scoringMode": "ringe"
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+        let entry = db.add_entry(&competition.id, &person.id).unwrap();
+        let competition_session = db
+            .start_session(
+                "Fixture",
+                Some(&competition.id),
+                Some(&entry.id),
+                Some(&person.id),
+            )
+            .unwrap();
+        db.end_session(&competition_session.id).unwrap();
+        let training = db
+            .start_session("Fixture", None, None, Some(&person.id))
+            .unwrap();
+        let frame = crate::protocol::build_synthetic_shot_frame("10.0", "012.30", "00001", "00002")
+            .unwrap();
+        assert!(matches!(
+            db.ingest_raw_frame(&training.id, &frame, "test", None)
+                .unwrap(),
+            crate::arena::IngestOutcome::Accepted(_)
+        ));
+        db.end_session(&training.id).unwrap();
+        (db, person.id, competition_session.id)
+    }
+
+    fn deletion_counts(db: &Database) -> Vec<i64> {
+        [
+            "people",
+            "competition_entries",
+            "sessions",
+            "shots",
+            "events",
+            "frames",
+        ]
+        .into_iter()
+        .map(|table| {
+            db.conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap()
+        })
+        .collect()
+    }
+
+    #[test]
+    fn person_deletion_rolls_back_every_step_and_retry_succeeds() {
+        for operation in [
+            "UPDATE OF entry_id ON sessions",
+            "DELETE ON competition_entries",
+            "DELETE ON shots",
+            "DELETE ON events",
+            "DELETE ON frames",
+            "DELETE ON sessions",
+            "UPDATE OF person_id ON sessions",
+            "DELETE ON people",
+        ] {
+            let (db, person, competition_session) = deletion_fixture();
+            let before = deletion_counts(&db);
+            db.conn.execute_batch(&format!(
+                "CREATE TRIGGER fail_delete BEFORE {operation} BEGIN SELECT RAISE(ABORT, 'injected'); END;"
+            )).unwrap();
+            assert!(db.delete_person(&person).is_err(), "{operation}");
+            assert_eq!(deletion_counts(&db), before, "{operation}");
+            assert!(db
+                .get_session(&competition_session)
+                .unwrap()
+                .unwrap()
+                .entry_id
+                .is_some());
+            db.conn.execute_batch("DROP TRIGGER fail_delete").unwrap();
+            db.delete_person(&person).unwrap();
+            assert!(db.get_person(&person).unwrap().is_none());
+            assert!(db
+                .get_session(&competition_session)
+                .unwrap()
+                .unwrap()
+                .entry_id
+                .is_none());
+            assert_eq!(deletion_counts(&db), vec![0, 0, 1, 0, 2, 0]);
+        }
+    }
+
+    #[test]
+    fn person_deletion_rejects_open_direct_and_entry_references() {
+        for entry_only in [false, true] {
+            let (mut db, person, sid) = deletion_fixture();
+            let previous = db.get_session(&sid).unwrap().unwrap();
+            let session = db
+                .start_session(
+                    "Fixture",
+                    previous.competition_id.as_deref(),
+                    previous.entry_id.as_deref(),
+                    if entry_only { None } else { Some(&person) },
+                )
+                .unwrap();
+            let before = deletion_counts(&db);
+            assert!(db
+                .delete_person(&person)
+                .unwrap_err()
+                .contains("offenen Session"));
+            assert_eq!(deletion_counts(&db), before);
+            db.end_session(&session.id).unwrap();
+            db.delete_person(&person).unwrap();
+        }
+    }
 
     #[test]
     fn split_two_tokens() {
