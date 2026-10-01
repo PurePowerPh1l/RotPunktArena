@@ -8,6 +8,8 @@ mod live;
 mod recovery;
 mod settings;
 mod training;
+#[cfg(test)]
+mod authorization_tests;
 
 pub use admin::*;
 pub use admin_auth::*;

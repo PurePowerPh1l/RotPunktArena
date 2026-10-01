@@ -61,8 +61,8 @@ pub fn dev_diagnostics(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<Dev
 /// Inject a test shot through Arena ingest and verify it lands in SQLite + UI.
 /// Writes real shot data, so it requires the server-side admin unlock.
 #[tauri::command]
-pub fn dev_inject_test_shot(
-    app: AppHandle,
+pub fn dev_inject_test_shot<R: tauri::Runtime>(
+    app: AppHandle<R>,
     engine: tauri::State<'_, Arc<StandEngine>>,
     session: tauri::State<'_, AdminSession>,
     x: Option<i32>,

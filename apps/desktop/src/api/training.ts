@@ -1,3 +1,4 @@
+import { invokeAdmin } from "./invokeAdmin";
 import { invoke } from "@tauri-apps/api/core";
 
 export async function listTrainingHistory(
@@ -27,7 +28,7 @@ export async function clearTrainingHistory(filter?: {
   personId?: string | null;
   shooterName?: string | null;
 }): Promise<number> {
-  return invoke("clear_training_history", {
+  return invokeAdmin("clear_training_history", {
     personId: filter?.personId ?? null,
     shooterName: filter?.shooterName ?? null,
   });
@@ -36,5 +37,5 @@ export async function clearTrainingHistory(filter?: {
 export async function promoteTrainingShooter(
   shooterName: string,
 ): Promise<import("@rotpunktarena/domain").PromoteTrainingShooterResult> {
-  return invoke("promote_training_shooter", { shooterName });
+  return invokeAdmin("promote_training_shooter", { shooterName });
 }

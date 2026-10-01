@@ -164,6 +164,11 @@ const MIGRATIONS: &[Migration] = &[
         sql: None,
         custom: Some(migrate_v16_probe_phase),
     },
+    Migration {
+        version: 17, name: "session_simulation_provenance",
+        sql: Some("ALTER TABLE sessions ADD COLUMN simulated INTEGER NOT NULL DEFAULT 0 CHECK(simulated IN (0,1));"),
+        custom: None,
+    },
 ];
 
 pub(super) fn validate_backup_schema(conn: &Connection) -> Result<(), String> {
@@ -790,7 +795,7 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(v, 16);
+        assert_eq!(v, 17);
         assert!(table_has_column(&conn, "events", "sequence"));
         assert!(table_has_column(&conn, "sessions", "next_sequence"));
         assert!(table_has_column(&conn, "sessions", "competition_id"));

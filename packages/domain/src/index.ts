@@ -133,6 +133,7 @@ export interface TeamResultSummary {
 }
 
 export interface SessionInfo {
+  simulated: boolean;
   id: string;
   shooterName: string;
   startedAt: string;
@@ -372,6 +373,7 @@ export interface DomainEvent {
 
 /** Interrupted / recoverable session — matches Rust `RecoverySessionInfo`. */
 export interface RecoverySessionInfo {
+  simulated: boolean;
   id: string;
   shooterName: string;
   startedAt: string;

@@ -13,15 +13,16 @@ impl StandEngine {
         x_ascii: String,
         y_ascii: String,
     ) -> Result<(), String> {
+        self.require_simulator_session()?;
         self.sim_control
             .queue_synthetic(&value_ascii, &distance_ascii, &x_ascii, &y_ascii)
     }
 
     /// Direct Arena ingest (same path as hardware) — reliable for click-to-shoot / Dev tests.
     /// Does not depend on the poll worker reading the simulator queue.
-    pub fn inject_synthetic_shot(
+    pub fn inject_synthetic_shot<R: tauri::Runtime>(
         &self,
-        app: &AppHandle,
+        app: &AppHandle<R>,
         value_ascii: &str,
         distance_ascii: &str,
         x_ascii: &str,
@@ -31,6 +32,7 @@ impl StandEngine {
         use crate::protocol::{build_synthetic_shot_frame, stamp_frame_nonce};
 
         let transition = self.ingest_gate.lock();
+        self.require_simulator_session()?;
 
         {
             let g = self.inner.lock();
@@ -58,7 +60,7 @@ impl StandEngine {
         stamp_frame_nonce(&mut frame);
 
         let accepted = self.with_db_mut(|db| {
-            match db.ingest_raw_frame(&session_id, &frame, "dev", None)? {
+            match db.ingest_raw_frame(&session_id, &frame, "simulator", None)? {
                 IngestOutcome::Accepted(a) => {
                     db.spawn_maybe_snapshot_after_shot(
                         &session_id,
@@ -101,14 +103,14 @@ impl StandEngine {
         Ok(self.snapshot())
     }
 
-    pub fn fire_aim_shot(&self, app: &AppHandle, x: f64, y: f64) -> Result<LiveState, String> {
+    pub fn fire_aim_shot<R: tauri::Runtime>(&self, app: &AppHandle<R>, x: f64, y: f64) -> Result<LiveState, String> {
         let (value, dist, x_ascii, y_ascii) = crate::protocol::aim_coords_to_ascii(x, y);
         self.inject_synthetic_shot(app, &value, &dist, &x_ascii, &y_ascii)
     }
 
     /// After the last competition shot: close session, mark entry done, notify UI.
     /// No-op during the probe phase (Probeschüsse never finish the series).
-    pub fn finish_series_if_needed(&self, app: &AppHandle, shot_index: i64) -> Result<(), String> {
+    pub fn finish_series_if_needed<R: tauri::Runtime>(&self, app: &AppHandle<R>, shot_index: i64) -> Result<(), String> {
         let Some(payload) = self.complete_series_if_needed(shot_index)? else {
             return Ok(());
         };
@@ -178,9 +180,21 @@ impl StandEngine {
         Ok(Some(payload))
     }
 
-    pub fn set_auto_fire(&self, on: bool) {
+    pub fn set_auto_fire(&self, on: bool) -> Result<(), String> {
+        self.require_simulator_session()?;
         self.sim_control.set_auto_fire(on);
         self.inner.lock().auto_fire = on;
+        Ok(())
+    }
+
+    fn require_simulator_session(&self) -> Result<(), String> {
+        let state = self.inner.lock();
+        let session = state.session.as_ref().filter(|s| s.ended_at.is_none())
+            .ok_or("Keine offene Simulatorsession")?;
+        if state.transport != crate::transport::TransportKind::Simulator || !session.simulated || session.competition_id.is_some() {
+            return Err("Synthetische Schüsse sind ausschließlich im Simulatortraining erlaubt".into());
+        }
+        Ok(())
     }
 
     pub fn list_ports(&self) -> Vec<String> {
@@ -199,6 +213,28 @@ mod tests {
     use crate::db::Database;
     use std::sync::Arc;
     use std::time::Duration;
+
+    #[test]
+    fn synthetic_ingest_requires_persisted_simulator_training_and_stays_out_of_statistics() {
+        let engine = engine_fixture();
+        let app = tauri::test::mock_app();
+        assert!(engine.fire_aim_shot(app.handle(), 1.0, 2.0).is_err());
+        let session_id = engine.snapshot().session.unwrap().id;
+        engine.with_db(|db| db.conn.execute("UPDATE sessions SET simulated=1 WHERE id=?1", [&session_id]).unwrap());
+        engine.inner.lock().session.as_mut().unwrap().simulated = true;
+        engine.inner.lock().transport = crate::transport::TransportKind::Rfcomm;
+        assert!(engine.fire_aim_shot(app.handle(), 1.0, 2.0).is_err());
+        engine.inner.lock().transport = crate::transport::TransportKind::Simulator;
+        engine.inner.lock().session.as_mut().unwrap().competition_id = Some("fixture".into());
+        assert!(engine.fire_aim_shot(app.handle(), 1.0, 2.0).is_err());
+        engine.inner.lock().session.as_mut().unwrap().competition_id = None;
+        engine.fire_aim_shot(app.handle(), 1.0, 2.0).unwrap();
+        assert_eq!(engine.with_db(|db| db.count_session_shots(&session_id)).unwrap(), 1);
+        let ended = engine.end_session().unwrap();
+        assert_eq!(ended.training_save.unwrap().reason, "simulated");
+        assert!(engine.fire_aim_shot(app.handle(), 1.0, 2.0).is_err());
+        assert_eq!(engine.with_db(|db| db.list_saved_training_sessions(80, None, None)).unwrap().len(), 0);
+    }
 
     fn engine_fixture() -> Arc<StandEngine> {
         let db = Database::open_in_memory().unwrap();

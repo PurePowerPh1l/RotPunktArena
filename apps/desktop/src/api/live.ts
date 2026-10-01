@@ -1,3 +1,4 @@
+import { invokeAdmin } from "./invokeAdmin";
 import { invoke } from "@tauri-apps/api/core";
 import type { LiveState } from "@rotpunktarena/domain";
 
@@ -41,11 +42,11 @@ export async function queueSimShot(pick: {
   xAscii: string;
   yAscii: string;
 }): Promise<void> {
-  await invoke("queue_sim_shot", pick);
+  await invokeAdmin("queue_sim_shot", pick);
 }
 
 export async function fireAimShot(x: number, y: number): Promise<LiveState> {
-  return invoke("fire_aim_shot", { x, y });
+  return invokeAdmin("fire_aim_shot", { x, y });
 }
 
 export async function resetTrainingSeries(): Promise<LiveState> {
@@ -65,7 +66,7 @@ export async function saveTrainingSession(): Promise<LiveState> {
 }
 
 export async function setAutoFire(on: boolean): Promise<void> {
-  await invoke("set_auto_fire", { on });
+  await invokeAdmin("set_auto_fire", { on });
 }
 
 /** Runtime repair = Nuclear (Forget→Pair→RFCOMM). Setup only via sheet. */
