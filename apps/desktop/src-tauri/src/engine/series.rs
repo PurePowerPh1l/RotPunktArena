@@ -94,7 +94,7 @@ impl StandEngine {
         };
         self.apply_shot(ui.clone());
         let _ = app.emit("shot", ui);
-        self.finish_series_if_needed(app, accepted.shot_index as i64);
+        self.finish_series_if_needed(app, accepted.shot_index as i64)?;
         Ok(self.snapshot())
     }
 
@@ -105,11 +105,43 @@ impl StandEngine {
 
     /// After the last competition shot: close session, mark entry done, notify UI.
     /// No-op during the probe phase (Probeschüsse never finish the series).
-    pub fn finish_series_if_needed(&self, app: &AppHandle, shot_index: i64) {
+    pub fn finish_series_if_needed(&self, app: &AppHandle, shot_index: i64) -> Result<(), String> {
+        let Some(payload) = self.complete_series_if_needed(shot_index)? else {
+            return Ok(());
+        };
+        let _ = app.emit("series_complete", payload.clone());
+        let _ = app.emit(
+            "connection",
+            ConnectionUpdate {
+                status: ConnectionStatus::Disconnected,
+                transport: self.snapshot().transport,
+                port: None,
+                detail: Some(format!(
+                    "Serie beendet — {}/{} Schüsse · {}",
+                    payload.shot_count, payload.max_shots, payload.shooter_name
+                )),
+            },
+        );
+        Ok(())
+    }
+
+    /// Shared by recovery and automatic completion. Never snapshot under `inner`.
+    pub(super) fn close_completed_series(&self) -> Result<LiveState, String> {
+        self.end_session()?;
+        {
+            self.inner.lock().series_complete = true;
+        }
+        Ok(self.snapshot())
+    }
+
+    fn complete_series_if_needed(
+        &self,
+        shot_index: i64,
+    ) -> Result<Option<SeriesCompletePayload>, String> {
         let (max, shooter, total) = {
             let g = self.inner.lock();
             if g.probe_active {
-                return;
+                return Ok(None);
             }
             (
                 g.max_shots,
@@ -121,42 +153,26 @@ impl StandEngine {
             )
         };
         let Some(max) = max else {
-            return;
+            return Ok(None);
         };
         if shot_index < max {
-            return;
+            return Ok(None);
         }
         {
             let g = self.inner.lock();
             if g.series_complete {
-                return;
+                return Ok(None);
             }
         }
 
-        let _ = self.end_session();
-        {
-            let mut g = self.inner.lock();
-            g.series_complete = true;
-        }
+        self.close_completed_series()?;
         let payload = SeriesCompletePayload {
             max_shots: max,
             shot_count: shot_index,
             series_total: total,
             shooter_name: shooter,
         };
-        let _ = app.emit("series_complete", payload.clone());
-        let _ = app.emit(
-            "connection",
-            ConnectionUpdate {
-                status: ConnectionStatus::Disconnected,
-                transport: self.snapshot().transport,
-                port: None,
-                detail: Some(format!(
-                    "Serie beendet — {shot_index}/{max} Schüsse · {}",
-                    payload.shooter_name
-                )),
-            },
-        );
+        Ok(Some(payload))
     }
 
     pub fn set_auto_fire(&self, on: bool) {
@@ -171,5 +187,96 @@ impl StandEngine {
     pub fn auto_detect(&self) -> Option<String> {
         let last = self.log.lock().get_setting("last_port").ok().flatten();
         crate::transport::auto_detect(last.as_deref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Database;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    fn engine_fixture() -> Arc<StandEngine> {
+        let db = Database::open_in_memory().unwrap();
+        let (session, _, _) = db
+            .start_live_session("Fixture", None, None, None, Some(5))
+            .unwrap();
+        let engine = Arc::new(StandEngine::new(db));
+        {
+            let mut state = engine.inner.lock();
+            state.session = Some(session);
+            state.max_shots = Some(5);
+            state.series_total = 50.0;
+        }
+        engine
+    }
+
+    #[test]
+    fn completed_recovery_releases_guard_before_snapshot() {
+        let engine = engine_fixture();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || sender.send(engine.close_completed_series()).unwrap());
+        let state = receiver
+            .recv_timeout(Duration::from_secs(2))
+            .expect("recovery must not deadlock")
+            .unwrap();
+        assert!(state.series_complete);
+        assert!(state.session.unwrap().ended_at.is_some());
+    }
+
+    #[test]
+    fn failed_completion_stays_open_without_success_and_can_retry() {
+        let engine = engine_fixture();
+        engine.with_db(|db| {
+            db.conn.execute_batch(
+            "CREATE TRIGGER fail_end BEFORE INSERT ON events WHEN NEW.kind = 'session_ended'
+             BEGIN SELECT RAISE(ABORT, 'injected completion failure'); END;"
+        ).unwrap()
+        });
+        assert!(engine.complete_series_if_needed(5).is_err());
+        let state = engine.snapshot();
+        assert!(!state.series_complete);
+        let session = state.session.unwrap();
+        assert!(session.ended_at.is_none());
+        engine.with_db(|db| {
+            assert!(db
+                .get_session(&session.id)
+                .unwrap()
+                .unwrap()
+                .ended_at
+                .is_none());
+            assert_eq!(
+                db.count_events_kind(crate::db::event_kind::SESSION_ENDED)
+                    .unwrap(),
+                0
+            );
+            db.conn.execute_batch("DROP TRIGGER fail_end").unwrap();
+        });
+        let payload = engine.complete_series_if_needed(5).unwrap().unwrap();
+        assert_eq!(payload.shot_count, 5);
+        assert!(engine.snapshot().series_complete);
+        assert!(engine.complete_series_if_needed(5).unwrap().is_none());
+        assert_eq!(
+            engine
+                .with_db(|db| db.count_events_kind(crate::db::event_kind::SESSION_ENDED))
+                .unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn completion_ignores_probe_unlimited_and_incomplete_series() {
+        let engine = engine_fixture();
+        assert!(engine.complete_series_if_needed(4).unwrap().is_none());
+        engine.inner.lock().probe_active = true;
+        assert!(engine.complete_series_if_needed(5).unwrap().is_none());
+        {
+            let mut state = engine.inner.lock();
+            state.probe_active = false;
+            state.max_shots = None;
+        }
+        assert!(engine.complete_series_if_needed(100).unwrap().is_none());
+        assert!(engine.snapshot().session.unwrap().ended_at.is_none());
     }
 }
