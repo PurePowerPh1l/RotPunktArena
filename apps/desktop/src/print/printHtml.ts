@@ -9,21 +9,22 @@ export function escapeHtml(s: string): string {
 }
 
 /**
- * Open a print preview and trigger the system print dialog.
+ * Print through the system dialog without opening an in-app preview.
  *
- * Must not rely on inline `<script>` / `onclick`: production CSP is
- * `script-src 'self'`, so those never run in the iframe. `window.print()`
- * is called from this parent function (same tick as the UI click) on an
- * iframe with a real layout size — WebView2 ignores 0×0 frames.
+ * Keep a real layout size for WebView2 (it ignores 0×0 frames), but place
+ * the document off screen. Production CSP disallows inline scripts, so
+ * printing is initiated from the parent in the UI click handler.
  */
 export function openPrintHtml(html: string): void {
   document.getElementById("rpa-print-frame")?.remove();
 
   const iframe = document.createElement("iframe");
   iframe.id = "rpa-print-frame";
-  iframe.setAttribute("title", "Druckvorschau");
+  iframe.setAttribute("title", "Druckdokument");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.tabIndex = -1;
   iframe.style.cssText =
-    "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483647;background:#fff;";
+    "position:fixed;left:-10000px;top:0;width:100vw;height:100vh;border:0;pointer-events:none;";
   document.body.appendChild(iframe);
 
   const win = iframe.contentWindow;
@@ -34,63 +35,28 @@ export function openPrintHtml(html: string): void {
   }
 
   let cleaned = false;
+  let cleanupTimer: number | undefined;
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
-    window.removeEventListener("keydown", onEsc, true);
+    window.clearTimeout(cleanupTimer);
+    win.removeEventListener("afterprint", cleanup);
     iframe.remove();
   };
 
-  const onEsc = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
-    e.preventDefault();
-    cleanup();
-  };
-
   win.addEventListener("afterprint", cleanup);
-  window.addEventListener("keydown", onEsc, true);
-
-  doc.open();
-  doc.write(html);
-  doc.close();
-  attachPrintChrome(doc, win, cleanup);
+  // Fallback for WebView versions that do not dispatch afterprint.
+  cleanupTimer = window.setTimeout(cleanup, 180_000);
 
   try {
-    win.focus();
+    doc.open();
+    doc.write(html);
+    doc.close();
     win.print();
-  } catch {
-    // Preview stays; user can print via the chrome bar or Esc.
+  } catch (error) {
+    cleanup();
+    console.error("Druckdialog konnte nicht geöffnet werden", error);
   }
-
-  window.setTimeout(cleanup, 180_000);
-}
-
-function attachPrintChrome(
-  doc: Document,
-  win: Window,
-  onClose: () => void,
-): void {
-  const bar = doc.createElement("div");
-  bar.className = "noprint";
-  bar.style.cssText = "display:flex;gap:0.5rem;margin-bottom:1rem;";
-
-  const printBtn = doc.createElement("button");
-  printBtn.type = "button";
-  printBtn.textContent = "Drucken";
-  printBtn.style.cssText = "padding:0.5rem 0.9rem;";
-  printBtn.addEventListener("click", () => {
-    win.focus();
-    win.print();
-  });
-
-  const closeBtn = doc.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.textContent = "Schließen";
-  closeBtn.style.cssText = "padding:0.5rem 0.9rem;";
-  closeBtn.addEventListener("click", onClose);
-
-  bar.append(printBtn, closeBtn);
-  doc.body.insertBefore(bar, doc.body.firstChild);
 }
 
 export const PRINT_BASE_CSS = `

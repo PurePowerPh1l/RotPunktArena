@@ -204,7 +204,7 @@ export function TrainingSeriesPanel({
         </p>
       ) : (
         <>
-          <div className="hist-table-wrap hist-table-wrap-compact">
+          <div className="hist-table-wrap">
             <table className="hist-table">
               <thead>
                 <tr>
@@ -256,12 +256,10 @@ export function TrainingSeriesPanel({
               </tbody>
             </table>
           </div>
-          {newestFirst.length > 2 ? (
-            <p className="hint hist-table-more">
-              {newestFirst.length - 2} weitere Serie
-              {newestFirst.length - 2 === 1 ? "" : "n"} — in der Liste scrollen
-            </p>
-          ) : null}
+          <p className="hint hist-table-more">
+            {newestFirst.length} gespeicherte Serie
+            {newestFirst.length === 1 ? "" : "n"}
+          </p>
         </>
       )}
     </section>
