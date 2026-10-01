@@ -67,8 +67,9 @@ export function useLiveSession() {
     void (async () => {
       try {
         const stop = await listen<{ state: LiveState; detail: string | null }>("live_state", (event) => {
-          if (active() && acceptState(event.payload.state) && event.payload.detail !== null) {
-            setDetail(event.payload.detail);
+          if (active() && acceptState(event.payload.state)) {
+            const save = event.payload.state.seriesComplete && event.payload.state.trainingSave;
+            setDetail(save ? trainingSaveUiMessage(save) ?? event.payload.detail : event.payload.detail);
           }
         });
         if (!active()) { stop(); return; }

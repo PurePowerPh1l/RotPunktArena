@@ -279,6 +279,7 @@ impl StandEngine {
         }
     }
 
+    #[cfg(test)]
     pub fn apply_connection_update(&self, u: &ConnectionUpdate) {
         let mut g = self.inner.lock();
         g.status = u.status;
@@ -329,10 +330,15 @@ pub(crate) fn emit_conn(
     generation: u64,
     u: ConnectionUpdate,
 ) {
-    if engine.generation.load(Ordering::SeqCst) != generation {
-        return;
+    {
+        let mut state = engine.inner.lock();
+        if engine.generation.load(Ordering::SeqCst) != generation {
+            return;
+        }
+        state.status = u.status;
+        state.transport = u.transport;
+        state.port = u.port.clone();
     }
-    engine.apply_connection_update(&u);
     engine.emit_live(app, u.detail.clone());
     let _ = app.emit("connection", u);
 }

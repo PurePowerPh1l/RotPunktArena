@@ -100,7 +100,7 @@ impl StandEngine {
         let _ = app.emit("shot", ui);
         self.emit_live(app, None);
         drop(transition);
-        self.finish_series_if_needed(app, accepted.shot_index as i64)?;
+        self.finish_series_for_session(app, &session_id, accepted.shot_index as i64)?;
         Ok(self.snapshot())
     }
 
@@ -121,7 +121,30 @@ impl StandEngine {
         app: &AppHandle<R>,
         shot_index: i64,
     ) -> Result<(), String> {
-        let Some(payload) = self.complete_series_if_needed(shot_index)? else {
+        let session_id = self.snapshot().session_id;
+        let Some(session_id) = session_id else {
+            return Ok(());
+        };
+        self.finish_series_for_session(app, &session_id, shot_index)
+    }
+
+    pub(crate) fn finish_series_for_session<R: tauri::Runtime>(
+        &self,
+        app: &AppHandle<R>,
+        session_id: &str,
+        shot_index: i64,
+    ) -> Result<(), String> {
+        let _transition = self.ingest_gate.lock();
+        if self
+            .inner
+            .lock()
+            .session
+            .as_ref()
+            .is_none_or(|session| session.id != session_id)
+        {
+            return Ok(());
+        }
+        let Some(payload) = self.complete_series_if_needed_locked(shot_index)? else {
             return Ok(());
         };
         let _ = app.emit("series_complete", payload.clone());
@@ -148,15 +171,30 @@ impl StandEngine {
     }
 
     /// Shared by recovery and automatic completion. Never snapshot under `inner`.
+    #[cfg(test)]
     pub(super) fn close_completed_series(&self) -> Result<LiveState, String> {
-        self.end_session()?;
+        let _transition = self.ingest_gate.lock();
+        self.close_completed_series_locked()
+    }
+
+    pub(super) fn close_completed_series_locked(&self) -> Result<LiveState, String> {
+        self.end_session_locked()?;
         {
             self.inner.lock().series_complete = true;
         }
         Ok(self.snapshot())
     }
 
+    #[cfg(test)]
     fn complete_series_if_needed(
+        &self,
+        shot_index: i64,
+    ) -> Result<Option<SeriesCompletePayload>, String> {
+        let _transition = self.ingest_gate.lock();
+        self.complete_series_if_needed_locked(shot_index)
+    }
+
+    fn complete_series_if_needed_locked(
         &self,
         shot_index: i64,
     ) -> Result<Option<SeriesCompletePayload>, String> {
@@ -187,7 +225,7 @@ impl StandEngine {
             }
         }
 
-        self.close_completed_series()?;
+        self.close_completed_series_locked()?;
         let payload = SeriesCompletePayload {
             max_shots: max,
             shot_count: shot_index,
@@ -238,6 +276,43 @@ mod tests {
     use crate::db::Database;
     use std::sync::Arc;
     use std::time::Duration;
+
+    #[test]
+    fn delayed_previous_session_completion_cannot_close_current_session() {
+        let engine = engine_fixture();
+        let previous = engine.snapshot().session_id.unwrap();
+        let (next, _, _) = engine
+            .with_db(|db| db.start_live_session("Next", None, None, None, Some(5)))
+            .unwrap();
+        engine.inner.lock().session = Some(next.clone());
+        let app = tauri::test::mock_app();
+        engine
+            .finish_series_for_session(app.handle(), &previous, 5)
+            .unwrap();
+        assert!(!engine.snapshot().series_complete);
+        assert!(engine
+            .with_db(|db| db.get_session(&next.id))
+            .unwrap()
+            .unwrap()
+            .ended_at
+            .is_none());
+        assert_eq!(
+            engine
+                .with_db(|db| db.count_events_kind(crate::db::event_kind::SESSION_ENDED))
+                .unwrap(),
+            0
+        );
+        engine
+            .finish_series_for_session(app.handle(), &next.id, 5)
+            .unwrap();
+        assert!(engine.snapshot().series_complete);
+        assert!(engine
+            .with_db(|db| db.get_session(&next.id))
+            .unwrap()
+            .unwrap()
+            .ended_at
+            .is_some());
+    }
 
     #[test]
     fn synthetic_ingest_requires_persisted_simulator_training_and_stays_out_of_statistics() {
