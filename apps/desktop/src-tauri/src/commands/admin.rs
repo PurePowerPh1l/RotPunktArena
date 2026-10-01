@@ -63,9 +63,9 @@ pub fn list_db_backups(app: AppHandle) -> Result<Vec<DbBackupInfo>, String> {
             .unwrap_or("backup.sqlite")
             .to_string();
         let meta = ent.metadata().map_err(|e| e.to_string())?;
-        let modified_at = meta.modified().ok().and_then(|t| {
+        let modified_at = meta.modified().ok().map(|t| {
             let dt: chrono::DateTime<chrono::Local> = t.into();
-            Some(dt.to_rfc3339())
+            dt.to_rfc3339()
         });
         out.push(DbBackupInfo {
             name,

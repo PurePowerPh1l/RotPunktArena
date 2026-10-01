@@ -170,23 +170,24 @@ pub fn run_nuclear_link_with(
         NuclearFail { message, report }
     };
 
-    let check =
-        |is_cancelled: &mut dyn FnMut() -> bool, report: &NuclearRunReport| -> Result<(), NuclearFail> {
-            if is_cancelled() {
-                Err(NuclearFail {
-                    message: "Abgebrochen".into(),
-                    report: {
-                        let mut r = report.clone();
-                        r.cancelled = true;
-                        r.failed_step = Some("cancelled");
-                        r.duration_ms = wall.elapsed().as_millis() as u64;
-                        r
-                    },
-                })
-            } else {
-                Ok(())
-            }
-        };
+    let check = |is_cancelled: &mut dyn FnMut() -> bool,
+                 report: &NuclearRunReport|
+     -> Result<(), NuclearFail> {
+        if is_cancelled() {
+            Err(NuclearFail {
+                message: "Abgebrochen".into(),
+                report: {
+                    let mut r = report.clone();
+                    r.cancelled = true;
+                    r.failed_step = Some("cancelled");
+                    r.duration_ms = wall.elapsed().as_millis() as u64;
+                    r
+                },
+            })
+        } else {
+            Ok(())
+        }
+    };
 
     auth_hook::reset_auth_callback_count();
 

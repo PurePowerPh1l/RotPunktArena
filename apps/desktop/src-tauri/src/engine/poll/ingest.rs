@@ -41,7 +41,11 @@ pub(super) fn handle_shot_frame(
 
     let ingest_started = Instant::now();
     let mode = engine.session_mode_label();
-    let actor = if transport.kind() == crate::transport::TransportKind::Simulator { "simulator" } else { "device" };
+    let actor = if transport.kind() == crate::transport::TransportKind::Simulator {
+        "simulator"
+    } else {
+        "device"
+    };
     let result = log.ingest_raw_frame(session_id, &raw, actor, None);
 
     // ACK only after the persist attempt succeeded (any Ok outcome, incl.
@@ -165,7 +169,12 @@ pub(super) fn handle_shot_frame(
 }
 
 fn report_completion_failure(app: &AppHandle, engine: &StandEngine, error: String) {
-    engine.emit_live(app, Some(format!("Session-Abschluss fehlgeschlagen — erneut beenden: {error}")));
+    engine.emit_live(
+        app,
+        Some(format!(
+            "Session-Abschluss fehlgeschlagen — erneut beenden: {error}"
+        )),
+    );
     eprintln!("Session-Abschluss fehlgeschlagen: {error}");
     // end_session stops the worker and advances generation even when persistence
     // fails. Publish directly so the error is not suppressed by the stale gate.

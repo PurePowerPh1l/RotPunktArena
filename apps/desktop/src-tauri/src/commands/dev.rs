@@ -27,7 +27,9 @@ pub struct DevDiagnostics {
 }
 
 #[tauri::command]
-pub fn dev_diagnostics(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<DevDiagnostics, String> {
+pub fn dev_diagnostics(
+    engine: tauri::State<'_, Arc<StandEngine>>,
+) -> Result<DevDiagnostics, String> {
     let snap = engine.snapshot();
     engine.with_db(|db| {
         let session_id = snap.session.as_ref().map(|s| s.id.clone());
@@ -69,5 +71,9 @@ pub fn dev_inject_test_shot<R: tauri::Runtime>(
     y: Option<i32>,
 ) -> Result<LiveState, String> {
     session.require()?;
-    engine.fire_aim_shot(&app, f64::from(x.unwrap_or(40)), f64::from(y.unwrap_or(-25)))
+    engine.fire_aim_shot(
+        &app,
+        f64::from(x.unwrap_or(40)),
+        f64::from(y.unwrap_or(-25)),
+    )
 }

@@ -100,10 +100,7 @@ fn main() {
         eprintln!("PASS Known, Idle/NeedsPairing — tippe Verbinden");
     } else {
         if st != ConnectionStatus::NeedsTarget && st != ConnectionStatus::Idle {
-            eprintln!(
-                "WARN: ohne Known erwartet needsTarget, got {}",
-                st.as_str()
-            );
+            eprintln!("WARN: ohne Known erwartet needsTarget, got {}", st.as_str());
         }
         eprintln!("PASS kein Known / NeedsTarget — Sheet-Fall");
     }

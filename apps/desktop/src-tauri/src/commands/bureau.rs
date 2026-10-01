@@ -53,7 +53,9 @@ pub fn update_person(
 #[tauri::command]
 pub fn delete_person(
     session: tauri::State<'_, AdminSession>,
-engine: tauri::State<'_, Arc<StandEngine>>, id: String) -> Result<(), String> {
+    engine: tauri::State<'_, Arc<StandEngine>>,
+    id: String,
+) -> Result<(), String> {
     session.require()?;
     engine.with_db(|db| db.delete_person(&id))
 }

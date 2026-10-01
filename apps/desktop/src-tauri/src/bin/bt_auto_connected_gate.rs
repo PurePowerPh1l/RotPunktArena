@@ -14,7 +14,9 @@
 
 use reddot_desktop_lib::rfcomm::{
     discovery::{bond_state, find_reddot_candidate, BondState},
-    spp_com, target::RfcommTarget, RfcommSocket, WinsockRuntime,
+    spp_com,
+    target::RfcommTarget,
+    RfcommSocket, WinsockRuntime,
 };
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -121,7 +123,10 @@ fn main() {
     match RfcommSocket::connect(&target, page) {
         Ok(sock) => {
             eprintln!("OK ({:.0?}) ch={}", t0.elapsed(), sock.channel.unwrap_or(1));
-            print_bond("linked", &bond_state(target.bt_addr).ok().flatten().unwrap_or(bond));
+            print_bond(
+                "linked",
+                &bond_state(target.bt_addr).ok().flatten().unwrap_or(bond),
+            );
             std::thread::sleep(Duration::from_secs(2));
             drop(sock);
             spp_com::restore_all();

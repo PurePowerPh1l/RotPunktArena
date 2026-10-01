@@ -226,7 +226,11 @@ impl Database {
             .ok_or_else(|| "Team nicht gefunden".into())
     }
 
-    pub fn set_team_archived(&self, team_id: &str, archived: bool) -> Result<CompetitionTeam, String> {
+    pub fn set_team_archived(
+        &self,
+        team_id: &str,
+        archived: bool,
+    ) -> Result<CompetitionTeam, String> {
         self.conn
             .execute(
                 "UPDATE teams SET archived = ?1 WHERE id = ?2",
@@ -239,7 +243,10 @@ impl Database {
 
     pub fn remove_team(&self, team_id: &str) -> Result<(), String> {
         self.conn
-            .execute("DELETE FROM team_members WHERE team_id = ?1", params![team_id])
+            .execute(
+                "DELETE FROM team_members WHERE team_id = ?1",
+                params![team_id],
+            )
             .map_err(|e| e.to_string())?;
         self.conn
             .execute("DELETE FROM teams WHERE id = ?1", params![team_id])
@@ -305,7 +312,11 @@ impl Database {
             .ok_or_else(|| "Team nicht lesbar".into())
     }
 
-    pub fn add_team_person(&self, team_id: &str, person_id: &str) -> Result<CompetitionTeam, String> {
+    pub fn add_team_person(
+        &self,
+        team_id: &str,
+        person_id: &str,
+    ) -> Result<CompetitionTeam, String> {
         let _ = self
             .get_team(team_id, None)?
             .ok_or_else(|| "Team nicht gefunden".to_string())?;
@@ -371,8 +382,10 @@ impl Database {
         let team_count = comp.team_count.max(1) as usize;
         let teiler = comp.scoring_mode == "teiler";
         let individual = self.list_competition_results(competition_id)?;
-        let by_entry: std::collections::HashMap<_, _> =
-            individual.into_iter().map(|r| (r.entry_id.clone(), r)).collect();
+        let by_entry: std::collections::HashMap<_, _> = individual
+            .into_iter()
+            .map(|r| (r.entry_id.clone(), r))
+            .collect();
 
         let teams = self.list_teams(Some(competition_id), false)?;
         let mut out = Vec::new();
@@ -455,7 +468,11 @@ impl Database {
         }
 
         assign_team_ranks(&mut out);
-        out.sort_by(|a, b| a.sort_order.cmp(&b.sort_order).then_with(|| a.name.cmp(&b.name)));
+        out.sort_by(|a, b| {
+            a.sort_order
+                .cmp(&b.sort_order)
+                .then_with(|| a.name.cmp(&b.name))
+        });
         Ok(out)
     }
 }

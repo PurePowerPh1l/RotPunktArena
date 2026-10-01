@@ -7,7 +7,7 @@ use super::sink::SinkChunk;
 use super::status::ConnectionStatus;
 use crate::transport::rfcomm::target::RfcommTarget;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{Sender, TryRecvError};
+use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -82,9 +82,6 @@ impl ConnectionHandle {
             return None;
         }
         let rx = guard.sink_rx.as_ref()?;
-        match rx.try_recv() {
-            Ok(c) => Some(c),
-            Err(TryRecvError::Empty | TryRecvError::Disconnected) => None,
-        }
+        rx.try_recv().ok()
     }
 }

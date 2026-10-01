@@ -22,7 +22,11 @@ impl SerialLink {
             .parity(Parity::None)
             .stop_bits(StopBits::One)
             .flow_control(FlowControl::None)
-            .timeout(timeout.min(Duration::from_millis(200)).max(Duration::from_millis(50)))
+            .timeout(
+                timeout
+                    .min(Duration::from_millis(200))
+                    .max(Duration::from_millis(50)),
+            )
             .open()
             .map_err(|e| TransportError::Io(format!("COM {port_name}: {e}")))?;
         Ok(Self {

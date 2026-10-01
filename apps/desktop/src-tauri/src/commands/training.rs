@@ -76,9 +76,7 @@ pub fn clear_training_history(
     shooter_name: Option<String>,
 ) -> Result<i64, String> {
     session.require()?;
-    engine.with_db(|db| {
-        db.clear_training_history(person_id.as_deref(), shooter_name.as_deref())
-    })
+    engine.with_db(|db| db.clear_training_history(person_id.as_deref(), shooter_name.as_deref()))
 }
 
 #[tauri::command]

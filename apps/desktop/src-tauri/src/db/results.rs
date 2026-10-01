@@ -250,8 +250,15 @@ impl Database {
 
         let mut series = Vec::new();
         for (i, row) in rows.enumerate() {
-            let (session_id, started_at, ended_at, shot_count, punkte_total, teiler_sum, teiler_avg) =
-                row.map_err(|e| e.to_string())?;
+            let (
+                session_id,
+                started_at,
+                ended_at,
+                shot_count,
+                punkte_total,
+                teiler_sum,
+                teiler_avg,
+            ) = row.map_err(|e| e.to_string())?;
             let series_index = (i as i64) + 1;
             let shots = if include_shots {
                 self.list_session_ui_shots(&session_id)?

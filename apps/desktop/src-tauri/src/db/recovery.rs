@@ -45,9 +45,7 @@ impl Database {
                  FROM sessions WHERE id = ?1",
             )
             .map_err(|e| e.to_string())?;
-        let mut rows = stmt
-            .query(params![session_id])
-            .map_err(|e| e.to_string())?;
+        let mut rows = stmt.query(params![session_id]).map_err(|e| e.to_string())?;
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
             Ok(Some(SessionInfo {
                 simulated: row.get(7).map_err(|e| e.to_string())?,

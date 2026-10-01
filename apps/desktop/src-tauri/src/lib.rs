@@ -41,7 +41,7 @@ pub fn run() {
                 event,
                 WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed
             ) {
-                request_rfcomm_shutdown(&window.app_handle());
+                request_rfcomm_shutdown(window.app_handle());
             }
         })
         .invoke_handler(tauri::generate_handler![

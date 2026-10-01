@@ -1,9 +1,9 @@
 //! ENQ write + timed read from the active transport.
 
+use super::super::{emit_conn, ConnectionUpdate, StandEngine};
 use crate::connection::shot_latency::PollReadResultKind;
 use crate::protocol::encode_enq;
 use crate::transport::{ConnectionStatus, Transport};
-use super::super::{emit_conn, ConnectionUpdate, StandEngine};
 use std::time::{Duration, Instant};
 use tauri::AppHandle;
 
@@ -112,11 +112,7 @@ mod tests {
     #[test]
     fn read_timing_only_when_requested() {
         fn stamp(want: bool) -> Option<ReadTiming> {
-            let started = if want {
-                Some(Instant::now())
-            } else {
-                None
-            };
+            let started = if want { Some(Instant::now()) } else { None };
             started.map(|started| ReadTiming {
                 started,
                 returned: started, // zero-duration stand-in; no sleep

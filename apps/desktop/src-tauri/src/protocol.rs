@@ -227,8 +227,7 @@ pub fn aim_coords_to_ascii(x: f64, y: f64) -> (String, String, String, String) {
     let yi = (y.round() as i32).clamp(-9999, 9999);
     let r = ((xi * xi + yi * yi) as f64).sqrt();
     // Same linear shape as the old 450 scale, stretched to AIM_RADIUS_AT_RING_1.
-    let tenths =
-        ((109.0 - (r / AIM_RADIUS_AT_RING_1) * 100.0).round() as i32).clamp(0, 109);
+    let tenths = ((109.0 - (r / AIM_RADIUS_AT_RING_1) * 100.0).round() as i32).clamp(0, 109);
     let value = {
         let s = format!("{:.1}", tenths as f64 / 10.0);
         if s.len() >= 4 {
@@ -265,12 +264,21 @@ mod tests {
 
     #[test]
     fn shared_parser_fixtures() {
-        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../../fixtures/protocol.json")).unwrap();
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../fixtures/protocol.json")).unwrap();
         assert_eq!(fixture["version"], 1);
         for case in fixture["cases"].as_array().unwrap() {
             let fields = case["fields"].as_array().unwrap();
-            let frame = build_synthetic_shot_frame(fields[0].as_str().unwrap(), fields[1].as_str().unwrap(), fields[2].as_str().unwrap(), fields[3].as_str().unwrap()).unwrap();
-            let actual = parse_shot_frame(&frame).map(|shot| serde_json::json!([shot.value_raw, shot.distance_raw, shot.x, shot.y])).unwrap_or(serde_json::Value::Null);
+            let frame = build_synthetic_shot_frame(
+                fields[0].as_str().unwrap(),
+                fields[1].as_str().unwrap(),
+                fields[2].as_str().unwrap(),
+                fields[3].as_str().unwrap(),
+            )
+            .unwrap();
+            let actual = parse_shot_frame(&frame)
+                .map(|shot| serde_json::json!([shot.value_raw, shot.distance_raw, shot.x, shot.y]))
+                .unwrap_or(serde_json::Value::Null);
             assert_eq!(actual, case["expected"], "{}", case["name"]);
         }
     }

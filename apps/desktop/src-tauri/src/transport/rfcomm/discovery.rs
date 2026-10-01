@@ -187,18 +187,22 @@ pub fn pair_with_pin(bt_addr: u64, display_name: &str, pin: &str) -> Result<(), 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PairApiReport {
     /// Win32 authenticate succeeded (fresh pair).
-    Success { win32: u32 },
+    Success {
+        win32: u32,
+    },
     /// Bond already authenticated — API skipped or returned already-bonded code.
-    AlreadyAuthenticated { reason: &'static str, win32: Option<u32> },
-    Error { win32: Option<u32>, message: String },
+    AlreadyAuthenticated {
+        reason: &'static str,
+        win32: Option<u32>,
+    },
+    Error {
+        win32: Option<u32>,
+        message: String,
+    },
 }
 
 /// Same Win32 path as [`pair_with_pin`], with no-op classification for lab JSONL.
-pub fn pair_with_pin_report(
-    bt_addr: u64,
-    display_name: &str,
-    pin: &str,
-) -> PairApiReport {
+pub fn pair_with_pin_report(bt_addr: u64, display_name: &str, pin: &str) -> PairApiReport {
     #[cfg(windows)]
     {
         let _ = crate::transport::rfcomm::WinsockRuntime::init();
@@ -270,10 +274,7 @@ pub fn parse_addr_from_dev_id(id: &str) -> Option<u64> {
     let upper = id.to_uppercase();
     let idx = upper.find("DEV_")?;
     let rest = upper.get(idx + 4..)?;
-    let hex: String = rest
-        .chars()
-        .take_while(|c| c.is_ascii_hexdigit())
-        .collect();
+    let hex: String = rest.chars().take_while(|c| c.is_ascii_hexdigit()).collect();
     if hex.len() != 12 {
         return None;
     }
@@ -762,11 +763,14 @@ mod discovery_windows {
     pub fn bond_state(bt_addr: u64) -> Option<BondState> {
         let want = bt_addr & 0xFFFF_FFFF_FFFF;
         let devices = enumerate_via_bluetooth_find().ok()?;
-        devices.into_iter().find(|d| d.bt_addr == want).map(|d| BondState {
-            remembered: d.remembered || d.paired,
-            authenticated: d.authenticated,
-            connected: d.connected,
-        })
+        devices
+            .into_iter()
+            .find(|d| d.bt_addr == want)
+            .map(|d| BondState {
+                remembered: d.remembered || d.paired,
+                authenticated: d.authenticated,
+                connected: d.connected,
+            })
     }
 
     pub fn remove_bond(bt_addr: u64) -> Result<(), TransportError> {

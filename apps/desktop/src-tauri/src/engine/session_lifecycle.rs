@@ -271,15 +271,25 @@ impl StandEngine {
     /// clear probe shots from the live UI, and start the scored series.
     pub fn finish_probe(&self, app: &AppHandle) -> Result<LiveState, String> {
         self.finish_probe_transition(|probe_shots, shooter| {
-            self.emit_live(app, Some(format!("Wertung läuft — Probe beendet ({probe_shots} Probeschüsse)")));
-            if let Err(error) = app.emit("probe_finished",
-                serde_json::json!({ "probeShots": probe_shots, "shooterName": shooter })) {
+            self.emit_live(
+                app,
+                Some(format!(
+                    "Wertung läuft — Probe beendet ({probe_shots} Probeschüsse)"
+                )),
+            );
+            if let Err(error) = app.emit(
+                "probe_finished",
+                serde_json::json!({ "probeShots": probe_shots, "shooterName": shooter }),
+            ) {
                 eprintln!("Probewechsel konnte nicht angezeigt werden: {error}");
             }
         })
     }
 
-    fn finish_probe_transition(&self, notify: impl FnOnce(i64, String)) -> Result<LiveState, String> {
+    fn finish_probe_transition(
+        &self,
+        notify: impl FnOnce(i64, String),
+    ) -> Result<LiveState, String> {
         let _transition = self.ingest_gate.lock();
         let (session_id, probe_shots, shooter) = {
             let g = self.inner.lock();
@@ -337,7 +347,9 @@ impl StandEngine {
                 if retired.swap_remove(index).join().is_err() {
                     eprintln!("Beendeter Poll-Worker ist fehlgeschlagen");
                 }
-            } else { index += 1; }
+            } else {
+                index += 1;
+            }
         }
         drop(retired);
         let mut g = self.inner.lock();
@@ -349,7 +361,9 @@ impl StandEngine {
         let _lifecycle = self.lifecycle_gate.lock();
         self.stop_worker();
         for worker in std::mem::take(&mut *self.retired_workers.lock()) {
-            if worker.join().is_err() { eprintln!("Poll-Worker beim Shutdown fehlgeschlagen"); }
+            if worker.join().is_err() {
+                eprintln!("Poll-Worker beim Shutdown fehlgeschlagen");
+            }
         }
     }
 
@@ -376,9 +390,15 @@ impl StandEngine {
 
         if let Some((id, ended_at, entry_id, competition_id, endless, shot_count)) = session_meta {
             if ended_at.is_none() {
-                let save_info = self.with_db(|db| db.finish_live_session(
-                    &id, entry_id.as_deref(), competition_id.is_none(), endless, shot_count,
-                ))?;
+                let save_info = self.with_db(|db| {
+                    db.finish_live_session(
+                        &id,
+                        entry_id.as_deref(),
+                        competition_id.is_none(),
+                        endless,
+                        shot_count,
+                    )
+                })?;
                 let mut g = self.inner.lock();
                 if let Some(s) = g.session.as_mut() {
                     s.ended_at = Some(chrono::Utc::now().to_rfc3339());
@@ -610,10 +630,14 @@ mod probe_tests {
         let (notified, notification) = mpsc::channel();
         let (release, wait_release) = mpsc::channel();
         let transition_engine = engine.clone();
-        let transition = std::thread::spawn(move || transition_engine.finish_probe_transition(|_, _| {
-            notified.send(()).unwrap();
-            wait_release.recv().unwrap();
-        }).unwrap());
+        let transition = std::thread::spawn(move || {
+            transition_engine
+                .finish_probe_transition(|_, _| {
+                    notified.send(()).unwrap();
+                    wait_release.recv().unwrap();
+                })
+                .unwrap()
+        });
         notification.recv_timeout(Duration::from_secs(2)).unwrap();
         assert!(engine.ingest_gate.try_lock().is_none());
         let ingest_engine = engine.clone();
@@ -621,15 +645,26 @@ mod probe_tests {
         let ingest = std::thread::spawn(move || {
             ready.send(()).unwrap();
             let _gate = ingest_engine.ingest_gate.lock();
-            let frame = crate::protocol::build_synthetic_shot_frame("10.0", "001.00", "00001", "00002").unwrap();
-            let crate::arena::IngestOutcome::Accepted(a) = ingest_engine.with_db_mut(|db|
-                db.ingest_raw_frame(&session.id, &frame, "test", None)).unwrap() else { panic!("shot rejected") };
+            let frame =
+                crate::protocol::build_synthetic_shot_frame("10.0", "001.00", "00001", "00002")
+                    .unwrap();
+            let crate::arena::IngestOutcome::Accepted(a) = ingest_engine
+                .with_db_mut(|db| db.ingest_raw_frame(&session.id, &frame, "test", None))
+                .unwrap()
+            else {
+                panic!("shot rejected")
+            };
             assert_eq!(a.shot_index, 1);
             ingest_engine.apply_shot(UiShot {
-                shot_index: 1, value_raw: a.value_raw, distance_raw: a.distance_raw,
-                x: a.x, y: a.y, value_display: a.score,
+                shot_index: 1,
+                value_raw: a.value_raw,
+                distance_raw: a.distance_raw,
+                x: a.x,
+                y: a.y,
+                value_display: a.score,
                 distance_display: a.distance_raw as f64 / 10.0,
-                series_total: a.series_total, series_teiler_total: a.series_teiler_total,
+                series_total: a.series_total,
+                series_teiler_total: a.series_teiler_total,
             });
         });
         wait_ready.recv_timeout(Duration::from_secs(2)).unwrap();

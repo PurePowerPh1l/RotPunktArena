@@ -82,8 +82,14 @@ pub(crate) fn run_poll_loop(
         let was_pending = diag && provenance.has_open_frame();
 
         let mut buf = [0u8; 256];
-        let outcome =
-            read::read_chunk(&app, &engine, generation, transport.as_mut(), &mut buf, diag);
+        let outcome = read::read_chunk(
+            &app,
+            &engine,
+            generation,
+            transport.as_mut(),
+            &mut buf,
+            diag,
+        );
         let Some(n) = outcome.n else {
             break;
         };

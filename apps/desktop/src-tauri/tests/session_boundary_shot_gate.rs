@@ -2,9 +2,7 @@
 //!
 //! Fanout/Epoch/Pause-ACK: `connection::session_boundary_shot_gate_tests`.
 
-use reddot_desktop_lib::{
-    build_synthetic_shot_frame, ArenaDb, IngestOutcome,
-};
+use reddot_desktop_lib::{build_synthetic_shot_frame, ArenaDb, IngestOutcome};
 
 fn unique_frame(i: u32) -> Vec<u8> {
     let x = format!("{i:05}");
@@ -80,7 +78,10 @@ fn t5_ingest_after_end_session_must_not_accept() {
         o => panic!("expected SessionInactive, got {o:?}"),
     }
     assert_eq!(db.count_session_shots(&session.id).unwrap(), before_shots);
-    assert_eq!(db.count_events_kind("shot_received").unwrap(), before_events);
+    assert_eq!(
+        db.count_events_kind("shot_received").unwrap(),
+        before_events
+    );
     assert_eq!(db.count_frames().unwrap(), before_frames);
 }
 
