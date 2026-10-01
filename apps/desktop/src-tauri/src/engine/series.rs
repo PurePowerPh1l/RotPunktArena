@@ -30,6 +30,8 @@ impl StandEngine {
         use crate::arena::IngestOutcome;
         use crate::protocol::{build_synthetic_shot_frame, stamp_frame_nonce};
 
+        let transition = self.ingest_gate.lock();
+
         {
             let g = self.inner.lock();
             if g.series_complete {
@@ -94,6 +96,7 @@ impl StandEngine {
         };
         self.apply_shot(ui.clone());
         let _ = app.emit("shot", ui);
+        drop(transition);
         self.finish_series_if_needed(app, accepted.shot_index as i64)?;
         Ok(self.snapshot())
     }

@@ -29,6 +29,7 @@ pub(super) fn handle_shot_frame(
     latency_trace: Option<TracedShotFrame>,
 ) -> bool {
     emit::ensure_connected(app, engine, generation, transport, connected);
+    let transition = engine.ingest_gate.lock();
 
     // Fast poll gate (not sole authority — Arena re-checks ended_at in TX).
     let poll_ok = still_active() && engine.poll_session_accepting(session_id);
@@ -83,6 +84,7 @@ pub(super) fn handle_shot_frame(
                     );
                 }
             }
+            drop(transition);
             if let Err(error) = engine.finish_series_if_needed(app, i64::from(accepted.shot_index))
             {
                 report_completion_failure(app, engine, error);
@@ -108,6 +110,7 @@ pub(super) fn handle_shot_frame(
             max_shots,
             current_shots,
         }) => {
+            drop(transition);
             if let Err(error) = engine.finish_series_if_needed(app, current_shots) {
                 report_completion_failure(app, engine, error);
                 return true;
