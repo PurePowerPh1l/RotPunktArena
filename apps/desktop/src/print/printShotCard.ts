@@ -69,7 +69,7 @@ ${PRINT_BASE_CSS}
 </html>`;
 }
 
-/** Opens a print preview with target face + shot table. */
+/** Prints the target face and shot table through the system dialog. */
 export function printShotCard(input: ShotCardPrintInput): void {
   if (input.shots.length === 0) return;
   openPrintHtml(buildHtml(input));

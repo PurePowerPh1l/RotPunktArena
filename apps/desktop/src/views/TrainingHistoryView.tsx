@@ -37,7 +37,7 @@ import {
   fmtDelta,
 } from "../training/stats";
 import { computeTransfer } from "../training/transfer";
-import { printTrainingHistorySheet } from "../print/printSheets";
+import { printShotCard } from "../print/printShotCard";
 import { createRequestSeq } from "../lib/requestSeq";
 import * as api from "../api/commands";
 import { useAsyncAction } from "../hooks/useAsyncAction";
@@ -102,9 +102,9 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
   );
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [latestShots, setLatestShots] = useState<
-    TrainingSessionDetail["shots"] | null
-  >(null);
+  const [latestDetail, setLatestDetail] = useState<TrainingSessionDetail | null>(null);
+  const [latestDetailError, setLatestDetailError] = useState<string | null>(null);
+  const [detailDisplayMode, setDetailDisplayMode] = useState<ScoreDisplayMode>("punkte");
   const [compBests, setCompBests] = useState<EntryResultSummary[]>([]);
   const [compLoading, setCompLoading] = useState(false);
   const loadSeq = useRef(createRequestSeq()).current;
@@ -168,7 +168,8 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
     setSelectedSessionId(null);
     setDetailView(null);
     setDetailError(null);
-    setLatestShots(null);
+    setLatestDetail(null);
+    setLatestDetailError(null);
   }, [filter]);
 
   useEffect(() => {
@@ -305,8 +306,8 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
     [windowedSessions],
   );
   const insights = useMemo(
-    () => computeFormInsights(windowedSessions, latestShots),
-    [windowedSessions, latestShots],
+    () => computeFormInsights(windowedSessions, latestDetail?.shots ?? null),
+    [windowedSessions, latestDetail],
   );
   const transfer = useMemo(() => {
     if (!personId) return null;
@@ -325,14 +326,27 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
       ? "Alle Schützen"
       : shooters.find((s) => filterKeyOf(s) === filter)?.shooterName ?? "Schütze";
 
+  // Match the current selection by ID: detailView is retained for the close
+  // animation and can still contain a previous series while a new one loads.
+  const printDetail = selectedSessionId
+    ? !detailLoading && detailView?.summary.id === selectedSessionId
+      ? detailView
+      : null
+    : !loading && latestDetail?.summary.id === newestFirst[0]?.id
+      ? latestDetail
+      : null;
+
   const doPrint = useCallback(() => {
-    if (section !== "training" || windowedSessions.length === 0) return;
-    printTrainingHistorySheet({
-      title: "Trainingshistorie",
-      filterLabel,
-      sessions: windowedSessions,
+    if (section !== "training" || actionBusy || !printDetail?.shots.length) return;
+    printShotCard({
+      shooterName: printDetail.summary.shooterName,
+      modeLabel: "Training",
+      shots: printDetail.shots,
+      seriesTotal: printDetail.summary.punkteTotal,
+      maxShots: printDetail.summary.shotCount,
+      displayMode: detailDisplayMode,
     });
-  }, [filterLabel, section, windowedSessions]);
+  }, [section, actionBusy, printDetail, detailDisplayMode]);
 
   usePrintHotkey(section === "training" ? doPrint : null);
 
@@ -377,21 +391,26 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
     filter.startsWith("name:") &&
     Boolean(shooters.find((s) => filterKeyOf(s) === filter && !s.personId));
 
-  // Prefetch last series shots for streak chips.
+  // Prefetch the last series for streak chips and synchronous system printing.
   useEffect(() => {
     const latestId = newestFirst[0]?.id;
     if (!latestId || loading) {
-      setLatestShots(null);
+      setLatestDetail(null);
+      setLatestDetailError(null);
       return;
     }
     let cancelled = false;
+    setLatestDetailError(null);
     void (async () => {
       try {
         const d = await api.getTrainingSessionDetail(latestId);
         if (cancelled) return;
-        setLatestShots(d?.shots ?? null);
-      } catch {
-        if (!cancelled) setLatestShots(null);
+        setLatestDetail(d);
+        if (!d) setLatestDetailError("Letzte Serie nicht gefunden");
+      } catch (e) {
+        if (cancelled) return;
+        setLatestDetail(null);
+        setLatestDetailError(`Schussdaten der letzten Serie konnten nicht geladen werden: ${String(e)}`);
       }
     })();
     return () => {
@@ -510,7 +529,10 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
             >
               <TrainingSeriesDetail
                 detail={detailView}
-                loading={detailLoading}
+                loading={detailLoading || actionBusy || detailView?.summary.id !== selectedSessionId}
+                displayMode={detailDisplayMode}
+                onDisplayModeChange={setDetailDisplayMode}
+                onPrint={doPrint}
                 onClose={closeDetail}
               />
             </ExpandSlot>
@@ -520,12 +542,13 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
               newestFirst={newestFirst}
               loading={loading}
               busy={actionBusy}
+              printDisabled={!printDetail?.shots.length}
               bestSerie={stats.bestSerie}
               sessionCount={stats.sessionCount}
               lastPulse={lastPulse}
               selectedId={selectedSessionId}
               detailLoading={detailLoading && !detailView}
-              detailError={detailError}
+              detailError={selectedSessionId ? detailError : latestDetailError}
               onSelect={(id) => void openSession(id)}
               onPrint={doPrint}
               onClear={() => void clearHistory()}

@@ -10,6 +10,7 @@ type Props = {
   newestFirst: TrainingSessionSummary[];
   loading: boolean;
   busy?: boolean;
+  printDisabled?: boolean;
   bestSerie: number;
   sessionCount: number;
   /** Soft pulse for the newest saved series (XP / Schnitt-Hinweis). */
@@ -28,6 +29,7 @@ export function TrainingSeriesPanel({
   newestFirst,
   loading,
   busy = false,
+  printDisabled = false,
   bestSerie,
   sessionCount,
   lastPulse = null,
@@ -94,9 +96,11 @@ export function TrainingSeriesPanel({
           <button
             type="button"
             className="secondary"
-            disabled={busy || sessions.length === 0}
+            disabled={busy || printDisabled || sessions.length === 0}
             onClick={onPrint}
-            title="Strg+P"
+            title={selectedId
+              ? "Ausgewählte Serie mit Schussbild drucken (Strg+P)"
+              : "Letzte Serie mit Schussbild drucken (Strg+P)"}
           >
             <IconPrint /> Drucken
           </button>
@@ -204,7 +208,7 @@ export function TrainingSeriesPanel({
         </p>
       ) : (
         <>
-          <div className="hist-table-wrap hist-table-wrap-compact">
+          <div className="hist-table-wrap">
             <table className="hist-table">
               <thead>
                 <tr>
@@ -256,12 +260,10 @@ export function TrainingSeriesPanel({
               </tbody>
             </table>
           </div>
-          {newestFirst.length > 2 ? (
-            <p className="hint hist-table-more">
-              {newestFirst.length - 2} weitere Serie
-              {newestFirst.length - 2 === 1 ? "" : "n"} — in der Liste scrollen
-            </p>
-          ) : null}
+          <p className="hint hist-table-more">
+            {newestFirst.length} gespeicherte Serie
+            {newestFirst.length === 1 ? "" : "n"}
+          </p>
         </>
       )}
     </section>

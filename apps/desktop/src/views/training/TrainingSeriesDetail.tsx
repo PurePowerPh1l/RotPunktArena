@@ -9,21 +9,25 @@ import {
 import { IconPrint } from "../../components/UiIcons";
 import { bestShotOf } from "../../hooks/useScoreDisplay";
 import { formatScoreCompact } from "../../lib/format";
-import { printShotCard } from "../../print/printShotCard";
 import { fmtStat } from "../../training/stats";
 
 type Props = {
   detail: TrainingSessionDetail | null;
   onClose: () => void;
   loading?: boolean;
+  displayMode: ScoreDisplayMode;
+  onDisplayModeChange: (mode: ScoreDisplayMode) => void;
+  onPrint: () => void;
 };
 
 export function TrainingSeriesDetail({
   detail,
   onClose,
   loading = false,
+  displayMode,
+  onDisplayModeChange,
+  onPrint,
 }: Props) {
-  const [displayMode, setDisplayMode] = useState<ScoreDisplayMode>("punkte");
   const [focusShot, setFocusShot] = useState<number | null>(null);
 
   useEffect(() => {
@@ -80,7 +84,7 @@ export function TrainingSeriesDetail({
             size="sm"
             ariaLabel="Kennzahl Detail"
             value={displayMode}
-            onChange={setDisplayMode}
+            onChange={onDisplayModeChange}
             options={[
               { value: "punkte", label: "Punkte" },
               { value: "teiler", label: "Teiler" },
@@ -90,16 +94,7 @@ export function TrainingSeriesDetail({
             type="button"
             className="secondary"
             disabled={shots.length === 0 || loading}
-            onClick={() =>
-              printShotCard({
-                shooterName: detail.summary.shooterName,
-                modeLabel: "Training",
-                shots,
-                seriesTotal: detail.summary.punkteTotal,
-                maxShots: detail.summary.shotCount,
-                displayMode,
-              })
-            }
+            onClick={onPrint}
           >
             <IconPrint /> Drucken
           </button>
