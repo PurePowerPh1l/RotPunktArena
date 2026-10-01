@@ -34,7 +34,7 @@ pub fn create_db_backup(
 ) -> Result<DbBackupInfo, String> {
     let dir = backups_dir(&app)?;
     let stamp = Local::now().format("%Y%m%d-%H%M%S");
-    let name = format!("reddot-{stamp}.sqlite");
+    let name = format!("reddot-{stamp}-{}.sqlite", uuid::Uuid::new_v4());
     let dest = dir.join(&name);
     engine.with_db(|db| db.vacuum_into(&dest))?;
     let meta = std::fs::metadata(&dest).map_err(|e| e.to_string())?;

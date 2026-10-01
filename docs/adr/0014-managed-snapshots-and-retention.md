@@ -23,3 +23,10 @@ Windows-Dateisperren bei Veröffentlichung und Restore mit absichtlich
 verzögertem altem Worker. Ein separater UI-Sicherungsstatus mit Wiederholung
 und Langzeitmessung bleiben dokumentierte P2-Nacharbeiten; eprintln wird
 damit noch nicht zu einem vollständigen rotierenden Betriebslog.
+
+VACUUM-Exporte reservieren ausschließlich neue Dateien, prüfen anschließend
+die Integrität und synchronisieren das Ergebnis. Bereits existierende Backups
+werden auch bei Fehlern nicht überschrieben. Benutzerbackups erhalten UUID-
+Namen zusätzlich zum Zeitstempel, sodass zwei Aufrufe in derselben Sekunde
+keine Sicherung verlieren. Ein Regressionstest prüft beide Fälle. Ein Live-
+Checkpoint ist für den konsistenten VACUUM-Export nicht erforderlich.
