@@ -23,6 +23,16 @@ impl StandEngine {
         app: AppHandle,
         args: StartSessionArgs,
     ) -> Result<LiveState, String> {
+        let _lifecycle = self.lifecycle_gate.lock();
+        let _transition = self.ingest_gate.lock();
+        self.start_session_locked(app, args)
+    }
+
+    fn start_session_locked(
+        self: &Arc<Self>,
+        app: AppHandle,
+        args: StartSessionArgs,
+    ) -> Result<LiveState, String> {
         if self.is_running() {
             return Ok(self.snapshot());
         }
@@ -36,7 +46,7 @@ impl StandEngine {
             g.session.as_ref().is_some_and(|s| s.ended_at.is_none())
         };
         if stale_open {
-            self.end_session()?;
+            self.end_session_locked()?;
         }
 
         self.stop_worker();
@@ -57,12 +67,13 @@ impl StandEngine {
         };
         let last_port = self.log.lock().get_setting("last_port")?;
         let (session, max_shots, probe) = self.with_db(|db| {
-            db.start_live_session(
+            db.start_live_session_with_source(
                 &name,
                 args.competition_id.as_deref(),
                 args.entry_id.as_deref(),
                 args.person_id.as_deref(),
                 training_limit,
+                args.use_simulator,
             )
         })?;
 
@@ -129,6 +140,8 @@ impl StandEngine {
         session_id: &str,
         use_simulator: bool,
     ) -> Result<LiveState, String> {
+        let _lifecycle = self.lifecycle_gate.lock();
+        let _transition = self.ingest_gate.lock();
         if self.is_running() {
             return Err("Es läuft bereits eine Session — zuerst beenden".into());
         }
@@ -140,6 +153,9 @@ impl StandEngine {
             .ok_or_else(|| "Session nicht gefunden".to_string())?;
         if session.ended_at.is_some() {
             return Err("Session ist bereits beendet".into());
+        }
+        if session.simulated != use_simulator {
+            return Err("Recovery muss denselben Hardware-/Simulatormodus wie die gespeicherte Session verwenden".into());
         }
         let open = self.with_db(|db| db.list_unclean_sessions())?;
         if !open.iter().any(|id| id == session_id) {
@@ -217,7 +233,7 @@ impl StandEngine {
             g.port = None;
             g.auto_fire = false;
             g.max_shots = max_shots;
-            g.series_complete = series_complete;
+            g.series_complete = false;
             g.endless_mode = false;
             g.probe_active = probe;
             g.last_training_save = None;
@@ -227,10 +243,7 @@ impl StandEngine {
 
         if series_complete {
             // Already at limit — do not restart poll; leave disconnected after close.
-            let _ = self.end_session()?;
-            let mut g = self.inner.lock();
-            g.series_complete = true;
-            return Ok(self.snapshot());
+            return self.close_completed_series_locked();
         }
 
         let last_port = self.log.lock().get_setting("last_port")?;
@@ -267,6 +280,27 @@ impl StandEngine {
     /// End the probe phase ("Wertung beginnen"): persist `match` phase,
     /// clear probe shots from the live UI, and start the scored series.
     pub fn finish_probe(&self, app: &AppHandle) -> Result<LiveState, String> {
+        self.finish_probe_transition(|probe_shots, shooter| {
+            self.emit_live(
+                app,
+                Some(format!(
+                    "Wertung läuft — Probe beendet ({probe_shots} Probeschüsse)"
+                )),
+            );
+            if let Err(error) = app.emit(
+                "probe_finished",
+                serde_json::json!({ "probeShots": probe_shots, "shooterName": shooter }),
+            ) {
+                eprintln!("Probewechsel konnte nicht angezeigt werden: {error}");
+            }
+        })
+    }
+
+    fn finish_probe_transition(
+        &self,
+        notify: impl FnOnce(i64, String),
+    ) -> Result<LiveState, String> {
+        let _transition = self.ingest_gate.lock();
         let (session_id, probe_shots, shooter) = {
             let g = self.inner.lock();
             let s = g
@@ -280,16 +314,7 @@ impl StandEngine {
             (s.id.clone(), g.shots.len() as i64, s.shooter_name.clone())
         };
 
-        self.with_db_mut(|db| {
-            db.set_session_phase(&session_id, crate::db::session_phase::MATCH)?;
-            db.append_event(
-                &session_id,
-                crate::db::event_kind::PROBE_FINISHED,
-                "operator",
-                serde_json::json!({ "probeShots": probe_shots }),
-            )?;
-            Ok::<(), String>(())
-        })?;
+        self.with_db(|db| db.finish_probe_phase(&session_id, probe_shots))?;
 
         {
             let mut g = self.inner.lock();
@@ -299,45 +324,70 @@ impl StandEngine {
             g.series_teiler_total = 0.0;
             g.series_complete = false;
         }
-        let _ = app.emit(
-            "probe_finished",
-            serde_json::json!({ "probeShots": probe_shots, "shooterName": shooter }),
-        );
+        notify(probe_shots, shooter);
         Ok(self.snapshot())
     }
 
     /// Close interrupted session (Recovery Gate) or current live session via shared DB path.
     pub fn close_interrupted_session(&self, session_id: &str) -> Result<LiveState, String> {
+        let _transition = self.ingest_gate.lock();
         let current_id = {
             let g = self.inner.lock();
             g.session.as_ref().map(|s| s.id.clone())
         };
         if current_id.as_deref() == Some(session_id) {
-            return self.end_session();
+            return self.end_session_locked();
         }
         self.with_db_mut(|db| db.close_interrupted_session(session_id))?;
         Ok(self.snapshot())
     }
 
-    /// Signal stop and detach join — never block the UI/command thread.
+    /// Signal stop; retain handles for the maintenance shutdown barrier.
     pub fn stop_worker(&self) {
         self.stop.store(true, Ordering::SeqCst);
         self.generation.fetch_add(1, Ordering::SeqCst);
         self.sim_control.notify();
         if let Some(h) = self.worker.lock().take() {
-            thread::spawn(move || {
-                let _ = h.join();
-            });
+            self.retired_workers.lock().push(h);
         }
+        // A worker can call stop itself. Only join handles already finished here.
+        let mut retired = self.retired_workers.lock();
+        let mut index = 0;
+        while index < retired.len() {
+            if retired[index].is_finished() {
+                if retired.swap_remove(index).join().is_err() {
+                    eprintln!("Beendeter Poll-Worker ist fehlgeschlagen");
+                }
+            } else {
+                index += 1;
+            }
+        }
+        drop(retired);
         let mut g = self.inner.lock();
         g.status = ConnectionStatus::Disconnected;
         g.auto_fire = false;
+    }
+
+    pub fn shutdown(&self) {
+        let _lifecycle = self.lifecycle_gate.lock();
+        self.stop_worker();
+        for worker in std::mem::take(&mut *self.retired_workers.lock()) {
+            if worker.join().is_err() {
+                eprintln!("Poll-Worker beim Shutdown fehlgeschlagen");
+            }
+        }
     }
 
     /// Idempotent: safe if already stopped / no open session.
     /// Training history uses [`Database::maybe_save_training_history`] (DB count + min shots).
     /// Endless training never sets `training_saved` (no history / stats).
     pub fn end_session(&self) -> Result<LiveState, String> {
+        let _transition = self.ingest_gate.lock();
+        self.end_session_locked()
+    }
+
+    /// Caller owns ingest_gate; start/resume also own lifecycle_gate first.
+    pub(super) fn end_session_locked(&self) -> Result<LiveState, String> {
         let session_meta = {
             let g = self.inner.lock();
             g.session.as_ref().map(|s| {
@@ -356,9 +406,15 @@ impl StandEngine {
 
         if let Some((id, ended_at, entry_id, competition_id, endless, shot_count)) = session_meta {
             if ended_at.is_none() {
-                let save_info = self.with_db(|db| db.finish_live_session(
-                    &id, entry_id.as_deref(), competition_id.is_none(), endless, shot_count,
-                ))?;
+                let save_info = self.with_db(|db| {
+                    db.finish_live_session(
+                        &id,
+                        entry_id.as_deref(),
+                        competition_id.is_none(),
+                        endless,
+                        shot_count,
+                    )
+                })?;
                 let mut g = self.inner.lock();
                 if let Some(s) = g.session.as_mut() {
                     s.ended_at = Some(chrono::Utc::now().to_rfc3339());
@@ -372,6 +428,7 @@ impl StandEngine {
     /// Optional early save: end (if still open) and ensure training history flag.
     /// Prefer `end_session` — it applies the same smart save policy.
     pub fn save_training_session(&self) -> Result<LiveState, String> {
+        let _transition = self.ingest_gate.lock();
         let (id, competition_id, already_ended, endless) = {
             let g = self.inner.lock();
             let s = g
@@ -392,7 +449,7 @@ impl StandEngine {
             return Err("Endlosmodus wird nicht in der Statistik gespeichert".into());
         }
         if !already_ended {
-            return self.end_session();
+            return self.end_session_locked();
         }
         let info = self.with_db(|db| db.maybe_save_training_history(&id, true))?;
         {
@@ -451,7 +508,7 @@ impl StandEngine {
             self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
         }
         if let Some(shot_index) = finish_at {
-            self.finish_series_if_needed(app, shot_index);
+            self.finish_series_if_needed(app, shot_index)?;
         }
         Ok(self.snapshot())
     }
@@ -495,13 +552,22 @@ impl StandEngine {
             self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
         }
         if let Some(shot_index) = finish_at {
-            self.finish_series_if_needed(app, shot_index);
+            self.finish_series_if_needed(app, shot_index)?;
         }
         Ok(self.snapshot())
     }
 
     /// End current training series (smart-saved if enough shots) and open a fresh session.
     pub fn reset_training_series(self: &Arc<Self>, app: AppHandle) -> Result<LiveState, String> {
+        self.reset_training_transition(|args| self.start_session_locked(app, args))
+    }
+
+    fn reset_training_transition(
+        &self,
+        start: impl FnOnce(StartSessionArgs) -> Result<LiveState, String>,
+    ) -> Result<LiveState, String> {
+        let _lifecycle = self.lifecycle_gate.lock();
+        let _transition = self.ingest_gate.lock();
         let (name, use_simulator, competition_id, person_id, endless) = {
             let g = self.inner.lock();
             let s = g
@@ -519,9 +585,9 @@ impl StandEngine {
         if competition_id.is_some() {
             return Err("Zurücksetzen nur im Training".into());
         }
-        let ended = self.end_session()?;
+        let ended = self.end_session_locked()?;
         let save = ended.training_save.clone();
-        // Force start even if a race left status non-disconnected
+        // Clear the ended projection while the complete reset owns the transition.
         {
             let mut g = self.inner.lock();
             g.status = ConnectionStatus::Disconnected;
@@ -535,22 +601,19 @@ impl StandEngine {
             // Preserve outcome through start_session (which does not clear it).
             g.last_training_save = save.clone();
         }
-        let state = self.start_session(
-            app,
-            StartSessionArgs {
-                shooter_name: name,
-                use_simulator,
-                competition_id: None,
-                entry_id: None,
-                person_id,
-                endless,
-            },
-        )?;
+        start(StartSessionArgs {
+            shooter_name: name,
+            use_simulator,
+            competition_id: None,
+            entry_id: None,
+            person_id,
+            endless,
+        })?;
         if save.is_some() {
             let mut g = self.inner.lock();
             g.last_training_save = save;
         }
-        Ok(state)
+        Ok(self.snapshot())
     }
 
     fn emit_connection(&self, app: &AppHandle) {
@@ -564,5 +627,190 @@ impl StandEngine {
                 detail: None,
             },
         );
+        drop(g);
+        self.emit_live(app, None);
+    }
+}
+
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+    use crate::db::Database;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    #[test]
+    fn targeted_interrupted_close_preserves_other_current_session_and_is_idempotent() {
+        let db = Database::open_in_memory().unwrap();
+        let (old, _, _) = db
+            .start_live_session("Old", None, None, None, Some(5))
+            .unwrap();
+        let (current, _, _) = db
+            .start_live_session("Current", None, None, None, Some(5))
+            .unwrap();
+        let engine = Arc::new(StandEngine::new(db));
+        engine.inner.lock().session = Some(current.clone());
+        let state = engine.close_interrupted_session(&old.id).unwrap();
+        assert_eq!(state.session_id.as_deref(), Some(current.id.as_str()));
+        assert!(state.session.unwrap().ended_at.is_none());
+        assert!(engine
+            .with_db(|db| db.get_session(&old.id))
+            .unwrap()
+            .unwrap()
+            .ended_at
+            .is_some());
+        let (send, receive) = mpsc::channel();
+        let closing = engine.clone();
+        let id = current.id.clone();
+        std::thread::spawn(move || send.send(closing.close_interrupted_session(&id)).unwrap());
+        assert!(receive
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap()
+            .unwrap()
+            .session
+            .unwrap()
+            .ended_at
+            .is_some());
+        engine.close_interrupted_session(&current.id).unwrap();
+        assert_eq!(
+            engine
+                .with_db(|db| db.count_events_kind(crate::db::event_kind::SESSION_ENDED))
+                .unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn complete_reset_owns_maintenance_barrier_until_new_session_is_installed() {
+        let directory =
+            std::env::temp_dir().join(format!("reddot-reset-barrier-{}", uuid::Uuid::new_v4()));
+        let db = Database::open(directory.join("live.sqlite")).unwrap();
+        let (session, _, _) = db
+            .start_live_session("Reset", None, None, None, Some(5))
+            .unwrap();
+        let engine = Arc::new(StandEngine::new(db));
+        engine.inner.lock().session = Some(session.clone());
+        let (entered, waiting) = mpsc::channel();
+        let (release, resume) = mpsc::channel();
+        let resetting = engine.clone();
+        let reset = std::thread::spawn(move || {
+            resetting.reset_training_transition(|args| {
+                entered.send(()).unwrap();
+                resume.recv().unwrap();
+                let (next, limit, probe) = resetting.with_db(|db| {
+                    db.start_live_session_with_source(
+                        &args.shooter_name,
+                        None,
+                        None,
+                        None,
+                        Some(5),
+                        args.use_simulator,
+                    )
+                })?;
+                {
+                    let mut state = resetting.inner.lock();
+                    state.session = Some(next);
+                    state.max_shots = limit;
+                    state.probe_active = probe;
+                    state.status = ConnectionStatus::Searching;
+                }
+                Ok(resetting.snapshot())
+            })
+        });
+        waiting.recv_timeout(Duration::from_secs(2)).unwrap();
+        let maintaining = engine.clone();
+        let (finished, result) = mpsc::channel();
+        let maintenance = std::thread::spawn(move || {
+            finished
+                .send(maintaining.reset_database_to_empty())
+                .unwrap()
+        });
+        assert!(result.recv_timeout(Duration::from_millis(100)).is_err());
+        release.send(()).unwrap();
+        let next = reset.join().unwrap().unwrap().session.unwrap();
+        assert_ne!(next.id, session.id);
+        assert!(result
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .is_err());
+        maintenance.join().unwrap();
+        assert!(engine
+            .with_db(|db| db.get_session(&session.id))
+            .unwrap()
+            .unwrap()
+            .ended_at
+            .is_some());
+        assert!(engine
+            .with_db(|db| db.get_session(&next.id))
+            .unwrap()
+            .unwrap()
+            .ended_at
+            .is_none());
+        // The real boundary requests also own snapshot jobs. Wait/invalidate
+        // them before removing the isolated test directory on Windows.
+        let _snapshots = crate::db::pause_snapshots();
+        drop(engine);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn ingest_waits_for_probe_commit_projection_reset_and_notification() {
+        let mut db = Database::open_in_memory().unwrap();
+        let session = db.start_session("Fixture", None, None, None).unwrap();
+        db.set_session_phase(&session.id, "probe").unwrap();
+        let engine = Arc::new(StandEngine::new(db));
+        {
+            let mut state = engine.inner.lock();
+            state.session = Some(session.clone());
+            state.probe_active = true;
+        }
+        let (notified, notification) = mpsc::channel();
+        let (release, wait_release) = mpsc::channel();
+        let transition_engine = engine.clone();
+        let transition = std::thread::spawn(move || {
+            transition_engine
+                .finish_probe_transition(|_, _| {
+                    notified.send(()).unwrap();
+                    wait_release.recv().unwrap();
+                })
+                .unwrap()
+        });
+        notification.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(engine.ingest_gate.try_lock().is_none());
+        let ingest_engine = engine.clone();
+        let (ready, wait_ready) = mpsc::channel();
+        let ingest = std::thread::spawn(move || {
+            ready.send(()).unwrap();
+            let _gate = ingest_engine.ingest_gate.lock();
+            let frame =
+                crate::protocol::build_synthetic_shot_frame("10.0", "001.00", "00001", "00002")
+                    .unwrap();
+            let crate::arena::IngestOutcome::Accepted(a) = ingest_engine
+                .with_db_mut(|db| db.ingest_raw_frame(&session.id, &frame, "test", None))
+                .unwrap()
+            else {
+                panic!("shot rejected")
+            };
+            assert_eq!(a.shot_index, 1);
+            ingest_engine.apply_shot(UiShot {
+                shot_index: 1,
+                value_raw: a.value_raw,
+                distance_raw: a.distance_raw,
+                x: a.x,
+                y: a.y,
+                value_display: a.score,
+                distance_display: a.distance_raw as f64 / 10.0,
+                series_total: a.series_total,
+                series_teiler_total: a.series_teiler_total,
+            });
+        });
+        wait_ready.recv_timeout(Duration::from_secs(2)).unwrap();
+        release.send(()).unwrap();
+        assert!(!transition.join().unwrap().probe_active);
+        ingest.join().unwrap();
+        let state = engine.snapshot();
+        assert!(!state.probe_active);
+        assert_eq!(state.shots.len(), 1);
+        assert_eq!(state.series_total, 10.0);
     }
 }

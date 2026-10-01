@@ -3,6 +3,7 @@
  * Run: node --experimental-strip-types packages/domain/src/settings.selftest.ts
  */
 import { UI_PREFS_LOAD_PLACEHOLDER, type UiPrefs } from "./index.ts";
+import contract from "../../../fixtures/ui-prefs.json" with { type: "json" };
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
@@ -23,6 +24,8 @@ const expected: UiPrefs = {
   targetFit: "auto",
   trainingSeriesShots: 10,
 };
+
+assert(JSON.stringify(contract) === JSON.stringify(expected), "shared Rust/TypeScript preferences contract");
 
 assert(
   JSON.stringify(UI_PREFS_LOAD_PLACEHOLDER) === JSON.stringify(expected),

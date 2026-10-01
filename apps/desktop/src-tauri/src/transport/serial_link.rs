@@ -22,7 +22,11 @@ impl SerialLink {
             .parity(Parity::None)
             .stop_bits(StopBits::One)
             .flow_control(FlowControl::None)
-            .timeout(timeout.min(Duration::from_millis(200)).max(Duration::from_millis(50)))
+            .timeout(
+                timeout
+                    .min(Duration::from_millis(200))
+                    .max(Duration::from_millis(50)),
+            )
             .open()
             .map_err(|e| TransportError::Io(format!("COM {port_name}: {e}")))?;
         Ok(Self {
@@ -95,7 +99,7 @@ mod pnp_com {
     use std::ptr;
 
     #[repr(C)]
-    struct GUID {
+    struct GuidRaw {
         data1: u32,
         data2: u16,
         data3: u16,
@@ -105,7 +109,7 @@ mod pnp_com {
     #[repr(C)]
     struct SP_DEVINFO_DATA {
         cb_size: u32,
-        class_guid: GUID,
+        class_guid: GuidRaw,
         dev_inst: u32,
         reserved: usize,
     }
@@ -117,7 +121,7 @@ mod pnp_com {
     #[link(name = "setupapi")]
     extern "system" {
         fn SetupDiGetClassDevsW(
-            class_guid: *const GUID,
+            class_guid: *const GuidRaw,
             enumerator: *const u16,
             hwnd: *mut std::ffi::c_void,
             flags: u32,

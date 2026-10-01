@@ -5,19 +5,10 @@
 use crate::protocol::{Incoming, RedDotStreamParser};
 
 /// Coherent sink registration state (Owner-only; never split-read).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct SinkFanout {
     pub enabled: bool,
     pub epoch: u64,
-}
-
-impl Default for SinkFanout {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            epoch: 0,
-        }
-    }
 }
 
 /// One RX slice tagged with the fanout epoch at enqueue time.

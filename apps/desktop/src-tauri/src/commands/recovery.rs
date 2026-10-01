@@ -87,13 +87,10 @@ fn export_emergency_bundle_inner(
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
 
-    let staging = zip_path
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join(format!(
-            ".reddot-export-{}.sqlite",
-            chrono::Utc::now().timestamp_millis()
-        ));
+    let staging = zip_path.parent().unwrap_or(Path::new(".")).join(format!(
+        ".reddot-export-{}.sqlite",
+        chrono::Utc::now().timestamp_millis()
+    ));
 
     engine.with_db(|db| db.vacuum_into(&staging))?;
 
@@ -133,7 +130,10 @@ fn resolve_export_path(
     let exports = data_dir.join("exports");
     std::fs::create_dir_all(&exports).map_err(|e| e.to_string())?;
 
-    let name = match file_name.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+    let name = match file_name
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+    {
         Some(raw) => {
             if raw.contains(['/', '\\']) || raw.contains("..") {
                 return Err("Ungültiger Exportname".into());

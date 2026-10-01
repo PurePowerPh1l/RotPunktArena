@@ -16,6 +16,8 @@ pub mod recovery_state {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
+    #[serde(default)]
+    pub simulated: bool,
     pub id: String,
     pub shooter_name: String,
     pub started_at: String,
@@ -38,6 +40,30 @@ pub struct StoredEvent {
 }
 
 impl Database {
+    pub fn finish_probe_phase(&self, session_id: &str, probe_shots: i64) -> Result<(), String> {
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(|e| e.to_string())?;
+        let changed = tx.execute(
+            "UPDATE sessions SET phase = 'match' WHERE id = ?1 AND phase = 'probe' AND ended_at IS NULL",
+            params![session_id],
+        ).map_err(|e| e.to_string())?;
+        if changed != 1 {
+            return Err("Keine offene Probephase".into());
+        }
+        append_event_in_tx(
+            &tx,
+            session_id,
+            event_kind::PROBE_FINISHED,
+            "operator",
+            serde_json::json!({ "probeShots": probe_shots }),
+            None,
+        )?;
+        tx.commit().map_err(|e| e.to_string())
+    }
+
     pub fn start_session(
         &mut self,
         shooter_name: &str,
@@ -93,6 +119,14 @@ impl Database {
                 ],
             )
             .map_err(|e| e.to_string())?;
+        tx.execute("UPDATE sessions SET rules_origin='captured', rules_json =
+            (SELECT json_object('version', 1, 'tenthsEnabled', COALESCE(c.tenths_enabled, 1),
+             'maxShots', COALESCE(?2, c.max_shots), 'scoringMode', COALESCE(c.scoring_mode, 'ringe'),
+             'nachkaufEnabled', COALESCE(c.nachkauf_enabled, 0),
+             'teamScoringEnabled', COALESCE(c.team_scoring_enabled, 0), 'teamCount', COALESCE(c.team_count, 3),
+             'probeEnabled', COALESCE(c.probe_enabled, 0), 'discipline', COALESCE(c.discipline, 'training'))
+             FROM (SELECT 1) LEFT JOIN competitions c ON c.id = ?3) WHERE id = ?1",
+            params![id, max_shots, competition_id]).map_err(|e| e.to_string())?;
         let event = append_event_in_tx(
             tx,
             &id,
@@ -108,6 +142,7 @@ impl Database {
         )?;
         touch_autosave_in_tx(tx, &id, event.sequence, &started_at)?;
         let info = SessionInfo {
+            simulated: false,
             id,
             shooter_name: shooter_name.to_string(),
             started_at,
@@ -179,21 +214,32 @@ impl Database {
         state: &str,
         after_close: impl FnOnce(&Self) -> Result<T, String>,
     ) -> Result<Option<T>, String> {
-        let tx = self.conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| e.to_string())?;
         let ended_at = Utc::now().to_rfc3339();
-        let changed = tx.execute(
-            "UPDATE sessions SET ended_at = ?1, recovery_state = ?2, last_autosave_at = ?1
+        let changed = tx
+            .execute(
+                "UPDATE sessions SET ended_at = ?1, recovery_state = ?2, last_autosave_at = ?1
              WHERE id = ?3 AND ended_at IS NULL",
-            params![ended_at, state, session_id],
-        ).map_err(|e| e.to_string())?;
+                params![ended_at, state, session_id],
+            )
+            .map_err(|e| e.to_string())?;
         if changed == 0 {
             if self.get_session(session_id)?.is_none() {
                 return Err("Session nicht gefunden".into());
             }
             return Ok(None);
         }
-        append_event_in_tx(&tx, session_id, event_kind::SESSION_ENDED,
-            "system", serde_json::json!({}), None)?;
+        append_event_in_tx(
+            &tx,
+            session_id,
+            event_kind::SESSION_ENDED,
+            "system",
+            serde_json::json!({}),
+            None,
+        )?;
         let result = after_close(self)?;
         tx.commit().map_err(|e| e.to_string())?;
         self.spawn_session_boundary_snapshot(session_id);
@@ -206,8 +252,12 @@ impl Database {
     }
 
     pub fn finish_live_session(
-        &self, session_id: &str, entry_id: Option<&str>, is_training: bool,
-        endless: bool, shot_count: i64,
+        &self,
+        session_id: &str,
+        entry_id: Option<&str>,
+        is_training: bool,
+        endless: bool,
+        shot_count: i64,
     ) -> Result<super::TrainingSaveInfo, String> {
         let saved = self.finish_session(session_id, recovery_state::CLEAN, |db| {
             if let Some(entry_id) = entry_id {
@@ -215,7 +265,8 @@ impl Database {
             }
             if endless && is_training {
                 return Ok(super::TrainingSaveInfo {
-                    saved: false, shot_count,
+                    saved: false,
+                    shot_count,
                     min_shots: super::TRAINING_HISTORY_MIN_SHOTS,
                     reason: "endless".into(),
                 });
@@ -225,23 +276,36 @@ impl Database {
         match saved {
             Some(info) => Ok(info),
             None if endless && is_training => Ok(super::TrainingSaveInfo {
-                saved: false, shot_count,
+                saved: false,
+                shot_count,
                 min_shots: super::TRAINING_HISTORY_MIN_SHOTS,
                 reason: "endless".into(),
             }),
             None if !is_training => Ok(super::TrainingSaveInfo::not_training()),
             None => {
-                let (saved, max_shots): (i64, Option<i64>) = self.conn.query_row(
-                    "SELECT training_saved, max_shots FROM sessions WHERE id = ?1",
-                    params![session_id], |r| Ok((r.get(0)?, r.get(1)?)),
-                ).map_err(|e| e.to_string())?;
+                let (saved, max_shots): (i64, Option<i64>) = self
+                    .conn
+                    .query_row(
+                        "SELECT training_saved, max_shots FROM sessions WHERE id = ?1",
+                        params![session_id],
+                        |r| Ok((r.get(0)?, r.get(1)?)),
+                    )
+                    .map_err(|e| e.to_string())?;
                 let shot_count = self.count_session_shots(session_id)?;
-                let min_shots = max_shots.filter(|&n| n > 0)
+                let min_shots = max_shots
+                    .filter(|&n| n > 0)
                     .map(super::normalize_training_series_shots)
                     .unwrap_or(super::TRAINING_HISTORY_MIN_SHOTS);
                 Ok(super::TrainingSaveInfo {
-                    saved: saved != 0, shot_count, min_shots,
-                    reason: if saved != 0 { "saved" } else { "already_closed" }.into(),
+                    saved: saved != 0,
+                    shot_count,
+                    min_shots,
+                    reason: if saved != 0 {
+                        "saved"
+                    } else {
+                        "already_closed"
+                    }
+                    .into(),
                 })
             }
         }
@@ -413,17 +477,74 @@ mod finish_tests {
     use super::*;
 
     #[test]
+    fn probe_transition_rolls_back_phase_and_event_then_accepts_first_scored_shot() {
+        let mut db = Database::open_in_memory().unwrap();
+        let session = db.start_session("Probe fixture", None, None, None).unwrap();
+        db.set_session_phase(&session.id, super::super::session_phase::PROBE)
+            .unwrap();
+        let mut frame =
+            crate::protocol::build_synthetic_shot_frame("10.0", "001.00", "00001", "00002")
+                .unwrap();
+        assert!(matches!(
+            db.ingest_raw_frame(&session.id, &frame, "test", None)
+                .unwrap(),
+            crate::arena::IngestOutcome::Accepted(_)
+        ));
+        db.conn.execute_batch("CREATE TRIGGER fail_probe BEFORE INSERT ON events WHEN NEW.kind = 'probe_finished' BEGIN SELECT RAISE(ABORT, 'injected'); END;").unwrap();
+        assert!(db.finish_probe_phase(&session.id, 1).is_err());
+        assert_eq!(db.get_session_phase(&session.id).unwrap(), "probe");
+        assert_eq!(db.count_events_kind(event_kind::PROBE_FINISHED).unwrap(), 0);
+        db.conn.execute_batch("DROP TRIGGER fail_probe").unwrap();
+        db.finish_probe_phase(&session.id, 1).unwrap();
+        assert!(db.finish_probe_phase(&session.id, 1).is_err());
+        crate::protocol::stamp_frame_nonce(&mut frame);
+        let crate::arena::IngestOutcome::Accepted(accepted) = db
+            .ingest_raw_frame(&session.id, &frame, "test", None)
+            .unwrap()
+        else {
+            panic!("first scored shot rejected")
+        };
+        assert_eq!(accepted.shot_index, 1);
+        assert_eq!(accepted.series_total, 10.0);
+        assert_eq!(
+            db.load_session_ui_shots(&session.id, "probe")
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            db.load_session_ui_shots(&session.id, "scored")
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(db.count_events_kind(event_kind::PROBE_FINISHED).unwrap(), 1);
+    }
+
+    #[test]
     fn failed_dependent_write_rolls_back_close_and_event() {
         let mut db = super::super::Database::open_in_memory().unwrap();
         let session = db.start_session("Rollback", None, None, None).unwrap();
         let before = db.count_events_kind(event_kind::SESSION_ENDED).unwrap();
-        let result: Result<Option<()>, String> = db.finish_session(
-            &session.id, recovery_state::CLEAN, |_| Err("injected failure".into()),
-        );
+        let result: Result<Option<()>, String> =
+            db.finish_session(&session.id, recovery_state::CLEAN, |_| {
+                Err("injected failure".into())
+            });
         assert!(result.is_err());
-        assert!(db.get_session(&session.id).unwrap().unwrap().ended_at.is_none());
-        assert_eq!(db.count_events_kind(event_kind::SESSION_ENDED).unwrap(), before);
+        assert!(db
+            .get_session(&session.id)
+            .unwrap()
+            .unwrap()
+            .ended_at
+            .is_none());
+        assert_eq!(
+            db.count_events_kind(event_kind::SESSION_ENDED).unwrap(),
+            before
+        );
         db.end_session(&session.id).unwrap();
-        assert_eq!(db.count_events_kind(event_kind::SESSION_ENDED).unwrap(), before + 1);
+        assert_eq!(
+            db.count_events_kind(event_kind::SESSION_ENDED).unwrap(),
+            before + 1
+        );
     }
 }

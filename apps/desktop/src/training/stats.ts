@@ -1,4 +1,5 @@
 import type { TrainingSessionSummary } from "@rotpunktarena/domain";
+import { tenShotPoints } from "./comparison.ts";
 
 /**
  * Display aggregates from saved series — not shot scoring logic.
@@ -116,7 +117,7 @@ export function computeTrainingStats(
   };
   if (sessions.length === 0) return empty;
 
-  const punkte = sessions.map((s) => s.punkteTotal);
+  const punkte = sessions.map(tenShotPoints);
   const teiler = sessions.map((s) => s.teilerAvg);
   const shotCount = sessions.reduce((a, s) => a + s.shotCount, 0);
   const punkteSum = sessions.reduce((a, s) => a + s.punkteTotal, 0);
@@ -128,7 +129,7 @@ export function computeTrainingStats(
     const recent = sessions.slice(-window);
     const earlier = sessions.slice(0, Math.min(window, sessions.length - window));
     if (earlier.length > 0) {
-      trendPunkte = avg(recent.map((s) => s.punkteTotal)) - avg(earlier.map((s) => s.punkteTotal));
+      trendPunkte = avg(recent.map(tenShotPoints)) - avg(earlier.map(tenShotPoints));
       trendTeiler = avg(recent.map((s) => s.teilerAvg)) - avg(earlier.map((s) => s.teilerAvg));
     }
   }
@@ -141,7 +142,7 @@ export function computeTrainingStats(
     shotCount,
     avgSeriePunkte: avg(punkte),
     avgPunkteProSchuss: shotCount > 0 ? punkteSum / shotCount : 0,
-    avgTeiler: avg(teiler),
+    avgTeiler: shotCount > 0 ? sessions.reduce((sum, s) => sum + s.teilerAvg * s.shotCount, 0) / shotCount : 0,
     bestSerie: Math.max(...punkte),
     bestTeiler: Math.min(...teiler),
     lastSerie: punkte[punkte.length - 1] ?? null,

@@ -19,7 +19,7 @@ pub struct DbBackupInfo {
     pub modified_at: Option<String>,
 }
 
-fn backups_dir(app: &AppHandle) -> Result<PathBuf, String> {
+fn backups_dir<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let dir = data_dir.join("backups");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -34,7 +34,7 @@ pub fn create_db_backup(
 ) -> Result<DbBackupInfo, String> {
     let dir = backups_dir(&app)?;
     let stamp = Local::now().format("%Y%m%d-%H%M%S");
-    let name = format!("reddot-{stamp}.sqlite");
+    let name = format!("reddot-{stamp}-{}.sqlite", uuid::Uuid::new_v4());
     let dest = dir.join(&name);
     engine.with_db(|db| db.vacuum_into(&dest))?;
     let meta = std::fs::metadata(&dest).map_err(|e| e.to_string())?;
@@ -63,9 +63,9 @@ pub fn list_db_backups(app: AppHandle) -> Result<Vec<DbBackupInfo>, String> {
             .unwrap_or("backup.sqlite")
             .to_string();
         let meta = ent.metadata().map_err(|e| e.to_string())?;
-        let modified_at = meta.modified().ok().and_then(|t| {
+        let modified_at = meta.modified().ok().map(|t| {
             let dt: chrono::DateTime<chrono::Local> = t.into();
-            Some(dt.to_rfc3339())
+            dt.to_rfc3339()
         });
         out.push(DbBackupInfo {
             name,
@@ -80,8 +80,8 @@ pub fn list_db_backups(app: AppHandle) -> Result<Vec<DbBackupInfo>, String> {
 
 /// Replace the live DB file with a backup (session must be stopped).
 #[tauri::command]
-pub fn restore_db_backup(
-    app: AppHandle,
+pub fn restore_db_backup<R: tauri::Runtime>(
+    app: AppHandle<R>,
     engine: tauri::State<'_, Arc<StandEngine>>,
     session: tauri::State<'_, AdminSession>,
     name: String,
@@ -96,6 +96,7 @@ pub fn restore_db_backup(
         return Err("Backup nicht gefunden".into());
     }
     engine.swap_database_file(&src)?;
+    session.lock();
     Ok(src.to_string_lossy().into_owned())
 }
 
@@ -107,5 +108,7 @@ pub fn reset_all_database(
     session: tauri::State<'_, AdminSession>,
 ) -> Result<(), String> {
     session.require()?;
-    engine.reset_database_to_empty()
+    engine.reset_database_to_empty()?;
+    session.lock();
+    Ok(())
 }

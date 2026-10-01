@@ -1,5 +1,6 @@
 import type { EntryResultSummary, TrainingSessionSummary } from "@rotpunktarena/domain";
-import { fmtStat } from "./stats";
+import { fmtStat } from "./stats.ts";
+import { tenShotPoints } from "./comparison.ts";
 
 export type TransferSnapshot = {
   trainingAvg: number;
@@ -23,10 +24,10 @@ export function computeTransfer(
 ): TransferSnapshot | null {
   const trainPts = training
     .filter((s) => s.shotCount > 0)
-    .map((s) => s.punkteTotal);
+    .map(tenShotPoints);
   const compPts = competitionBests
     .filter((r) => r.shotCount > 0)
-    .map((r) => r.punkteTotal);
+    .map(tenShotPoints);
 
   if (trainPts.length === 0 && compPts.length === 0) return null;
 

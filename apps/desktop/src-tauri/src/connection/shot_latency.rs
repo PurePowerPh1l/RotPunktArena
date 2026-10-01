@@ -87,10 +87,7 @@ fn diag_state() -> &'static DiagState {
             .name("shot-latency-diag".into())
             .spawn(move || writer_loop(rx))
         {
-            Ok(handle) => DiagState::Enabled {
-                tx,
-                _join: handle,
-            },
+            Ok(handle) => DiagState::Enabled { tx, _join: handle },
             Err(_) => DiagState::Disabled,
         }
     })
@@ -104,8 +101,7 @@ fn run_anchor() -> &'static RunAnchor {
 }
 
 pub fn offset_ms(at: Instant) -> u64 {
-    at.saturating_duration_since(run_anchor().start)
-        .as_millis() as u64
+    at.saturating_duration_since(run_anchor().start).as_millis() as u64
 }
 
 pub fn optional_offset_ms(at: Option<Instant>) -> Option<u64> {
@@ -199,6 +195,10 @@ pub struct TracedShotFrame {
 
 /// Parser outputs that poll must handle, with optional latency provenance on shots.
 #[derive(Debug, Clone)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "bounded diagnostic frame; avoid allocation per hardware shot before latency measurements"
+)]
 pub enum TracedIncoming {
     Nak,
     Shot(TracedShotFrame),
@@ -520,7 +520,8 @@ pub fn append_accepted_shot(
         bridge_try_recv_count: Some(BRIDGE_TRY_RECV.load(Ordering::Relaxed)),
         stale_epoch_drop_count: Some(STALE_EPOCH_DROP.load(Ordering::Relaxed)),
         poll_iteration_id: poll.map(|p| p.first_touch.iteration_id),
-        poll_wait_started_offset_ms: poll.and_then(|p| optional_offset_ms(p.first_touch.wait_started)),
+        poll_wait_started_offset_ms: poll
+            .and_then(|p| optional_offset_ms(p.first_touch.wait_started)),
         poll_wait_returned_offset_ms: poll
             .and_then(|p| optional_offset_ms(p.first_touch.wait_returned)),
         poll_first_read_started_offset_ms: poll.map(|p| offset_ms(p.first_touch.read_started)),
@@ -554,10 +555,7 @@ pub(crate) fn try_enqueue_record(
 
 /// Serialize one record and flush so the JSONL line is visible without process exit.
 /// Diagnose-only; never called from the poll thread.
-fn write_record_line(
-    out: &mut BufWriter<std::fs::File>,
-    record: &ShotLatencyRecordOwned,
-) -> bool {
+fn write_record_line(out: &mut BufWriter<std::fs::File>, record: &ShotLatencyRecordOwned) -> bool {
     match serde_json::to_string(record) {
         Ok(line) => {
             if writeln!(out, "{line}").is_err() {
@@ -685,11 +683,21 @@ mod tests {
         let mut parser = RedDotStreamParser::new();
         let mut tracker = FrameProvenanceTracker::new();
 
-        let completed = tracker.feed(&mut parser, visit(10, t0), a, Some(touch(1, PollReadResultKind::Bytes)));
+        let completed = tracker.feed(
+            &mut parser,
+            visit(10, t0),
+            a,
+            Some(touch(1, PollReadResultKind::Bytes)),
+        );
         assert!(completed.is_empty());
         assert!(tracker.pending.is_some());
 
-        let completed = tracker.feed(&mut parser, visit(11, t1), b, Some(touch(2, PollReadResultKind::Bytes)));
+        let completed = tracker.feed(
+            &mut parser,
+            visit(11, t1),
+            b,
+            Some(touch(2, PollReadResultKind::Bytes)),
+        );
         assert_eq!(completed.len(), 1);
         let TracedIncoming::Shot(traced) = &completed[0] else {
             panic!("expected Shot");
@@ -709,7 +717,12 @@ mod tests {
 
         let mut parser = RedDotStreamParser::new();
         let mut tracker = FrameProvenanceTracker::new();
-        let completed = tracker.feed(&mut parser, visit(7, t0), &chunk, Some(touch(1, PollReadResultKind::Bytes)));
+        let completed = tracker.feed(
+            &mut parser,
+            visit(7, t0),
+            &chunk,
+            Some(touch(1, PollReadResultKind::Bytes)),
+        );
         assert_eq!(completed.len(), 2);
         let TracedIncoming::Shot(a) = &completed[0] else {
             panic!("shot0");
@@ -766,7 +779,12 @@ mod tests {
         let mut parser = RedDotStreamParser::new();
         let mut tracker = FrameProvenanceTracker::new();
 
-        let first = tracker.feed(&mut parser, visit(100, t_a), &chunk_a, Some(touch(1, PollReadResultKind::Bytes)));
+        let first = tracker.feed(
+            &mut parser,
+            visit(100, t_a),
+            &chunk_a,
+            Some(touch(1, PollReadResultKind::Bytes)),
+        );
         assert_eq!(first.len(), 1);
         let TracedIncoming::Shot(s1) = &first[0] else {
             panic!("frame1");
@@ -776,7 +794,12 @@ mod tests {
         assert!(tracker.pending.is_some());
         assert_eq!(tracker.pending.as_ref().unwrap().visit.diag.rx_seq, 100);
 
-        let second = tracker.feed(&mut parser, visit(101, t_b), f2_tail, Some(touch(2, PollReadResultKind::Bytes)));
+        let second = tracker.feed(
+            &mut parser,
+            visit(101, t_b),
+            f2_tail,
+            Some(touch(2, PollReadResultKind::Bytes)),
+        );
         assert_eq!(second.len(), 1);
         let TracedIncoming::Shot(s2) = &second[0] else {
             panic!("frame2");
@@ -808,14 +831,24 @@ mod tests {
         assert!(tracker.pending.is_none());
 
         // STX Teilframe ⇒ NeedMore sets pending once.
-        let msgs = tracker.feed(&mut parser, visit(50, t0), head, Some(touch(2, PollReadResultKind::Bytes)));
+        let msgs = tracker.feed(
+            &mut parser,
+            visit(50, t0),
+            head,
+            Some(touch(2, PollReadResultKind::Bytes)),
+        );
         assert!(msgs.is_empty() || !msgs.iter().any(|m| matches!(m, TracedIncoming::Shot(_))));
         assert!(tracker.pending.is_some());
         assert_eq!(tracker.pending.as_ref().unwrap().visit.diag.rx_seq, 50);
 
         // Completing chunk without leading STX must not overwrite pending.
         let t1 = t0 + std::time::Duration::from_millis(2);
-        let done = tracker.feed(&mut parser, visit(51, t1), tail, Some(touch(3, PollReadResultKind::Bytes)));
+        let done = tracker.feed(
+            &mut parser,
+            visit(51, t1),
+            tail,
+            Some(touch(3, PollReadResultKind::Bytes)),
+        );
         assert_eq!(done.len(), 1);
         let TracedIncoming::Shot(s) = &done[0] else {
             panic!("shot");
@@ -826,9 +859,19 @@ mod tests {
         // New partial; empty feed must not overwrite open-frame pending.
         let f31 = shot(31);
         let (h2, _) = f31.split_at(15);
-        let _ = tracker.feed(&mut parser, visit(60, t0), h2, Some(touch(4, PollReadResultKind::Bytes)));
+        let _ = tracker.feed(
+            &mut parser,
+            visit(60, t0),
+            h2,
+            Some(touch(4, PollReadResultKind::Bytes)),
+        );
         assert_eq!(tracker.pending.as_ref().unwrap().visit.diag.rx_seq, 60);
-        let _ = tracker.feed(&mut parser, visit(61, t1), &[], Some(touch(5, PollReadResultKind::Empty)));
+        let _ = tracker.feed(
+            &mut parser,
+            visit(61, t1),
+            &[],
+            Some(touch(5, PollReadResultKind::Empty)),
+        );
         assert_eq!(tracker.pending.as_ref().unwrap().visit.diag.rx_seq, 60);
     }
 
@@ -859,9 +902,12 @@ mod tests {
         // File must already contain exactly one valid JSONL line.
         let contents = std::fs::read_to_string(&path).expect("read temp jsonl");
         let lines: Vec<&str> = contents.lines().filter(|l| !l.is_empty()).collect();
-        assert_eq!(lines.len(), 1, "expected exactly one JSONL line, got {contents:?}");
-        let parsed: serde_json::Value =
-            serde_json::from_str(lines[0]).expect("valid json");
+        assert_eq!(
+            lines.len(),
+            1,
+            "expected exactly one JSONL line, got {contents:?}"
+        );
+        let parsed: serde_json::Value = serde_json::from_str(lines[0]).expect("valid json");
         assert_eq!(parsed["schemaVersion"], 2);
         assert_eq!(parsed["runId"], "shotlat-test");
         assert!(parsed.get("ownerRxOffsetMs").is_some());
@@ -1103,10 +1149,7 @@ mod tests {
         tracker.accumulate_wait_ms(80);
         tracker.accumulate_read_if_was_pending(true, PollReadResultKind::Empty, 3);
         assert!(tracker.has_open_frame());
-        assert_eq!(
-            tracker.pending.as_ref().unwrap().intervening.wait_ms,
-            80
-        );
+        assert_eq!(tracker.pending.as_ref().unwrap().intervening.wait_ms, 80);
 
         tracker.discard();
         assert!(!tracker.has_open_frame());

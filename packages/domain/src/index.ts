@@ -5,7 +5,7 @@
 
 export type ConnectionStatus = "searching" | "connected" | "disconnected";
 
-export type TransportKind = "simulator" | "serial" | "tcp";
+export type TransportKind = "simulator" | "serial" | "tcp" | "rfcomm";
 
 export type CompetitionStatus =
   | "draft"
@@ -133,6 +133,7 @@ export interface TeamResultSummary {
 }
 
 export interface SessionInfo {
+  simulated: boolean;
   id: string;
   shooterName: string;
   startedAt: string;
@@ -156,6 +157,10 @@ export interface UiShot {
 }
 
 export interface LiveState {
+  contractVersion: 1;
+  revision: number;
+  sessionId: string | null;
+  phase: "idle" | "probe" | "match" | "closed";
   status: ConnectionStatus;
   transport: TransportKind;
   port?: string | null;
@@ -241,6 +246,8 @@ export function trainingSaveUiMessage(info: TrainingSaveInfo): string | null {
       return "Serie beendet — keine Schüsse, nichts gespeichert";
     case "endless":
       return `Endlosmodus beendet (${info.shotCount} Schüsse) — nicht in Statistik`;
+    case "simulated":
+      return `Simulatorserie beendet (${info.shotCount} Schüsse) — nicht in Statistik`;
     default:
       return null;
   }
@@ -372,6 +379,7 @@ export interface DomainEvent {
 
 /** Interrupted / recoverable session — matches Rust `RecoverySessionInfo`. */
 export interface RecoverySessionInfo {
+  simulated: boolean;
   id: string;
   shooterName: string;
   startedAt: string;

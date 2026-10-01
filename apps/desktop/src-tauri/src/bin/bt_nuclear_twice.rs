@@ -7,7 +7,8 @@
 use reddot_desktop_lib::connection::run_nuclear_link;
 use reddot_desktop_lib::rfcomm::{
     discovery::{bond_state, find_reddot_candidate},
-    target::RfcommTarget, WinsockRuntime,
+    target::RfcommTarget,
+    WinsockRuntime,
 };
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -54,11 +55,7 @@ fn main() {
         let t0 = Instant::now();
         match run_nuclear_link(t.bt_addr, &t.display_name) {
             Ok((tgt, sock)) => {
-                eprintln!(
-                    "  OK {} in {:.0?}",
-                    tgt.display_name,
-                    t0.elapsed()
-                );
+                eprintln!("  OK {} in {:.0?}", tgt.display_name, t0.elapsed());
                 print_bond(t.bt_addr, "linked");
                 std::thread::sleep(Duration::from_secs(2));
                 drop(sock);

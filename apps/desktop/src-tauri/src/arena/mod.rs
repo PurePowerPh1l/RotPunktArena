@@ -8,7 +8,7 @@ use chrono::Utc;
 use rusqlite::params;
 
 /// Bump when STX layout / scoring interpretation changes.
-pub const PARSER_VERSION: &str = "reddot-stx-v1";
+pub const PARSER_VERSION: &str = "reddot-stx-v2";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,19 +39,11 @@ pub enum IngestOutcome {
         existing_frame_id: String,
     },
     /// Frame stored but parse failed — no UI shot.
-    ParseFailed {
-        frame_id: String,
-        error: String,
-    },
+    ParseFailed { frame_id: String, error: String },
     /// Competition max_shots already reached — frame stored, no scored shot.
-    LimitReached {
-        max_shots: i64,
-        current_shots: i64,
-    },
+    LimitReached { max_shots: i64, current_shots: i64 },
     /// Session missing or `ended_at` set — no frames/shots/events written.
-    SessionInactive {
-        session_id: String,
-    },
+    SessionInactive { session_id: String },
 }
 
 impl Database {
@@ -75,7 +67,7 @@ impl Database {
 
         let tx = self
             .conn
-            .transaction()
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(|e| format!("begin ingest tx: {e}"))?;
 
         // Last authority: open session in same TX as any later persist (no frames/shots on fail).
@@ -112,13 +104,12 @@ impl Database {
 
         // Whole-ring competitions: floor points before persist / series totals.
         let tenths = crate::db::session_tenths_enabled(&tx, session_id)?;
-        shot.value_display =
-            crate::protocol::value_display_for_scoring(shot.value_raw, tenths);
+        shot.value_display = crate::protocol::value_display_for_scoring(shot.value_raw, tenths);
 
         // Probe phase: shots are unscored (`classification = 'probe'`),
         // exempt from the series limit, and never appear in results.
-        let probe_phase = crate::db::session_phase_in_tx(&tx, session_id)?
-            == crate::db::session_phase::PROBE;
+        let probe_phase =
+            crate::db::session_phase_in_tx(&tx, session_id)? == crate::db::session_phase::PROBE;
 
         if !probe_phase {
             if let Some(outcome) = ingest::reject_limit(&tx, session_id, actor, &frame_id)? {
@@ -143,8 +134,7 @@ impl Database {
             &shot,
             classification,
         )?;
-        tx.commit()
-            .map_err(|e| format!("commit ingest: {e}"))?;
+        tx.commit().map_err(|e| format!("commit ingest: {e}"))?;
 
         // DIAGNOSE-ONLY: stamp commit Instant (poll may take it).
         crate::connection::shot_latency::note_sqlite_committed_at(std::time::Instant::now());
@@ -201,14 +191,13 @@ impl Database {
         let Ok(mut stmt) = self.conn.prepare("PRAGMA table_info(sessions)") else {
             return false;
         };
-        let Ok(rows) = stmt.query_map([], |row| {
+        let Ok(mut rows) = stmt.query_map([], |row| {
             let name: String = row.get(1)?;
             Ok(name)
         }) else {
             return false;
         };
-        let found = rows.flatten().any(|n| n == column);
-        found
+        rows.any(|row| row.is_ok_and(|name| name == column))
     }
 
     pub fn list_recent_shots(

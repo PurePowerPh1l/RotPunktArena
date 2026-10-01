@@ -41,7 +41,7 @@ pub fn run() {
                 event,
                 WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed
             ) {
-                request_rfcomm_shutdown(&window.app_handle());
+                request_rfcomm_shutdown(window.app_handle());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -127,6 +127,12 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            if matches!(event, RunEvent::Exit) {
+                if let Some(engine) = app.try_state::<Arc<StandEngine>>() {
+                    engine.shutdown();
+                }
+                db::shutdown_snapshots();
+            }
             if matches!(event, RunEvent::Exit | RunEvent::ExitRequested { .. }) {
                 request_rfcomm_shutdown(app);
             }
@@ -152,3 +158,7 @@ pub use protocol::{
 pub use transport::replay::{parse_hex_capture, ReplayTransport};
 pub use transport::rfcomm;
 pub use transport::Transport;
+
+// Legacy serial helpers remain available to explicit CLI/diagnostic callers.
+#[cfg(feature = "serial")]
+pub use transport::serial_link;

@@ -5,7 +5,8 @@
 use reddot_desktop_lib::connection::run_nuclear_link;
 use reddot_desktop_lib::rfcomm::{
     discovery::{bond_state, find_nearby_reddot, find_reddot_candidate},
-    target::RfcommTarget, WinsockRuntime,
+    target::RfcommTarget,
+    WinsockRuntime,
 };
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -48,10 +49,7 @@ fn main() {
         std::process::exit(1);
     }
     let target = resolve_target();
-    eprintln!(
-        "Target {} @ {:012X}",
-        target.display_name, target.bt_addr
-    );
+    eprintln!("Target {} @ {:012X}", target.display_name, target.bt_addr);
     match bond_state(target.bt_addr) {
         Ok(Some(b)) => eprintln!(
             "bond before: auth={} connected={}",
@@ -63,11 +61,7 @@ fn main() {
     let t0 = Instant::now();
     match run_nuclear_link(target.bt_addr, &target.display_name) {
         Ok((t, sock)) => {
-            eprintln!(
-                "PASS Linked {} in {:.0?}",
-                t.display_name,
-                t0.elapsed()
-            );
+            eprintln!("PASS Linked {} in {:.0?}", t.display_name, t0.elapsed());
             std::thread::sleep(Duration::from_secs(1));
             drop(sock);
         }

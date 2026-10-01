@@ -1,0 +1,8 @@
+[
+  {"name":"string-contract-version","patch":{"contractVersion":"1"}},
+  {"name":"string-revision","patch":{"revision":"1"}},
+  {"name":"negative-revision","patch":{"revision":-1}},
+  {"name":"unknown-phase","patch":{"phase":"scored"}},
+  {"name":"unknown-transport","patch":{"transport":"bluetooth"}},
+  {"name":"unknown-status","patch":{"status":"online"}}
+]

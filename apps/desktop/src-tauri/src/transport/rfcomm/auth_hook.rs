@@ -107,10 +107,7 @@ pub fn install_reddot_pin_hook() -> Result<(), TransportError> {
             return Ok(());
         }
         let (reg_ex, reg_legacy) = win::register_both()?;
-        *g = Some(AuthHook {
-            reg_ex,
-            reg_legacy,
-        });
+        *g = Some(AuthHook { reg_ex, reg_legacy });
         Ok(())
     }
     #[cfg(not(windows))]
@@ -180,10 +177,10 @@ impl Drop for SetupAuthGuard {
 #[cfg(windows)]
 mod win {
     use super::*;
-    use std::sync::atomic::{AtomicIsize, Ordering};
     use ::windows::core::{BOOL, PCWSTR};
     use ::windows::Win32::Devices::Bluetooth::*;
     use ::windows::Win32::Foundation::{CloseHandle, HANDLE};
+    use std::sync::atomic::{AtomicIsize, Ordering};
 
     /// Local radio kept open for AuthEx (`0` = none).
     static RADIO_HANDLE: AtomicIsize = AtomicIsize::new(0);
@@ -233,9 +230,8 @@ mod win {
                 dwSize: std::mem::size_of::<BLUETOOTH_FIND_RADIO_PARAMS>() as u32,
             };
             let mut radio = HANDLE::default();
-            let find = BluetoothFindFirstRadio(&params, &mut radio).map_err(|e| {
-                TransportError::Io(format!("BluetoothFindFirstRadio failed ({e})"))
-            })?;
+            let find = BluetoothFindFirstRadio(&params, &mut radio)
+                .map_err(|e| TransportError::Io(format!("BluetoothFindFirstRadio failed ({e})")))?;
             if radio.is_invalid() {
                 let _ = BluetoothFindRadioClose(find);
                 return Err(TransportError::Io(
@@ -274,10 +270,12 @@ mod win {
     /// Answer LEGACY PIN as fast as possible. Radio → NULL Ex → legacy Send.
     fn send_legacy_pin(device: &BLUETOOTH_DEVICE_INFO) -> (u32, &'static str) {
         unsafe {
-            let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE::default();
-            resp.bthAddressRemote = device.Address;
-            resp.authMethod = BLUETOOTH_AUTHENTICATION_METHOD_LEGACY;
-            resp.negativeResponse = 0;
+            let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE {
+                bthAddressRemote: device.Address,
+                authMethod: BLUETOOTH_AUTHENTICATION_METHOD_LEGACY,
+                negativeResponse: 0,
+                ..Default::default()
+            };
             resp.Anonymous.pinInfo = pin_info();
 
             if let Some(radio) = radio_handle() {
@@ -291,11 +289,8 @@ mod win {
                 return (rc_null, "ex_null");
             }
             let pin = pin_utf16();
-            let rc_leg = BluetoothSendAuthenticationResponse(
-                radio_handle(),
-                device,
-                PCWSTR(pin.as_ptr()),
-            );
+            let rc_leg =
+                BluetoothSendAuthenticationResponse(radio_handle(), device, PCWSTR(pin.as_ptr()));
             if rc_leg == 0 {
                 return (rc_leg, "legacy");
             }
@@ -332,10 +327,12 @@ mod win {
         let (rc, via) = match method {
             BLUETOOTH_AUTHENTICATION_METHOD_LEGACY => send_legacy_pin(&p.deviceInfo),
             BLUETOOTH_AUTHENTICATION_METHOD_NUMERIC_COMPARISON => unsafe {
-                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE::default();
-                resp.bthAddressRemote = p.deviceInfo.Address;
-                resp.authMethod = method;
-                resp.negativeResponse = 0;
+                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE {
+                    bthAddressRemote: p.deviceInfo.Address,
+                    authMethod: method,
+                    negativeResponse: 0,
+                    ..Default::default()
+                };
                 resp.Anonymous.numericCompInfo = BLUETOOTH_NUMERIC_COMPARISON_INFO {
                     NumericValue: p.Anonymous.Numeric_Value,
                 };
@@ -355,10 +352,12 @@ mod win {
             BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY_NOTIFICATION
             | BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY => {
                 let passkey: u32 = REDDOT_PAIR_PIN.parse().unwrap_or(0);
-                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE::default();
-                resp.bthAddressRemote = p.deviceInfo.Address;
-                resp.authMethod = BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY_NOTIFICATION;
-                resp.negativeResponse = 0;
+                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE {
+                    bthAddressRemote: p.deviceInfo.Address,
+                    authMethod: BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY_NOTIFICATION,
+                    negativeResponse: 0,
+                    ..Default::default()
+                };
                 resp.Anonymous.passkeyInfo = BLUETOOTH_PASSKEY_INFO { passkey };
                 unsafe {
                     if let Some(radio) = radio_handle() {
@@ -427,12 +426,8 @@ mod win {
 
         unsafe {
             let mut reg_ex: isize = 0;
-            let rc_ex = BluetoothRegisterForAuthenticationEx(
-                None,
-                &mut reg_ex,
-                Some(on_auth_ex),
-                None,
-            );
+            let rc_ex =
+                BluetoothRegisterForAuthenticationEx(None, &mut reg_ex, Some(on_auth_ex), None);
             if rc_ex != 0 || reg_ex == 0 {
                 close_local_radio();
                 return Err(TransportError::Io(format!(
@@ -441,12 +436,8 @@ mod win {
             }
 
             let mut reg_leg: isize = 0;
-            let rc_leg = BluetoothRegisterForAuthentication(
-                None,
-                &mut reg_leg,
-                Some(on_auth_legacy),
-                None,
-            );
+            let rc_leg =
+                BluetoothRegisterForAuthentication(None, &mut reg_leg, Some(on_auth_legacy), None);
             if rc_leg != 0 || reg_leg == 0 {
                 let _ = BluetoothUnregisterAuthentication(reg_ex);
                 // Legacy optional on some builds — keep Ex alone.
@@ -457,9 +448,7 @@ mod win {
                 return Ok((reg_ex, 0));
             }
 
-            eprintln!(
-                "[authHook] AuthenticationEx+Legacy registered ex={reg_ex} legacy={reg_leg}"
-            );
+            eprintln!("[authHook] AuthenticationEx+Legacy registered ex={reg_ex} legacy={reg_leg}");
             Ok((reg_ex, reg_leg))
         }
     }

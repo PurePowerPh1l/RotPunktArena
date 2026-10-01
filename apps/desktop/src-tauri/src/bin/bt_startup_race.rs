@@ -12,7 +12,7 @@
 //!   long_hold      — ≥4h Linked + RegisterSink/UnregisterSink-Zyklen (REDOT_LONG_HOLD_SECS)
 
 use reddot_desktop_lib::connection::{
-    connect_known_nuclear, ConnectionCommand, ConnectionManager, ConnectionStatus, ConnectOrigin,
+    connect_known_nuclear, ConnectOrigin, ConnectionCommand, ConnectionManager, ConnectionStatus,
 };
 use std::env;
 use std::path::PathBuf;
@@ -88,11 +88,12 @@ fn main() {
             thread::sleep(Duration::from_millis(400));
             // Pass: Linked once; generation not double-bumped for a second nuclear start
             // (attach ignores NuclearLink → same gen; or Linked with gen==gen0 or gen0+1 from Start only).
-            if st == ConnectionStatus::Linked && matches!(attach_res, Ok(_)) {
-                if origin0 == ConnectOrigin::StartupAuto || gen1 <= gen0 + 1 {
-                    eprintln!("PASS badge_attach Linked without parallel second Start bump storm");
-                    return;
-                }
+            if st == ConnectionStatus::Linked
+                && attach_res.is_ok()
+                && (origin0 == ConnectOrigin::StartupAuto || gen1 <= gen0 + 1)
+            {
+                eprintln!("PASS badge_attach Linked without parallel second Start bump storm");
+                return;
             }
             if st == ConnectionStatus::Linked {
                 eprintln!("PASS badge_attach Linked (attach ok or raced to same link)");
@@ -205,9 +206,7 @@ fn main() {
                         let _ = h.send(ConnectionCommand::Shutdown);
                         std::process::exit(4);
                     }
-                    eprintln!(
-                        "PASS link_lost → Idle, gen {gen_linked}->{gen1}, no auto-nuclear"
-                    );
+                    eprintln!("PASS link_lost → Idle, gen {gen_linked}->{gen1}, no auto-nuclear");
                     let _ = h.send(ConnectionCommand::Shutdown);
                     return;
                 }
@@ -280,7 +279,10 @@ fn main() {
                     std::process::exit(3);
                 }
                 // Live-Session start/stop (Sink only — must not trigger Pair/Connect).
-                let _ = h.send(ConnectionCommand::RegisterSink);
+                let (lease, _) = h.register_sink().unwrap_or_else(|error| {
+                    eprintln!("FAIL register session sink: {error}");
+                    std::process::exit(3);
+                });
                 thread::sleep(session_on);
                 if h.status() != ConnectionStatus::Linked {
                     eprintln!(
@@ -290,7 +292,10 @@ fn main() {
                     let _ = h.send(ConnectionCommand::Shutdown);
                     std::process::exit(3);
                 }
-                let _ = h.send(ConnectionCommand::UnregisterSink);
+                if let Err(error) = h.unregister_sink(lease) {
+                    eprintln!("FAIL unregister session sink: {error}");
+                    std::process::exit(3);
+                }
                 session_cycles += 1;
                 if last_progress.elapsed() >= Duration::from_secs(15 * 60) {
                     eprintln!(

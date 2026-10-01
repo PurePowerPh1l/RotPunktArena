@@ -250,8 +250,15 @@ impl Database {
 
         let mut series = Vec::new();
         for (i, row) in rows.enumerate() {
-            let (session_id, started_at, ended_at, shot_count, punkte_total, teiler_sum, teiler_avg) =
-                row.map_err(|e| e.to_string())?;
+            let (
+                session_id,
+                started_at,
+                ended_at,
+                shot_count,
+                punkte_total,
+                teiler_sum,
+                teiler_avg,
+            ) = row.map_err(|e| e.to_string())?;
             let series_index = (i as i64) + 1;
             let shots = if include_shots {
                 self.list_session_ui_shots(&session_id)?
@@ -501,6 +508,20 @@ fn assign_entry_ranks(rows: &mut [EntryResultSummary]) {
     }
 }
 
+trait OptionalQuery<T> {
+    fn optional_err(self) -> Result<Option<T>, String>;
+}
+
+impl<T> OptionalQuery<T> for Result<T, rusqlite::Error> {
+    fn optional_err(self) -> Result<Option<T>, String> {
+        match self {
+            Ok(v) => Ok(Some(v)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -608,19 +629,5 @@ mod tests {
         assert!(!s[0].is_best);
         assert!(s[1].is_best);
         assert!(!s[2].is_best);
-    }
-}
-
-trait OptionalQuery<T> {
-    fn optional_err(self) -> Result<Option<T>, String>;
-}
-
-impl<T> OptionalQuery<T> for Result<T, rusqlite::Error> {
-    fn optional_err(self) -> Result<Option<T>, String> {
-        match self {
-            Ok(v) => Ok(Some(v)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e.to_string()),
-        }
     }
 }

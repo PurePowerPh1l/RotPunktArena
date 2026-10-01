@@ -1,3 +1,4 @@
+import fixtures from "../../../fixtures/protocol.json" with { type: "json" };
 import {
   CONTROL,
   RedDotStreamParser,
@@ -53,4 +54,23 @@ assert(
   "getVars encoding",
 );
 
+assert(fixtures.version === 1, "fixture version");
+for (const test of fixtures.cases) {
+  const [valueAscii, distanceAscii, xAscii, yAscii] = test.fields;
+  const raw = buildSyntheticShotFrame({ valueAscii, distanceAscii, xAscii, yAscii });
+  let actual: number[] | null = null;
+  try {
+    const parsed = parseShotFrame(raw);
+    actual = [parsed.valueRaw, parsed.distanceRaw, parsed.x, parsed.y];
+  } catch { /* Invalid cases must be rejected. */ }
+  assert(JSON.stringify(actual) === JSON.stringify(test.expected), `shared fixture ${test.name}`);
+  // A malformed frame must preserve diagnostics and allow the following valid frame.
+  const stream = new RedDotStreamParser();
+  const output = stream.push(Uint8Array.from([...raw, ...frame]));
+  assert(output.length === 2 && output[1]?.type === "shot", `resync ${test.name}`);
+  assert(output[0]?.type === (test.expected === null ? "parse_error" : "shot"), `stream ${test.name}`);
+  if (output[0]?.type === "parse_error") {
+    assert(output[0].raw.every((byte, index) => byte === raw[index]), "preserve invalid bytes");
+  }
+}
 console.log("protocol tests OK");

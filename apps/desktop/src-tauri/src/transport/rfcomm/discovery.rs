@@ -187,18 +187,22 @@ pub fn pair_with_pin(bt_addr: u64, display_name: &str, pin: &str) -> Result<(), 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PairApiReport {
     /// Win32 authenticate succeeded (fresh pair).
-    Success { win32: u32 },
+    Success {
+        win32: u32,
+    },
     /// Bond already authenticated — API skipped or returned already-bonded code.
-    AlreadyAuthenticated { reason: &'static str, win32: Option<u32> },
-    Error { win32: Option<u32>, message: String },
+    AlreadyAuthenticated {
+        reason: &'static str,
+        win32: Option<u32>,
+    },
+    Error {
+        win32: Option<u32>,
+        message: String,
+    },
 }
 
 /// Same Win32 path as [`pair_with_pin`], with no-op classification for lab JSONL.
-pub fn pair_with_pin_report(
-    bt_addr: u64,
-    display_name: &str,
-    pin: &str,
-) -> PairApiReport {
+pub fn pair_with_pin_report(bt_addr: u64, display_name: &str, pin: &str) -> PairApiReport {
     #[cfg(windows)]
     {
         let _ = crate::transport::rfcomm::WinsockRuntime::init();
@@ -270,10 +274,7 @@ pub fn parse_addr_from_dev_id(id: &str) -> Option<u64> {
     let upper = id.to_uppercase();
     let idx = upper.find("DEV_")?;
     let rest = upper.get(idx + 4..)?;
-    let hex: String = rest
-        .chars()
-        .take_while(|c| c.is_ascii_hexdigit())
-        .collect();
+    let hex: String = rest.chars().take_while(|c| c.is_ascii_hexdigit()).collect();
     if hex.len() != 12 {
         return None;
     }
@@ -490,7 +491,7 @@ mod discovery_windows {
     }
 
     #[repr(C)]
-    struct SYSTEMTIME {
+    struct SystemTimeRaw {
         w_year: u16,
         w_month: u16,
         w_day_of_week: u16,
@@ -509,8 +510,8 @@ mod discovery_windows {
         f_connected: i32,
         f_remembered: i32,
         f_authenticated: i32,
-        st_last_seen: SYSTEMTIME,
-        st_last_used: SYSTEMTIME,
+        st_last_seen: SystemTimeRaw,
+        st_last_used: SystemTimeRaw,
         sz_name: [u16; 248],
     }
 
@@ -723,7 +724,7 @@ mod discovery_windows {
             let pin_chars = pin_u16.len().saturating_sub(1) as u32;
             // Prefer the auth-hook radio handle — NULL often yields flaky PIN UI on Win11.
             let radio = crate::transport::rfcomm::auth_hook::local_radio_handle()
-                .map(|h| h.0 as *mut std::ffi::c_void)
+                .map(|h| h.0)
                 .unwrap_or(ptr::null_mut());
             let rc = BluetoothAuthenticateDevice(
                 ptr::null_mut(),
@@ -762,11 +763,14 @@ mod discovery_windows {
     pub fn bond_state(bt_addr: u64) -> Option<BondState> {
         let want = bt_addr & 0xFFFF_FFFF_FFFF;
         let devices = enumerate_via_bluetooth_find().ok()?;
-        devices.into_iter().find(|d| d.bt_addr == want).map(|d| BondState {
-            remembered: d.remembered || d.paired,
-            authenticated: d.authenticated,
-            connected: d.connected,
-        })
+        devices
+            .into_iter()
+            .find(|d| d.bt_addr == want)
+            .map(|d| BondState {
+                remembered: d.remembered || d.paired,
+                authenticated: d.authenticated,
+                connected: d.connected,
+            })
     }
 
     pub fn remove_bond(bt_addr: u64) -> Result<(), TransportError> {
@@ -966,7 +970,7 @@ mod tests {
     #[test]
     fn parse_addr_from_parenthetical_name() {
         let n = "KT RDT ZIE 1 S/N 203 (a1:b2:c3:d4:e5:f6)";
-        assert_eq!(parse_addr_from_name(n), Some(0x00a1_b2c3_d4e5_f6));
+        assert_eq!(parse_addr_from_name(n), Some(0x0000_a1b2_c3d4_e5f6));
     }
 
     #[test]

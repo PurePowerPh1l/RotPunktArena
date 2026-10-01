@@ -55,22 +55,17 @@ impl ConnectOrigin {
 }
 
 /// Result of asking Windows for bond state. Query errors are **not** NotBonded.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum BondLookup {
     /// Authenticated + Windows `fConnected` — diag only; Startup uses Nuclear.
     Bonded,
     /// Authenticated but not connected (idle/sleep) — diag only; Startup still Nuclear.
     BondedIdle,
     /// Device unknown or not authenticated — Setup / NeedsPairing.
+    #[default]
     NotBonded,
     /// Stack/query glitch — Idle + diagnose; never connect, never open Setup.
     Unknown(String),
-}
-
-impl Default for BondLookup {
-    fn default() -> Self {
-        Self::NotBonded
-    }
 }
 
 impl BondLookup {
