@@ -10,6 +10,7 @@ type Props = {
   newestFirst: TrainingSessionSummary[];
   loading: boolean;
   busy?: boolean;
+  printDisabled?: boolean;
   bestSerie: number;
   sessionCount: number;
   /** Soft pulse for the newest saved series (XP / Schnitt-Hinweis). */
@@ -28,6 +29,7 @@ export function TrainingSeriesPanel({
   newestFirst,
   loading,
   busy = false,
+  printDisabled = false,
   bestSerie,
   sessionCount,
   lastPulse = null,
@@ -94,9 +96,11 @@ export function TrainingSeriesPanel({
           <button
             type="button"
             className="secondary"
-            disabled={busy || sessions.length === 0}
+            disabled={busy || printDisabled || sessions.length === 0}
             onClick={onPrint}
-            title="Strg+P"
+            title={selectedId
+              ? "Ausgewählte Serie mit Schussbild drucken (Strg+P)"
+              : "Letzte Serie mit Schussbild drucken (Strg+P)"}
           >
             <IconPrint /> Drucken
           </button>
