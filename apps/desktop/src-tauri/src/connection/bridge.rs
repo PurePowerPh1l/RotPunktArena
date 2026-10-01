@@ -16,6 +16,7 @@ pub struct RfcommBridgeTransport {
     open: bool,
     /// Epoch captured after Owner completes RegisterSink for this series.
     registered_epoch: u64,
+    lease: Option<u64>,
 }
 
 impl RfcommBridgeTransport {
@@ -35,22 +36,7 @@ impl RfcommBridgeTransport {
             name,
             open: false,
             registered_epoch: 0,
-        }
-    }
-
-    fn wait_registered_epoch(&mut self) -> std::io::Result<()> {
-        let deadline = Instant::now() + Duration::from_millis(500);
-        loop {
-            if self.handle.sink_registered() {
-                self.registered_epoch = self.handle.sink_epoch();
-                return Ok(());
-            }
-            if Instant::now() >= deadline {
-                return Err(std::io::Error::other(
-                    "RegisterSink Timeout — Owner hat Sink nicht freigegeben",
-                ));
-            }
-            thread::sleep(Duration::from_millis(1));
+            lease: None,
         }
     }
 }
@@ -72,16 +58,23 @@ impl crate::transport::Transport for RfcommBridgeTransport {
                 self.handle.last_reason()
             )));
         }
-        self.handle
-            .send(ConnectionCommand::RegisterSink)
-            .map_err(std::io::Error::other)?;
-        self.wait_registered_epoch()?;
+        if self.open {
+            return Ok(());
+        }
+        let (lease, epoch) = self.handle.register_sink().map_err(std::io::Error::other)?;
+        self.lease = Some(lease);
+        self.registered_epoch = epoch;
         self.open = true;
         Ok(())
     }
 
     fn close(&mut self) -> std::io::Result<()> {
-        let _ = self.handle.send(ConnectionCommand::UnregisterSink);
+        if let Some(lease) = self.lease {
+            self.handle
+                .unregister_sink(lease)
+                .map_err(std::io::Error::other)?;
+            self.lease = None;
+        }
         self.open = false;
         Ok(())
     }
@@ -99,7 +92,7 @@ impl crate::transport::Transport for RfcommBridgeTransport {
         let deadline = Instant::now() + timeout;
         let registered = self.registered_epoch;
         loop {
-            while let Some(chunk) = self.handle.try_recv_sink_chunk() {
+            while let Some(chunk) = self.handle.try_recv_sink_chunk(registered) {
                 shot_latency::record_bridge_try_recv();
                 // Stale epoch: drop without feeding poll parser (no parser reset here).
                 if let Some(bytes) = chunk_bytes_for_poll(registered, &chunk) {

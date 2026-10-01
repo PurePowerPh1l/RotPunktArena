@@ -20,8 +20,14 @@ pub enum ConnectionCommand {
         origin: ConnectOrigin,
     },
     ForgetTarget,
-    RegisterSink,
-    UnregisterSink,
+    RegisterSink {
+        lease: u64,
+        reply: std::sync::mpsc::Sender<Result<u64, String>>,
+    },
+    UnregisterSink {
+        lease: u64,
+        reply: std::sync::mpsc::Sender<bool>,
+    },
     /// Session ACK / rare writes (manager owns ENQ).
     WriteBytes(Vec<u8>),
     /// Stop work (pairing / first-setup scan).
