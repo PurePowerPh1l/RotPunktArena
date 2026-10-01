@@ -73,6 +73,7 @@ pub(super) fn handle_shot_frame(
             if engine.apply_shot(ui.clone()) {
                 let shot_event_emitted = Instant::now();
                 let _ = app.emit("shot", ui);
+                engine.emit_live(app, None);
                 // DIAGNOSE-ONLY — best-effort; never gates Accepted/emit.
                 if let Some(traced) = latency_trace {
                     shot_latency::append_accepted_shot(
@@ -164,6 +165,7 @@ pub(super) fn handle_shot_frame(
 }
 
 fn report_completion_failure(app: &AppHandle, engine: &StandEngine, error: String) {
+    engine.emit_live(app, Some(format!("Session-Abschluss fehlgeschlagen — erneut beenden: {error}")));
     eprintln!("Session-Abschluss fehlgeschlagen: {error}");
     // end_session stops the worker and advances generation even when persistence
     // fails. Publish directly so the error is not suppressed by the stale gate.

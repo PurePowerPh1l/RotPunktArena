@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import fixtures from "../../../fixtures/protocol.json" with { type: "json" };
 import {
   CONTROL,
   RedDotStreamParser,
@@ -54,7 +54,6 @@ assert(
   "getVars encoding",
 );
 
-const fixtures = JSON.parse(readFileSync(new URL("../../../fixtures/protocol.json", import.meta.url), "utf8"));
 assert(fixtures.version === 1, "fixture version");
 for (const test of fixtures.cases) {
   const [valueAscii, distanceAscii, xAscii, yAscii] = test.fields;

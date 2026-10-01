@@ -5,7 +5,7 @@
 
 export type ConnectionStatus = "searching" | "connected" | "disconnected";
 
-export type TransportKind = "simulator" | "serial" | "tcp";
+export type TransportKind = "simulator" | "serial" | "tcp" | "rfcomm";
 
 export type CompetitionStatus =
   | "draft"
@@ -157,6 +157,9 @@ export interface UiShot {
 }
 
 export interface LiveState {
+  revision: number;
+  sessionId: string | null;
+  phase: "idle" | "probe" | "match" | "closed";
   status: ConnectionStatus;
   transport: TransportKind;
   port?: string | null;

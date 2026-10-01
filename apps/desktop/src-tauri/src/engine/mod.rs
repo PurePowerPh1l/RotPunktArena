@@ -41,6 +41,10 @@ pub struct ConnectionUpdate {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveState {
+    /// Monotonic projection revision, allocated under the snapshot state lock.
+    pub revision: u64,
+    pub session_id: Option<String>,
+    pub phase: String,
     pub status: ConnectionStatus,
     pub transport: TransportKind,
     pub port: Option<String>,
@@ -95,6 +99,7 @@ struct SharedInner {
 }
 
 pub struct StandEngine {
+    projection_revision: AtomicU64,
     /// Lock order: ingest_gate -> log -> inner. Covers commit through projection.
     ingest_gate: Mutex<()>,
     lifecycle_gate: Mutex<()>,
@@ -121,6 +126,7 @@ pub struct StartSessionArgs {
 impl StandEngine {
     pub fn new(log: Database) -> Self {
         Self {
+            projection_revision: AtomicU64::new(0),
             ingest_gate: Mutex::new(()),
             lifecycle_gate: Mutex::new(()),
             log: Mutex::new(log),
@@ -220,6 +226,9 @@ impl StandEngine {
     pub fn snapshot(&self) -> LiveState {
         let g = self.inner.lock();
         LiveState {
+            revision: self.projection_revision.fetch_add(1, Ordering::SeqCst) + 1,
+            session_id: g.session.as_ref().map(|session| session.id.clone()),
+            phase: if g.session.is_none() { "idle" } else if g.session.as_ref().is_some_and(|session| session.ended_at.is_some()) { "closed" } else if g.probe_active { "probe" } else { "match" }.into(),
             status: g.status,
             transport: g.transport,
             port: g.port.clone(),
@@ -236,6 +245,13 @@ impl StandEngine {
             training_save: g.last_training_save.clone(),
             endless_mode: g.endless_mode,
             probe_active: g.probe_active,
+        }
+    }
+
+    pub(crate) fn emit_live<R: tauri::Runtime>(&self, app: &AppHandle<R>, detail: Option<String>) {
+        let state = self.snapshot();
+        if let Err(error) = app.emit("live_state", serde_json::json!({ "state": state, "detail": detail })) {
+            eprintln!("Live-Zustand konnte nicht angezeigt werden: {error}");
         }
     }
 
@@ -293,6 +309,7 @@ pub(crate) fn emit_conn(
         return;
     }
     engine.apply_connection_update(&u);
+    engine.emit_live(app, u.detail.clone());
     let _ = app.emit("connection", u);
 }
 
@@ -301,6 +318,21 @@ mod maintenance_tests {
     use super::*;
     use std::sync::mpsc;
     use std::time::Duration;
+
+    #[test]
+    fn live_projection_contract_and_revision_order() {
+        let engine = StandEngine::new(Database::open_in_memory().unwrap());
+        let mut snapshot = engine.snapshot();
+        snapshot.serial_feature = false; // fixture is independent of compiled adapters
+        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../../../fixtures/live-idle.json")).unwrap();
+        assert_eq!(serde_json::to_value(&snapshot).unwrap(), fixture);
+        assert_eq!(serde_json::from_value::<LiveState>(fixture).unwrap().phase, "idle");
+        assert!(engine.snapshot().revision > snapshot.revision);
+        engine.apply_connection_update(&ConnectionUpdate { status: ConnectionStatus::Searching, transport: TransportKind::Rfcomm, port: None, detail: None });
+        let hardware = engine.snapshot();
+        assert!(hardware.revision > snapshot.revision);
+        assert_eq!(serde_json::to_value(hardware).unwrap()["transport"], "rfcomm");
+    }
 
     #[test]
     fn restore_waits_for_delayed_retired_worker_before_replacement() {

@@ -98,6 +98,7 @@ impl StandEngine {
         };
         self.apply_shot(ui.clone());
         let _ = app.emit("shot", ui);
+        self.emit_live(app, None);
         drop(transition);
         self.finish_series_if_needed(app, accepted.shot_index as i64)?;
         Ok(self.snapshot())
@@ -115,6 +116,7 @@ impl StandEngine {
             return Ok(());
         };
         let _ = app.emit("series_complete", payload.clone());
+        self.emit_live(app, Some(format!("Serie beendet — {}/{} Schüsse", payload.shot_count, payload.max_shots)));
         let _ = app.emit(
             "connection",
             ConnectionUpdate {
