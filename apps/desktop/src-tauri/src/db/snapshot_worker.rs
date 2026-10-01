@@ -1,0 +1,51 @@
+//! One bounded snapshot queue; maintenance invalidates old jobs and waits for I/O.
+use super::Database;
+use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
+use std::path::PathBuf;
+use std::sync::mpsc::{self, SyncSender, TrySendError};
+
+static GENERATION: RwLock<u64> = RwLock::new(0);
+static WORKER: Mutex<Option<SyncSender<Job>>> = Mutex::new(None);
+const QUEUE_CAPACITY: usize = 16;
+
+struct Job { path: PathBuf, session: String, sequence: Option<i64>, generation: u64 }
+
+pub(super) fn enqueue(db: &Database, session: &str, sequence: Option<i64>) {
+    if db.snapshot_dir().is_none() { return; }
+    let generation = *GENERATION.read();
+    let mut service = WORKER.lock();
+    if service.is_none() {
+        let (send, receive) = mpsc::sync_channel::<Job>(QUEUE_CAPACITY);
+        match std::thread::Builder::new().name("reddot-snapshots".into()).spawn(move || {
+            while let Ok(job) = receive.recv() {
+                let generation = GENERATION.read();
+                if *generation != job.generation { continue; }
+                // Keep the barrier until the connection and all publication I/O finish.
+                let result = Database::open(&job.path).and_then(|db| {
+                    let sequence = match job.sequence {
+                        Some(sequence) => sequence,
+                        None => db.last_event_sequence(&job.session)?,
+                    };
+                    db.write_session_snapshot(&job.session, sequence).map(|_| ())
+                });
+                if let Err(error) = result { eprintln!("Snapshot fehlgeschlagen ({}): {error}", job.session); }
+            }
+        }) {
+            Ok(_) => *service = Some(send),
+            Err(error) => { eprintln!("Snapshot-Worker konnte nicht starten: {error}"); return; }
+        }
+    }
+    if let Some(sender) = service.as_ref() {
+        match sender.try_send(Job { path: db.path().to_path_buf(), session: session.into(), sequence, generation }) {
+            Ok(()) => {}
+            Err(TrySendError::Full(_)) => eprintln!("Snapshot-Queue voll (max. {QUEUE_CAPACITY}); Sicherungsanforderung übersprungen"),
+            Err(TrySendError::Disconnected(_)) => { eprintln!("Snapshot-Worker beendet; nächste Anforderung startet ihn neu"); *service = None; }
+        }
+    }
+}
+
+pub(crate) fn pause_snapshots() -> RwLockWriteGuard<'static, u64> {
+    let mut generation = GENERATION.write();
+    *generation = generation.wrapping_add(1);
+    generation
+}
