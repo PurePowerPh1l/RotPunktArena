@@ -96,7 +96,8 @@ pub(super) fn handle_shot_frame(
                 }
             }
             drop(transition);
-            if let Err(error) = engine.finish_series_if_needed(app, i64::from(accepted.shot_index))
+            if let Err(error) =
+                engine.finish_series_for_session(app, session_id, i64::from(accepted.shot_index))
             {
                 report_completion_failure(app, engine, error);
             }
@@ -122,7 +123,7 @@ pub(super) fn handle_shot_frame(
             current_shots,
         }) => {
             drop(transition);
-            if let Err(error) = engine.finish_series_if_needed(app, current_shots) {
+            if let Err(error) = engine.finish_series_for_session(app, session_id, current_shots) {
                 report_completion_failure(app, engine, error);
                 return true;
             }

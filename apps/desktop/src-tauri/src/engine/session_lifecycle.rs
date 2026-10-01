@@ -24,6 +24,7 @@ impl StandEngine {
         args: StartSessionArgs,
     ) -> Result<LiveState, String> {
         let _lifecycle = self.lifecycle_gate.lock();
+        let _transition = self.ingest_gate.lock();
         if self.is_running() {
             return Ok(self.snapshot());
         }
@@ -37,7 +38,7 @@ impl StandEngine {
             g.session.as_ref().is_some_and(|s| s.ended_at.is_none())
         };
         if stale_open {
-            self.end_session()?;
+            self.end_session_locked()?;
         }
 
         self.stop_worker();
@@ -132,6 +133,7 @@ impl StandEngine {
         use_simulator: bool,
     ) -> Result<LiveState, String> {
         let _lifecycle = self.lifecycle_gate.lock();
+        let _transition = self.ingest_gate.lock();
         if self.is_running() {
             return Err("Es läuft bereits eine Session — zuerst beenden".into());
         }
@@ -233,7 +235,7 @@ impl StandEngine {
 
         if series_complete {
             // Already at limit — do not restart poll; leave disconnected after close.
-            return self.close_completed_series();
+            return self.close_completed_series_locked();
         }
 
         let last_port = self.log.lock().get_setting("last_port")?;
@@ -372,6 +374,11 @@ impl StandEngine {
     /// Endless training never sets `training_saved` (no history / stats).
     pub fn end_session(&self) -> Result<LiveState, String> {
         let _transition = self.ingest_gate.lock();
+        self.end_session_locked()
+    }
+
+    /// Caller owns ingest_gate; start/resume also own lifecycle_gate first.
+    pub(super) fn end_session_locked(&self) -> Result<LiveState, String> {
         let session_meta = {
             let g = self.inner.lock();
             g.session.as_ref().map(|s| {
@@ -575,7 +582,7 @@ impl StandEngine {
             // Preserve outcome through start_session (which does not clear it).
             g.last_training_save = save.clone();
         }
-        let state = self.start_session(
+        self.start_session(
             app,
             StartSessionArgs {
                 shooter_name: name,
@@ -590,7 +597,7 @@ impl StandEngine {
             let mut g = self.inner.lock();
             g.last_training_save = save;
         }
-        Ok(state)
+        Ok(self.snapshot())
     }
 
     fn emit_connection(&self, app: &AppHandle) {

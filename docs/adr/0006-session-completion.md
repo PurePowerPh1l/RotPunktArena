@@ -18,3 +18,14 @@ Ein erfolgloser Abschluss erzeugt kein `series_complete`-Event.
 Regressionen unter `engine::series::tests` prüfen die Recovery-Guard-Grenze mit
 Timeout, Rollback per Event-Trigger, erneuten Abschluss und die Ausschlussregeln.
 Die Hardware-Anzeige und der echte Recovery-Gate bleiben Teil der manuellen Abnahme.
+
+## Ergänzung: Session-Grenze beim automatischen Abschluss
+
+Start/Recovery und Abschluss koordinieren sich zusätzlich über ingest_gate.
+Poll- und Simulatorabschluss tragen die konkrete Session-ID; ein verspäteter
+Abschluss für A wird verworfen, wenn B aktuell ist. Prüfung, Persistenz und
+Live-Veröffentlichung liegen innerhalb dieser Sperre. Interne locked-Helfer
+vermeiden rekursives Sperren; öffentliche Abschlussaufrufe erwerben die Sperre.
+Ein Regressionstest beweist, dass ein alter Abschluss B offen lässt und der
+korrekt gebundene Abschluss B weiterhin schließen kann. Verbindungsupdates
+prüfen ihre Worker-Generation unter dem Zustandslock.
