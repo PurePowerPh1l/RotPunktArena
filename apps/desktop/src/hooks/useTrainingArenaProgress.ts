@@ -1,3 +1,4 @@
+import { TRAINING_HISTORY_WINDOW } from "../training/comparison";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TrainingSaveInfo, TrainingSessionSummary } from "@rotpunktarena/domain";
 import type { ShooterValue } from "../components/ShooterAutocomplete";
@@ -65,7 +66,7 @@ export function useTrainingArenaProgress({
     }
     const token = seq.begin();
     try {
-      const list = await api.listTrainingHistory(80, filter);
+      const list = await api.listTrainingHistory(TRAINING_HISTORY_WINDOW, filter);
       if (!seq.isCurrent(token)) return;
       setSessions(list);
     } catch {
@@ -99,7 +100,7 @@ export function useTrainingArenaProgress({
       const filter = historyFilter(shooter);
       if (!filter) return;
       try {
-        const list = await api.listTrainingHistory(80, filter);
+        const list = await api.listTrainingHistory(TRAINING_HISTORY_WINDOW, filter);
         if (cancelled) return;
         setSessions(list);
         const rival = rivalEnabled ? pickEigenRival(list.slice(0, -1)) : null;

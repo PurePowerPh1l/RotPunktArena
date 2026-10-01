@@ -219,7 +219,7 @@ export function TrainingSeriesPanel({
               <tbody>
                 {newestFirst.map((s, i) => {
                   const perShot = s.shotCount > 0 ? s.punkteTotal / s.shotCount : 0;
-                  const isBest = s.punkteTotal === bestSerie && sessionCount > 0;
+                  const isBest = (s.shotCount > 0 ? s.punkteTotal * 10 / s.shotCount : 0) === bestSerie && sessionCount > 0;
                   const isLatest = i === 0;
                   const isSelected = selectedId === s.id;
                   return (
