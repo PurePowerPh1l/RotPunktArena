@@ -19,8 +19,8 @@ mod owner;
 mod persist;
 mod setup_flow;
 mod shared;
-mod sink;
 pub(crate) mod shot_latency;
+mod sink;
 mod status;
 mod timing;
 

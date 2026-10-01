@@ -12,7 +12,7 @@
 //!   long_hold      — ≥4h Linked + RegisterSink/UnregisterSink-Zyklen (REDOT_LONG_HOLD_SECS)
 
 use reddot_desktop_lib::connection::{
-    connect_known_nuclear, ConnectionCommand, ConnectionManager, ConnectionStatus, ConnectOrigin,
+    connect_known_nuclear, ConnectOrigin, ConnectionCommand, ConnectionManager, ConnectionStatus,
 };
 use std::env;
 use std::path::PathBuf;
@@ -88,11 +88,12 @@ fn main() {
             thread::sleep(Duration::from_millis(400));
             // Pass: Linked once; generation not double-bumped for a second nuclear start
             // (attach ignores NuclearLink → same gen; or Linked with gen==gen0 or gen0+1 from Start only).
-            if st == ConnectionStatus::Linked && matches!(attach_res, Ok(_)) {
-                if origin0 == ConnectOrigin::StartupAuto || gen1 <= gen0 + 1 {
-                    eprintln!("PASS badge_attach Linked without parallel second Start bump storm");
-                    return;
-                }
+            if st == ConnectionStatus::Linked
+                && attach_res.is_ok()
+                && (origin0 == ConnectOrigin::StartupAuto || gen1 <= gen0 + 1)
+            {
+                eprintln!("PASS badge_attach Linked without parallel second Start bump storm");
+                return;
             }
             if st == ConnectionStatus::Linked {
                 eprintln!("PASS badge_attach Linked (attach ok or raced to same link)");
@@ -205,9 +206,7 @@ fn main() {
                         let _ = h.send(ConnectionCommand::Shutdown);
                         std::process::exit(4);
                     }
-                    eprintln!(
-                        "PASS link_lost → Idle, gen {gen_linked}->{gen1}, no auto-nuclear"
-                    );
+                    eprintln!("PASS link_lost → Idle, gen {gen_linked}->{gen1}, no auto-nuclear");
                     let _ = h.send(ConnectionCommand::Shutdown);
                     return;
                 }

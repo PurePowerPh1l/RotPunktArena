@@ -44,9 +44,7 @@ fn set_shared_reason(handle: &ConnectionHandle, status: ConnectionStatus, reason
 }
 
 fn pause_owner_for_setup(handle: &ConnectionHandle) -> Result<(), String> {
-    handle
-        .send(ConnectionCommand::PauseForSetup)
-        .map_err(|e| e)?;
+    handle.send(ConnectionCommand::PauseForSetup)?;
     // An in-flight Nuclear may still be inside a blocking Windows pairing or
     // socket call. The Owner acknowledges Discovering only after that worker
     // has stopped, so scanning cannot race its Bluetooth operations.
@@ -141,30 +139,30 @@ fn wait_nuclear_outcome(
             continue;
         }
         // Flight ended without link.
-        if attach || gen > gen0 {
-            if matches!(
+        if (attach || gen > gen0)
+            && matches!(
                 st,
                 ConnectionStatus::Faulted
                     | ConnectionStatus::NeedsPairing
                     | ConnectionStatus::NeedsTarget
                     | ConnectionStatus::Idle
-            ) {
-                let reason = handle.last_reason();
-                if st == ConnectionStatus::Idle
-                    && !attach
-                    && !reason.contains("Abgebrochen")
-                    && !reason.contains("fehlgeschlagen")
-                    && !reason.contains("Nicht verbunden")
-                {
-                    thread::sleep(Duration::from_millis(200));
-                    continue;
-                }
-                return Err(if reason.is_empty() {
-                    "Verbindung fehlgeschlagen".into()
-                } else {
-                    reason
-                });
+            )
+        {
+            let reason = handle.last_reason();
+            if st == ConnectionStatus::Idle
+                && !attach
+                && !reason.contains("Abgebrochen")
+                && !reason.contains("fehlgeschlagen")
+                && !reason.contains("Nicht verbunden")
+            {
+                thread::sleep(Duration::from_millis(200));
+                continue;
             }
+            return Err(if reason.is_empty() {
+                "Verbindung fehlgeschlagen".into()
+            } else {
+                reason
+            });
         }
         thread::sleep(Duration::from_millis(200));
     }
@@ -216,13 +214,11 @@ pub fn setup_connect(
         &format!("Verbinde mit {display_name}…"),
     );
     let gen0 = handle.generation();
-    handle
-        .send(ConnectionCommand::NuclearLink {
-            bt_addr: addr,
-            display_name: display_name.clone(),
-            origin: ConnectOrigin::SetupNuclear,
-        })
-        .map_err(|e| e)?;
+    handle.send(ConnectionCommand::NuclearLink {
+        bt_addr: addr,
+        display_name: display_name.clone(),
+        origin: ConnectOrigin::SetupNuclear,
+    })?;
 
     wait_nuclear_outcome(handle, addr, gen0, false)
 }
@@ -242,13 +238,11 @@ pub fn connect_known_nuclear(handle: &ConnectionHandle) -> Result<RfcommTarget, 
 
     // Capture generation *before* send — Nuclear bumps generation on start.
     let gen0 = handle.generation();
-    handle
-        .send(ConnectionCommand::NuclearLink {
-            bt_addr: t.bt_addr,
-            display_name: t.display_name.clone(),
-            origin: ConnectOrigin::BadgeNuclear,
-        })
-        .map_err(|e| e)?;
+    handle.send(ConnectionCommand::NuclearLink {
+        bt_addr: t.bt_addr,
+        display_name: t.display_name.clone(),
+        origin: ConnectOrigin::BadgeNuclear,
+    })?;
 
     wait_nuclear_outcome(handle, t.bt_addr, gen0, false)
 }

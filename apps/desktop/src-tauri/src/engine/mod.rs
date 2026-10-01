@@ -185,7 +185,9 @@ impl StandEngine {
                 worker_failed = true;
             }
         }
-        if worker_failed { return Err("Worker-Abschluss fehlgeschlagen; Live-DB bleibt erhalten".into()); }
+        if worker_failed {
+            return Err("Worker-Abschluss fehlgeschlagen; Live-DB bleibt erhalten".into());
+        }
         let _ingest = self.ingest_gate.lock();
         let mut live = self.log.lock();
         let _snapshots = crate::db::pause_snapshots();
@@ -199,11 +201,17 @@ impl StandEngine {
         let result = Database::prepare_replacement(source, &staging)
             .and_then(|candidate| live.replace_contents(&candidate, &rollback));
         // Candidate connection has closed; these are uniquely owned staging files.
-        for path in [staging.clone(), std::path::PathBuf::from(format!("{}-wal", staging.display())),
-            std::path::PathBuf::from(format!("{}-shm", staging.display()))] {
+        for path in [
+            staging.clone(),
+            std::path::PathBuf::from(format!("{}-wal", staging.display())),
+            std::path::PathBuf::from(format!("{}-shm", staging.display())),
+        ] {
             if let Err(error) = std::fs::remove_file(&path) {
                 if error.kind() != std::io::ErrorKind::NotFound {
-                    eprintln!("Staging-Datei konnte nicht entfernt werden ({}): {error}", path.display());
+                    eprintln!(
+                        "Staging-Datei konnte nicht entfernt werden ({}): {error}",
+                        path.display()
+                    );
                 }
             }
         }
@@ -228,7 +236,20 @@ impl StandEngine {
         LiveState {
             revision: self.projection_revision.fetch_add(1, Ordering::SeqCst) + 1,
             session_id: g.session.as_ref().map(|session| session.id.clone()),
-            phase: if g.session.is_none() { "idle" } else if g.session.as_ref().is_some_and(|session| session.ended_at.is_some()) { "closed" } else if g.probe_active { "probe" } else { "match" }.into(),
+            phase: if g.session.is_none() {
+                "idle"
+            } else if g
+                .session
+                .as_ref()
+                .is_some_and(|session| session.ended_at.is_some())
+            {
+                "closed"
+            } else if g.probe_active {
+                "probe"
+            } else {
+                "match"
+            }
+            .into(),
             status: g.status,
             transport: g.transport,
             port: g.port.clone(),
@@ -250,7 +271,10 @@ impl StandEngine {
 
     pub(crate) fn emit_live<R: tauri::Runtime>(&self, app: &AppHandle<R>, detail: Option<String>) {
         let state = self.snapshot();
-        if let Err(error) = app.emit("live_state", serde_json::json!({ "state": state, "detail": detail })) {
+        if let Err(error) = app.emit(
+            "live_state",
+            serde_json::json!({ "state": state, "detail": detail }),
+        ) {
             eprintln!("Live-Zustand konnte nicht angezeigt werden: {error}");
         }
     }
@@ -281,9 +305,9 @@ impl StandEngine {
         if g.series_complete {
             return false;
         }
-        g.session.as_ref().is_some_and(|s| {
-            s.id == session_id && s.ended_at.is_none()
-        })
+        g.session
+            .as_ref()
+            .is_some_and(|s| s.id == session_id && s.ended_at.is_none())
     }
 
     /// DIAGNOSE-ONLY: "training" | "competition" for latency JSONL.
@@ -324,14 +348,26 @@ mod maintenance_tests {
         let engine = StandEngine::new(Database::open_in_memory().unwrap());
         let mut snapshot = engine.snapshot();
         snapshot.serial_feature = false; // fixture is independent of compiled adapters
-        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../../../fixtures/live-idle.json")).unwrap();
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../../fixtures/live-idle.json")).unwrap();
         assert_eq!(serde_json::to_value(&snapshot).unwrap(), fixture);
-        assert_eq!(serde_json::from_value::<LiveState>(fixture).unwrap().phase, "idle");
+        assert_eq!(
+            serde_json::from_value::<LiveState>(fixture).unwrap().phase,
+            "idle"
+        );
         assert!(engine.snapshot().revision > snapshot.revision);
-        engine.apply_connection_update(&ConnectionUpdate { status: ConnectionStatus::Searching, transport: TransportKind::Rfcomm, port: None, detail: None });
+        engine.apply_connection_update(&ConnectionUpdate {
+            status: ConnectionStatus::Searching,
+            transport: TransportKind::Rfcomm,
+            port: None,
+            detail: None,
+        });
         let hardware = engine.snapshot();
         assert!(hardware.revision > snapshot.revision);
-        assert_eq!(serde_json::to_value(hardware).unwrap()["transport"], "rfcomm");
+        assert_eq!(
+            serde_json::to_value(hardware).unwrap()["transport"],
+            "rfcomm"
+        );
     }
 
     #[test]
@@ -342,25 +378,39 @@ mod maintenance_tests {
         let backup = Database::open(&source).unwrap();
         backup.set_setting("barrier_test", "replacement").unwrap();
         drop(backup);
-        let engine = Arc::new(StandEngine::new(Database::open(dir.join("live.sqlite")).unwrap()));
+        let engine = Arc::new(StandEngine::new(
+            Database::open(dir.join("live.sqlite")).unwrap(),
+        ));
         let (entered, running) = mpsc::channel();
         let (release, wait) = mpsc::channel();
         let old_engine = engine.clone();
         let worker = std::thread::spawn(move || {
             entered.send(()).unwrap();
             wait.recv().unwrap();
-            old_engine.with_db(|db| db.set_setting("barrier_test", "old-worker")).unwrap();
+            old_engine
+                .with_db(|db| db.set_setting("barrier_test", "old-worker"))
+                .unwrap();
         });
         running.recv_timeout(Duration::from_secs(2)).unwrap();
         engine.retired_workers.lock().push(worker);
         let (done, result) = mpsc::channel();
         let restoring = engine.clone();
-        let restore = std::thread::spawn(move || done.send(restoring.swap_database_file(&source)).unwrap());
+        let restore =
+            std::thread::spawn(move || done.send(restoring.swap_database_file(&source)).unwrap());
         assert!(result.recv_timeout(Duration::from_millis(100)).is_err());
         release.send(()).unwrap();
-        result.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
+        result
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
         restore.join().unwrap();
-        assert_eq!(engine.with_db(|db| db.get_setting("barrier_test")).unwrap().as_deref(), Some("replacement"));
+        assert_eq!(
+            engine
+                .with_db(|db| db.get_setting("barrier_test"))
+                .unwrap()
+                .as_deref(),
+            Some("replacement")
+        );
         assert!(engine.retired_workers.lock().is_empty());
         drop(engine);
         std::fs::remove_dir_all(dir).unwrap();

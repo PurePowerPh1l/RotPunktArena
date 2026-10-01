@@ -10,7 +10,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Single-flight guard for background cadence snapshots.
 static SNAPSHOT_WRITE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
 
-
 /// Accepted-shot cadence for hybrid snapshots (event-count, not wall-clock).
 pub const SNAPSHOT_EVERY_N_SHOTS: i64 = 100;
 /// Keep the newest N snapshot files per session id.
@@ -37,8 +36,10 @@ impl Database {
     /// `VACUUM INTO`. Prefer [`Database::spawn_session_boundary_snapshot`] on
     /// lifecycle paths so session start/end never wait on VACUUM I/O.
     pub fn try_session_boundary_snapshot(&self, session_id: &str) {
-        if let Err(e) = self.last_event_sequence(session_id)
-            .and_then(|seq| self.write_session_snapshot(session_id, seq)) {
+        if let Err(e) = self
+            .last_event_sequence(session_id)
+            .and_then(|seq| self.write_session_snapshot(session_id, seq))
+        {
             eprintln!("[reddot] session snapshot failed ({session_id}): {e}");
         }
     }
@@ -127,7 +128,12 @@ impl Database {
         result?;
 
         retain_session_snapshots(&dir, &safe_id, SNAPSHOT_RETAIN_PER_SESSION)?;
-        retain_global_snapshots(&dir, GLOBAL_RETAIN_COUNT, GLOBAL_RETAIN_BYTES, GLOBAL_RETAIN_AGE)?;
+        retain_global_snapshots(
+            &dir,
+            GLOBAL_RETAIN_COUNT,
+            GLOBAL_RETAIN_BYTES,
+            GLOBAL_RETAIN_AGE,
+        )?;
         Ok(dest)
     }
 
@@ -178,38 +184,63 @@ fn retain_session_snapshots(dir: &Path, safe_id: &str, keep: usize) -> Result<()
 
     let excess = files.len().saturating_sub(keep);
     for path in files.into_iter().take(excess) {
-        std::fs::remove_file(&path).map_err(|e| format!("Snapshot-Retention {}: {e}", path.display()))?;
+        std::fs::remove_file(&path)
+            .map_err(|e| format!("Snapshot-Retention {}: {e}", path.display()))?;
     }
     Ok(())
 }
 
 /// Budgets include latest.sqlite. Always preserve the newest session snapshot
 /// and latest, even if one database exceeds the budget; report this explicitly.
-fn retain_global_snapshots(dir: &Path, count: usize, bytes: u64, age: std::time::Duration) -> Result<(), String> {
+fn retain_global_snapshots(
+    dir: &Path,
+    count: usize,
+    bytes: u64,
+    age: std::time::Duration,
+) -> Result<(), String> {
     let mut files = Vec::new();
     for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
         let name = entry.file_name();
-        if !name.to_string_lossy().starts_with("session-") || !name.to_string_lossy().ends_with(".sqlite") { continue; }
-        if !entry.file_type().map_err(|e| e.to_string())?.is_file() { continue; }
+        if !name.to_string_lossy().starts_with("session-")
+            || !name.to_string_lossy().ends_with(".sqlite")
+        {
+            continue;
+        }
+        if !entry.file_type().map_err(|e| e.to_string())?.is_file() {
+            continue;
+        }
         let metadata = entry.metadata().map_err(|e| e.to_string())?;
-        files.push((entry.path(), metadata.len(), metadata.modified().map_err(|e| e.to_string())?));
+        files.push((
+            entry.path(),
+            metadata.len(),
+            metadata.modified().map_err(|e| e.to_string())?,
+        ));
     }
     files.sort_by_key(|(_, _, modified)| *modified);
-    let mut total = std::fs::metadata(dir.join(SNAPSHOT_LATEST_NAME)).map_err(|e| e.to_string())?.len();
+    let mut total = std::fs::metadata(dir.join(SNAPSHOT_LATEST_NAME))
+        .map_err(|e| e.to_string())?
+        .len();
     total += files.iter().map(|(_, size, _)| size).sum::<u64>();
     let mut remaining = files.len();
     let now = SystemTime::now();
     for (path, size, modified) in files {
-        if remaining <= 1 { break; }
-        let expired = now.duration_since(modified).is_ok_and(|elapsed| elapsed > age);
+        if remaining <= 1 {
+            break;
+        }
+        let expired = now
+            .duration_since(modified)
+            .is_ok_and(|elapsed| elapsed > age);
         if remaining > count || total > bytes || expired {
-            std::fs::remove_file(&path).map_err(|e| format!("Globale Snapshot-Retention {}: {e}", path.display()))?;
+            std::fs::remove_file(&path)
+                .map_err(|e| format!("Globale Snapshot-Retention {}: {e}", path.display()))?;
             total -= size;
             remaining -= 1;
         }
     }
-    if total > bytes { eprintln!("Snapshot-Grundbestand überschreitet Budget: {total} > {bytes} Bytes"); }
+    if total > bytes {
+        eprintln!("Snapshot-Grundbestand überschreitet Budget: {total} > {bytes} Bytes");
+    }
     Ok(())
 }
 
@@ -221,7 +252,10 @@ mod tests {
     #[test]
     fn global_retention_spans_sessions_and_preserves_latest() {
         let (dir, db) = temp_db();
-        for i in 0..6 { db.write_session_snapshot(&format!("different-{i}"), i).unwrap(); }
+        for i in 0..6 {
+            db.write_session_snapshot(&format!("different-{i}"), i)
+                .unwrap();
+        }
         let snapshots = db.snapshot_dir().unwrap();
         retain_global_snapshots(&snapshots, 3, u64::MAX, std::time::Duration::MAX).unwrap();
         assert_eq!(std::fs::read_dir(&snapshots).unwrap().count(), 4);

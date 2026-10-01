@@ -73,9 +73,7 @@ fn hash_password(password: &str, salt_hex: &str) -> Result<String, String> {
 
 fn parse_record(raw: &str) -> Result<AdminAuthRecord, String> {
     let record: AdminAuthRecord = serde_json::from_str(raw).map_err(|e| {
-        format!(
-            "Admin-Auth ungültig ({e}). Gespeicherte Werte wurden nicht überschrieben."
-        )
+        format!("Admin-Auth ungültig ({e}). Gespeicherte Werte wurden nicht überschrieben.")
     })?;
     if record.version != 1 {
         return Err(format!(
@@ -166,7 +164,10 @@ pub fn verify_admin_password(
             return Err("Kein Admin-Passwort eingerichtet.".to_string());
         };
         let candidate = hash_password(&password, &record.salt)?;
-        Ok(constant_time_eq(candidate.as_bytes(), record.hash.as_bytes()))
+        Ok(constant_time_eq(
+            candidate.as_bytes(),
+            record.hash.as_bytes(),
+        ))
     })?;
     if ok {
         session.unlock();
@@ -184,9 +185,7 @@ pub fn lock_admin_session(session: tauri::State<'_, AdminSession>) {
 /// developer test-unlock stays usable. No-op in release builds (returns an
 /// error) so it can never bypass auth in shipped binaries.
 #[tauri::command]
-pub fn dev_unlock_admin_session(
-    session: tauri::State<'_, AdminSession>,
-) -> Result<(), String> {
+pub fn dev_unlock_admin_session(session: tauri::State<'_, AdminSession>) -> Result<(), String> {
     if cfg!(debug_assertions) {
         session.unlock();
         Ok(())

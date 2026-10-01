@@ -10,13 +10,28 @@ impl Database {
         person_id: Option<&str>,
         training_limit: Option<i64>,
     ) -> Result<(SessionInfo, Option<i64>, bool), String> {
-        self.start_live_session_with_source(shooter_name, competition_id, entry_id, person_id, training_limit, false)
+        self.start_live_session_with_source(
+            shooter_name,
+            competition_id,
+            entry_id,
+            person_id,
+            training_limit,
+            false,
+        )
     }
 
-    pub fn start_live_session_with_source(&self, shooter_name: &str, competition_id: Option<&str>,
-        entry_id: Option<&str>, person_id: Option<&str>, training_limit: Option<i64>, simulated: bool,
+    pub fn start_live_session_with_source(
+        &self,
+        shooter_name: &str,
+        competition_id: Option<&str>,
+        entry_id: Option<&str>,
+        person_id: Option<&str>,
+        training_limit: Option<i64>,
+        simulated: bool,
     ) -> Result<(SessionInfo, Option<i64>, bool), String> {
-        if simulated && competition_id.is_some() { return Err("Simulatortraining darf keinem Wettkampf zugeordnet werden".into()); }
+        if simulated && competition_id.is_some() {
+            return Err("Simulatortraining darf keinem Wettkampf zugeordnet werden".into());
+        }
         let tx = self
             .conn
             .unchecked_transaction()
@@ -56,8 +71,11 @@ impl Database {
             max_shots,
             phase,
         )?;
-        tx.execute("UPDATE sessions SET simulated = ?1 WHERE id = ?2", rusqlite::params![simulated, session.id])
-            .map_err(|e| e.to_string())?;
+        tx.execute(
+            "UPDATE sessions SET simulated = ?1 WHERE id = ?2",
+            rusqlite::params![simulated, session.id],
+        )
+        .map_err(|e| e.to_string())?;
         session.simulated = simulated;
         tx.commit().map_err(|e| e.to_string())?;
         self.spawn_session_boundary_snapshot(&session.id);
@@ -73,11 +91,26 @@ mod tests {
     #[test]
     fn simulator_source_is_persisted_and_competition_simulation_is_rejected() {
         let (db, cid, eid, pid) = fixture();
-        assert!(db.start_live_session_with_source("Fixture", Some(&cid), Some(&eid), Some(&pid), None, true).is_err());
-        let (session, _, _) = db.start_live_session_with_source("Fixture", None, None, None, Some(5), true).unwrap();
+        assert!(db
+            .start_live_session_with_source(
+                "Fixture",
+                Some(&cid),
+                Some(&eid),
+                Some(&pid),
+                None,
+                true
+            )
+            .is_err());
+        let (session, _, _) = db
+            .start_live_session_with_source("Fixture", None, None, None, Some(5), true)
+            .unwrap();
         assert!(session.simulated);
         assert!(db.get_session(&session.id).unwrap().unwrap().simulated);
-        assert!(db.list_recovery_sessions().unwrap().iter().any(|s| s.id == session.id && s.simulated));
+        assert!(db
+            .list_recovery_sessions()
+            .unwrap()
+            .iter()
+            .any(|s| s.id == session.id && s.simulated));
     }
 
     fn competition_input() -> CreateCompetition {

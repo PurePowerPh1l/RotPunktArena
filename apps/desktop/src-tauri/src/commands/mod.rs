@@ -2,14 +2,14 @@
 
 mod admin;
 mod admin_auth;
+#[cfg(test)]
+mod authorization_tests;
 mod bureau;
 mod dev;
 mod live;
 mod recovery;
 mod settings;
 mod training;
-#[cfg(test)]
-mod authorization_tests;
 
 pub use admin::*;
 pub use admin_auth::*;

@@ -45,7 +45,7 @@ impl Transport for SerialTransport {
             .flow_control(FlowControl::None)
             .timeout(Duration::from_millis(100))
             .open()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
         self.port = Some(port);
         Ok(())
     }
@@ -71,7 +71,7 @@ impl Transport for SerialTransport {
             .as_mut()
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "port closed"))?;
         port.set_timeout(timeout)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
         match port.read(buf) {
             Ok(n) => Ok(n),
             Err(e) if e.kind() == io::ErrorKind::TimedOut => Ok(0),

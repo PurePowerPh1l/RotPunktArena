@@ -7,7 +7,9 @@
 use reddot_desktop_lib::connection::run_nuclear_link;
 use reddot_desktop_lib::rfcomm::{
     discovery::{bond_state, find_reddot_candidate},
-    spp_com, target::RfcommTarget, RfcommSocket, WinsockRuntime,
+    spp_com,
+    target::RfcommTarget,
+    RfcommSocket, WinsockRuntime,
 };
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -52,10 +54,7 @@ fn main() {
     }
 
     let target = resolve();
-    eprintln!(
-        "Target {} @ {:012X}",
-        target.display_name, target.bt_addr
-    );
+    eprintln!("Target {} @ {:012X}", target.display_name, target.bt_addr);
     print_bond(target.bt_addr, "start");
 
     let bonded = matches!(bond_state(target.bt_addr), Ok(Some(b)) if b.authenticated);
@@ -96,7 +95,9 @@ fn main() {
         Err(e) => {
             eprintln!("FAIL nuclear ({:.0?}): {e}", t1.elapsed());
             print_bond(target.bt_addr, "after nuclear-fail");
-            eprintln!("HINT: Ziel an? Pairbar? BT-Adapter an? Danach bt_reset_connect allein testen.");
+            eprintln!(
+                "HINT: Ziel an? Pairbar? BT-Adapter an? Danach bt_reset_connect allein testen."
+            );
             std::process::exit(2);
         }
     }

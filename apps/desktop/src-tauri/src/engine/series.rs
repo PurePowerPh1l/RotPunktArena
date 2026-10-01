@@ -104,19 +104,34 @@ impl StandEngine {
         Ok(self.snapshot())
     }
 
-    pub fn fire_aim_shot<R: tauri::Runtime>(&self, app: &AppHandle<R>, x: f64, y: f64) -> Result<LiveState, String> {
+    pub fn fire_aim_shot<R: tauri::Runtime>(
+        &self,
+        app: &AppHandle<R>,
+        x: f64,
+        y: f64,
+    ) -> Result<LiveState, String> {
         let (value, dist, x_ascii, y_ascii) = crate::protocol::aim_coords_to_ascii(x, y);
         self.inject_synthetic_shot(app, &value, &dist, &x_ascii, &y_ascii)
     }
 
     /// After the last competition shot: close session, mark entry done, notify UI.
     /// No-op during the probe phase (Probeschüsse never finish the series).
-    pub fn finish_series_if_needed<R: tauri::Runtime>(&self, app: &AppHandle<R>, shot_index: i64) -> Result<(), String> {
+    pub fn finish_series_if_needed<R: tauri::Runtime>(
+        &self,
+        app: &AppHandle<R>,
+        shot_index: i64,
+    ) -> Result<(), String> {
         let Some(payload) = self.complete_series_if_needed(shot_index)? else {
             return Ok(());
         };
         let _ = app.emit("series_complete", payload.clone());
-        self.emit_live(app, Some(format!("Serie beendet — {}/{} Schüsse", payload.shot_count, payload.max_shots)));
+        self.emit_live(
+            app,
+            Some(format!(
+                "Serie beendet — {}/{} Schüsse",
+                payload.shot_count, payload.max_shots
+            )),
+        );
         let _ = app.emit(
             "connection",
             ConnectionUpdate {
@@ -191,10 +206,18 @@ impl StandEngine {
 
     fn require_simulator_session(&self) -> Result<(), String> {
         let state = self.inner.lock();
-        let session = state.session.as_ref().filter(|s| s.ended_at.is_none())
+        let session = state
+            .session
+            .as_ref()
+            .filter(|s| s.ended_at.is_none())
             .ok_or("Keine offene Simulatorsession")?;
-        if state.transport != crate::transport::TransportKind::Simulator || !session.simulated || session.competition_id.is_some() {
-            return Err("Synthetische Schüsse sind ausschließlich im Simulatortraining erlaubt".into());
+        if state.transport != crate::transport::TransportKind::Simulator
+            || !session.simulated
+            || session.competition_id.is_some()
+        {
+            return Err(
+                "Synthetische Schüsse sind ausschließlich im Simulatortraining erlaubt".into(),
+            );
         }
         Ok(())
     }
@@ -222,7 +245,11 @@ mod tests {
         let app = tauri::test::mock_app();
         assert!(engine.fire_aim_shot(app.handle(), 1.0, 2.0).is_err());
         let session_id = engine.snapshot().session.unwrap().id;
-        engine.with_db(|db| db.conn.execute("UPDATE sessions SET simulated=1 WHERE id=?1", [&session_id]).unwrap());
+        engine.with_db(|db| {
+            db.conn
+                .execute("UPDATE sessions SET simulated=1 WHERE id=?1", [&session_id])
+                .unwrap()
+        });
         engine.inner.lock().session.as_mut().unwrap().simulated = true;
         engine.inner.lock().transport = crate::transport::TransportKind::Rfcomm;
         assert!(engine.fire_aim_shot(app.handle(), 1.0, 2.0).is_err());
@@ -231,11 +258,22 @@ mod tests {
         assert!(engine.fire_aim_shot(app.handle(), 1.0, 2.0).is_err());
         engine.inner.lock().session.as_mut().unwrap().competition_id = None;
         engine.fire_aim_shot(app.handle(), 1.0, 2.0).unwrap();
-        assert_eq!(engine.with_db(|db| db.count_session_shots(&session_id)).unwrap(), 1);
+        assert_eq!(
+            engine
+                .with_db(|db| db.count_session_shots(&session_id))
+                .unwrap(),
+            1
+        );
         let ended = engine.end_session().unwrap();
         assert_eq!(ended.training_save.unwrap().reason, "simulated");
         assert!(engine.fire_aim_shot(app.handle(), 1.0, 2.0).is_err());
-        assert_eq!(engine.with_db(|db| db.list_saved_training_sessions(80, None, None)).unwrap().len(), 0);
+        assert_eq!(
+            engine
+                .with_db(|db| db.list_saved_training_sessions(80, None, None))
+                .unwrap()
+                .len(),
+            0
+        );
     }
 
     fn engine_fixture() -> Arc<StandEngine> {

@@ -101,7 +101,11 @@ pub fn fire_aim_shot<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub fn set_auto_fire(engine: tauri::State<'_, Arc<StandEngine>>, session: tauri::State<'_, crate::commands::AdminSession>, on: bool) -> Result<(), String> {
+pub fn set_auto_fire(
+    engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, crate::commands::AdminSession>,
+    on: bool,
+) -> Result<(), String> {
     session.require()?;
     engine.set_auto_fire(on)
 }

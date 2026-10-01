@@ -317,8 +317,11 @@ impl Database {
         team_scoring_enabled: bool,
         team_count: i64,
     ) -> Result<Competition, String> {
-        let tx = rusqlite::Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Immediate)
-            .map_err(|e| e.to_string())?;
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(|e| e.to_string())?;
         let previous = self
             .get_competition(id)?
             .ok_or_else(|| "Wettkampf nicht gefunden".to_string())?;
@@ -329,7 +332,9 @@ impl Database {
         } else {
             team_count.min(20)
         };
-        if previous.team_scoring_enabled != team_scoring_enabled || previous.team_count != team_count {
+        if previous.team_scoring_enabled != team_scoring_enabled
+            || previous.team_count != team_count
+        {
             self.assert_competition_rules_editable(id)?;
         }
         self.conn
@@ -350,8 +355,11 @@ impl Database {
         id: &str,
         input: CreateCompetition,
     ) -> Result<Competition, String> {
-        let tx = rusqlite::Transaction::new_unchecked(&self.conn, rusqlite::TransactionBehavior::Immediate)
-            .map_err(|e| e.to_string())?;
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(|e| e.to_string())?;
         let previous = self
             .get_competition(id)?
             .ok_or_else(|| "Wettkampf nicht gefunden".to_string())?;
@@ -389,10 +397,16 @@ impl Database {
         } else {
             input.discipline.trim().to_string()
         };
-        if previous.max_shots != max_shots || previous.scoring_mode != scoring
-            || previous.nachkauf_enabled != nachkauf_enabled || previous.team_scoring_enabled != team_scoring_enabled
-            || previous.team_count != team_count || previous.kind != kind || previous.discipline != discipline
-            || previous.tenths_enabled != input.tenths_enabled || previous.probe_enabled != input.probe_enabled {
+        if previous.max_shots != max_shots
+            || previous.scoring_mode != scoring
+            || previous.nachkauf_enabled != nachkauf_enabled
+            || previous.team_scoring_enabled != team_scoring_enabled
+            || previous.team_count != team_count
+            || previous.kind != kind
+            || previous.discipline != discipline
+            || previous.tenths_enabled != input.tenths_enabled
+            || previous.probe_enabled != input.probe_enabled
+        {
             self.assert_competition_rules_editable(id)?;
         }
         self.conn
@@ -434,10 +448,17 @@ impl Database {
     }
 
     fn assert_competition_rules_editable(&self, id: &str) -> Result<(), String> {
-        let started: bool = self.conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM sessions WHERE competition_id = ?1)", params![id], |r| r.get(0),
-        ).map_err(|e| e.to_string())?;
-        if started { return Err("Wertungsregeln sind nach dem ersten Sessionstart unveränderlich — bitte neuen Wettkampf aus Vorlage erstellen".into()); }
+        let started: bool = self
+            .conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sessions WHERE competition_id = ?1)",
+                params![id],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if started {
+            return Err("Wertungsregeln sind nach dem ersten Sessionstart unveränderlich — bitte neuen Wettkampf aus Vorlage erstellen".into());
+        }
         Ok(())
     }
 
@@ -619,7 +640,10 @@ impl Database {
                 return Err("Doppelte Starter-ID".into());
             }
         }
-        let tx = self.conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| e.to_string())?;
         for (i, id) in entry_ids.iter().enumerate() {
             tx.execute(
                 "UPDATE competition_entries SET start_order = ?1 WHERE id = ?2 AND competition_id = ?3",
@@ -644,17 +668,26 @@ impl Database {
         };
         if status == entry_status::ACTIVE {
             let entry = self.get_entry(entry_id)?.ok_or("Eintrag nicht gefunden")?;
-            self.conn.execute(
-                "UPDATE competition_entries
+            self.conn
+                .execute(
+                    "UPDATE competition_entries
                  SET status = CASE WHEN id = ?1 THEN ?2 ELSE ?3 END
                  WHERE competition_id = ?4 AND (id = ?1 OR status = ?2)",
-                params![entry_id, entry_status::ACTIVE, entry_status::WAITING, entry.competition_id],
-            ).map_err(|e| e.to_string())?;
+                    params![
+                        entry_id,
+                        entry_status::ACTIVE,
+                        entry_status::WAITING,
+                        entry.competition_id
+                    ],
+                )
+                .map_err(|e| e.to_string())?;
         } else {
-            self.conn.execute(
-                "UPDATE competition_entries SET status = ?1 WHERE id = ?2",
-                params![status, entry_id],
-            ).map_err(|e| e.to_string())?;
+            self.conn
+                .execute(
+                    "UPDATE competition_entries SET status = ?1 WHERE id = ?2",
+                    params![status, entry_id],
+                )
+                .map_err(|e| e.to_string())?;
         }
         self.get_entry(entry_id)?
             .ok_or_else(|| "Eintrag nicht gefunden".into())
@@ -876,7 +909,8 @@ mod rule_tests {
         serde_json::from_value(serde_json::json!({
             "name": "Fixture", "date": "2026-10-01", "discipline": "Luftgewehr",
             "maxShots": 10, "scoringMode": "ringe", "tenthsEnabled": tenths,
-        })).unwrap()
+        }))
+        .unwrap()
     }
 
     #[test]
@@ -884,12 +918,26 @@ mod rule_tests {
         let mut db = Database::open_in_memory().unwrap();
         let competition = db.create_competition(input(false)).unwrap();
         db.update_competition(&competition.id, input(true)).unwrap();
-        let session = db.start_session("Fixture", Some(&competition.id), None, None).unwrap();
+        let session = db
+            .start_session("Fixture", Some(&competition.id), None, None)
+            .unwrap();
         for closed in [false, true] {
-            if closed { db.end_session(&session.id).unwrap(); }
-            assert!(db.update_competition(&competition.id, input(false)).unwrap_err().contains("unveränderlich"));
-            assert!(db.set_competition_team_settings(&competition.id, true, 5).is_err());
-            assert!(db.get_competition(&competition.id).unwrap().unwrap().tenths_enabled);
+            if closed {
+                db.end_session(&session.id).unwrap();
+            }
+            assert!(db
+                .update_competition(&competition.id, input(false))
+                .unwrap_err()
+                .contains("unveränderlich"));
+            assert!(db
+                .set_competition_team_settings(&competition.id, true, 5)
+                .is_err());
+            assert!(
+                db.get_competition(&competition.id)
+                    .unwrap()
+                    .unwrap()
+                    .tenths_enabled
+            );
             let mut renamed = input(true);
             renamed.name = "Renamed".into();
             db.update_competition(&competition.id, renamed).unwrap();
@@ -900,26 +948,54 @@ mod rule_tests {
     fn session_scoring_reads_snapshot_even_if_current_rules_change_outside_api() {
         let mut db = Database::open_in_memory().unwrap();
         let competition = db.create_competition(input(true)).unwrap();
-        let session = db.start_session("Fixture", Some(&competition.id), None, None).unwrap();
+        let session = db
+            .start_session("Fixture", Some(&competition.id), None, None)
+            .unwrap();
         for current_tenths in [1, 0] {
-            db.conn.execute("UPDATE competitions SET tenths_enabled=?1 WHERE id=?2", params![current_tenths, competition.id]).unwrap();
-            let mut frame = crate::protocol::build_synthetic_shot_frame("09.5", "001.00", "00001", "00002").unwrap();
+            db.conn
+                .execute(
+                    "UPDATE competitions SET tenths_enabled=?1 WHERE id=?2",
+                    params![current_tenths, competition.id],
+                )
+                .unwrap();
+            let mut frame =
+                crate::protocol::build_synthetic_shot_frame("09.5", "001.00", "00001", "00002")
+                    .unwrap();
             crate::protocol::stamp_frame_nonce(&mut frame);
-            let crate::arena::IngestOutcome::Accepted(accepted) = db.ingest_raw_frame(&session.id, &frame, "test", None).unwrap() else { panic!("shot rejected") };
+            let crate::arena::IngestOutcome::Accepted(accepted) = db
+                .ingest_raw_frame(&session.id, &frame, "test", None)
+                .unwrap()
+            else {
+                panic!("shot rejected")
+            };
             assert_eq!(accepted.score, 9.5);
         }
-        let (json, origin): (String, String) = db.conn.query_row("SELECT rules_json, rules_origin FROM sessions WHERE id=?1", [&session.id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        let (json, origin): (String, String) = db
+            .conn
+            .query_row(
+                "SELECT rules_json, rules_origin FROM sessions WHERE id=?1",
+                [&session.id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
         assert_eq!(origin, "captured");
-        assert_eq!(serde_json::from_str::<serde_json::Value>(&json).unwrap()["tenthsEnabled"], 1);
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&json).unwrap()["tenthsEnabled"],
+            1
+        );
     }
 
     #[test]
     fn legacy_migration_marks_current_baseline_without_recalculating_stored_shots() {
         let mut db = Database::open_in_memory().unwrap();
         let competition = db.create_competition(input(true)).unwrap();
-        let session = db.start_session("Fixture", Some(&competition.id), None, None).unwrap();
-        let frame = crate::protocol::build_synthetic_shot_frame("09.5", "001.00", "00001", "00002").unwrap();
-        db.ingest_raw_frame(&session.id, &frame, "test", None).unwrap();
+        let session = db
+            .start_session("Fixture", Some(&competition.id), None, None)
+            .unwrap();
+        let frame = crate::protocol::build_synthetic_shot_frame("09.5", "001.00", "00001", "00002")
+            .unwrap();
+        db.ingest_raw_frame(&session.id, &frame, "test", None)
+            .unwrap();
         db.conn.execute_batch("ALTER TABLE sessions DROP COLUMN rules_json;
             ALTER TABLE sessions DROP COLUMN rules_origin; DELETE FROM schema_migrations WHERE version=18;
             UPDATE competitions SET tenths_enabled=0;").unwrap();
@@ -941,32 +1017,59 @@ mod atomic_entry_tests {
     #[test]
     fn reorder_rolls_back_on_second_update_and_active_switch_is_unique() {
         let db = Database::open_in_memory().unwrap();
-        let comp = db.create_competition(serde_json::from_value(serde_json::json!({
-            "name": "Atomic", "date": "2026-09-30", "discipline": "LG",
-            "maxShots": 10, "scoringMode": "ringe"
-        })).unwrap()).unwrap();
+        let comp = db
+            .create_competition(
+                serde_json::from_value(serde_json::json!({
+                    "name": "Atomic", "date": "2026-09-30", "discipline": "LG",
+                    "maxShots": 10, "scoringMode": "ringe"
+                }))
+                .unwrap(),
+            )
+            .unwrap();
         let mut ids = Vec::new();
         for name in ["Erste", "Zweite"] {
-            let person = db.create_person(CreatePerson {
-                first_name: name.into(), last_name: "Test".into(), club: None,
-            }).unwrap();
+            let person = db
+                .create_person(CreatePerson {
+                    first_name: name.into(),
+                    last_name: "Test".into(),
+                    club: None,
+                })
+                .unwrap();
             ids.push(db.add_entry(&comp.id, &person.id).unwrap().id);
         }
-        db.conn.execute_batch(&format!(
-            "CREATE TRIGGER fail_reorder BEFORE UPDATE OF start_order ON competition_entries \
-             WHEN NEW.id = '{}' BEGIN SELECT RAISE(ABORT, 'injected'); END;", ids[0]
-        )).unwrap();
-        assert!(db.reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()]).is_err());
+        db.conn
+            .execute_batch(&format!(
+                "CREATE TRIGGER fail_reorder BEFORE UPDATE OF start_order ON competition_entries \
+             WHEN NEW.id = '{}' BEGIN SELECT RAISE(ABORT, 'injected'); END;",
+                ids[0]
+            ))
+            .unwrap();
+        assert!(db
+            .reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()])
+            .is_err());
         let entries = db.list_entries(&comp.id).unwrap();
-        assert_eq!(entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
-            vec![ids[0].as_str(), ids[1].as_str()]);
+        assert_eq!(
+            entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+            vec![ids[0].as_str(), ids[1].as_str()]
+        );
         db.conn.execute_batch("DROP TRIGGER fail_reorder;").unwrap();
-        db.reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()]).unwrap();
-        db.reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()]).unwrap();
+        db.reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()])
+            .unwrap();
+        db.reorder_entries(&comp.id, &[ids[1].clone(), ids[0].clone()])
+            .unwrap();
         db.set_entry_status(&ids[0], entry_status::ACTIVE).unwrap();
         db.set_entry_status(&ids[1], entry_status::ACTIVE).unwrap();
         let entries = db.list_entries(&comp.id).unwrap();
-        assert_eq!(entries.iter().filter(|e| e.status == entry_status::ACTIVE).count(), 1);
-        assert_eq!(db.get_entry(&ids[1]).unwrap().unwrap().status, entry_status::ACTIVE);
+        assert_eq!(
+            entries
+                .iter()
+                .filter(|e| e.status == entry_status::ACTIVE)
+                .count(),
+            1
+        );
+        assert_eq!(
+            db.get_entry(&ids[1]).unwrap().unwrap().status,
+            entry_status::ACTIVE
+        );
     }
 }

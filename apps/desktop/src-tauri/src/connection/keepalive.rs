@@ -105,9 +105,7 @@ impl Owner {
                 // Same write path as session ACK (WriteBytes uses 500ms).
                 for _ in 0..complete_shots {
                     if let Some(sock) = self.socket.as_mut() {
-                        if let Err(e) =
-                            sock.write_all(&encode_ack(), Duration::from_millis(500))
-                        {
+                        if let Err(e) = sock.write_all(&encode_ack(), Duration::from_millis(500)) {
                             self.on_link_lost(&format!("pause ACK: {e}"));
                             return;
                         }
@@ -155,13 +153,7 @@ impl Owner {
     pub(crate) fn on_link_lost(&mut self, reason: &str) {
         self.socket = None;
         self.io_fail_streak = 0;
-        self.diag(
-            "link_lost",
-            ConnectionStatus::Idle,
-            reason,
-            None,
-            None,
-        );
+        self.diag("link_lost", ConnectionStatus::Idle, reason, None, None);
         self.emit(
             ConnectionEventKind::LinkInterrupted,
             ConnectionStatus::Idle,

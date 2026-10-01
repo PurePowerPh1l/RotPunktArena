@@ -142,7 +142,12 @@ impl Database {
 
         let shot_count = self.count_session_shots(session_id)?;
         if simulated {
-            return Ok(TrainingSaveInfo { saved: false, shot_count, min_shots, reason: "simulated".into() });
+            return Ok(TrainingSaveInfo {
+                saved: false,
+                shot_count,
+                min_shots,
+                reason: "simulated".into(),
+            });
         }
         if already_flagged != 0 {
             return Ok(TrainingSaveInfo {
@@ -388,9 +393,7 @@ mod tests {
     use crate::protocol::build_synthetic_shot_frame;
 
     fn seed_training(db: &mut Database, shots: i64) -> String {
-        let session = db
-            .start_session("Test", None, None, None)
-            .expect("session");
+        let session = db.start_session("Test", None, None, None).expect("session");
         db.set_session_max_shots(&session.id, Some(TRAINING_SERIES_SHOTS))
             .expect("max shots");
         for i in 0..shots {
