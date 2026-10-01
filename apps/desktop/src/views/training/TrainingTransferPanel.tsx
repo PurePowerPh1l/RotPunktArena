@@ -51,7 +51,7 @@ export function TrainingTransferPanel({ transfer, loading = false }: Props) {
             </strong>
           </div>
         </div>
-        <p className="hist-transfer-hint">{transfer.hint} · Punkte / 10 Schüsse</p>
+        <p className="hist-transfer-hint">{transfer.hint} Â· Punkte / 10 SchÃ¼sse</p>
       </div>
     </section>
   );
