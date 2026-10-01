@@ -18,6 +18,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::AppHandle;
 
+// Explicit lifecycle/transaction inputs keep ownership visible at this boundary.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "existing explicit ownership boundary; avoid a generic context object"
+)]
 pub(crate) fn run_poll_loop(
     app: AppHandle,
     engine: Arc<StandEngine>,

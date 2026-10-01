@@ -15,7 +15,11 @@
     "verify:ui-hardening": "node --experimental-strip-types tools/verify-ui-hardening.mts",
     "icons:generate": "node --experimental-strip-types tools/generate-app-icon.mts",
     "test:mutations": "node --experimental-strip-types tools/bureau-mutations.test.mts",
-    "verify": "npm run protocol:test && npm run test:mutations && npm run verify:ui-hardening && npm run test:access --workspace=@rotpunktarena/desktop && npm run test:geometry --workspace=@rotpunktarena/desktop && node --experimental-strip-types apps/desktop/src/lib/uiPrefsLogic.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/prefsPersistence.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/arenaPrefsLogic.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/appearanceLogic.selftest.ts && node --experimental-strip-types tools/prefer-live-simulator.test.mts && npm run build --workspace=@rotpunktarena/desktop && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --features simulator,serial,rfcomm"
+    "verify": "npm run test:contracts && npm run test:training && npm run test:sniffer && npm run verify:rust && npm run protocol:test && npm run test:mutations && npm run verify:ui-hardening && npm run test:access --workspace=@rotpunktarena/desktop && npm run test:geometry --workspace=@rotpunktarena/desktop && node --experimental-strip-types apps/desktop/src/lib/uiPrefsLogic.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/prefsPersistence.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/arenaPrefsLogic.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/appearanceLogic.selftest.ts && node --experimental-strip-types tools/prefer-live-simulator.test.mts && npm run build --workspace=@rotpunktarena/desktop && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --features simulator,serial,rfcomm",
+    "test:sniffer": "npm --prefix tools/sniffer test",
+    "test:contracts": "node --experimental-strip-types packages/domain/src/settings.selftest.ts && node --experimental-strip-types apps/desktop/src/lib/liveRevision.selftest.ts",
+    "test:training": "node --experimental-strip-types apps/desktop/src/training/comparison.selftest.ts",
+    "verify:rust": "cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --all-targets --features simulator,serial,rfcomm -- -D warnings"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

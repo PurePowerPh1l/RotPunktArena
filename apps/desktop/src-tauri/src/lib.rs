@@ -158,3 +158,7 @@ pub use protocol::{
 pub use transport::replay::{parse_hex_capture, ReplayTransport};
 pub use transport::rfcomm;
 pub use transport::Transport;
+
+// Legacy serial helpers remain available to explicit CLI/diagnostic callers.
+#[cfg(feature = "serial")]
+pub use transport::serial_link;

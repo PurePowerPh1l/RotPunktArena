@@ -126,8 +126,8 @@ impl Transport for ReplayTransport {
             return Ok(0);
         }
         let n = buf.len().min(self.rx.len());
-        for i in 0..n {
-            buf[i] = self.rx.pop_front().unwrap();
+        for slot in buf.iter_mut().take(n) {
+            *slot = self.rx.pop_front().unwrap();
         }
         Ok(n)
     }
