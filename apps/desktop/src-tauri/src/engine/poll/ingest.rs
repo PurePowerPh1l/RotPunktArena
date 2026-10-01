@@ -1,12 +1,12 @@
 //! Arena ingest of a raw shot frame + UI emit on Accepted.
 
+use super::super::{emit_conn, ConnectionUpdate, StandEngine, UiShot};
+use super::emit;
 use crate::arena::IngestOutcome;
 use crate::connection::shot_latency::{self, TracedShotFrame};
 use crate::db::Database;
 use crate::protocol::encode_ack;
 use crate::transport::{ConnectionStatus, Transport};
-use super::super::{emit_conn, ConnectionUpdate, StandEngine, UiShot};
-use super::emit;
 use std::sync::Arc;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
@@ -83,7 +83,10 @@ pub(super) fn handle_shot_frame(
                     );
                 }
             }
-            engine.finish_series_if_needed(app, i64::from(accepted.shot_index));
+            if let Err(error) = engine.finish_series_if_needed(app, i64::from(accepted.shot_index))
+            {
+                report_completion_failure(app, engine, error);
+            }
             // Hybrid snapshot on a background thread — the poll loop keeps
             // draining the sink instead of blocking on VACUUM I/O.
             log.spawn_maybe_snapshot_after_shot(
@@ -105,7 +108,10 @@ pub(super) fn handle_shot_frame(
             max_shots,
             current_shots,
         }) => {
-            engine.finish_series_if_needed(app, current_shots);
+            if let Err(error) = engine.finish_series_if_needed(app, current_shots) {
+                report_completion_failure(app, engine, error);
+                return true;
+            }
             emit_conn(
                 app,
                 engine,
@@ -150,5 +156,25 @@ pub(super) fn handle_shot_frame(
             );
             false
         }
+    }
+}
+
+fn report_completion_failure(app: &AppHandle, engine: &StandEngine, error: String) {
+    eprintln!("Session-Abschluss fehlgeschlagen: {error}");
+    // end_session stops the worker and advances generation even when persistence
+    // fails. Publish directly so the error is not suppressed by the stale gate.
+    let state = engine.snapshot();
+    if let Err(emit_error) = app.emit(
+        "connection",
+        ConnectionUpdate {
+            status: ConnectionStatus::Disconnected,
+            transport: state.transport,
+            port: state.port,
+            detail: Some(format!(
+                "Session-Abschluss fehlgeschlagen — erneut beenden: {error}"
+            )),
+        },
+    ) {
+        eprintln!("Abschlussfehler konnte nicht angezeigt werden: {emit_error}");
     }
 }

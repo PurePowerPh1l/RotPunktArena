@@ -217,7 +217,7 @@ impl StandEngine {
             g.port = None;
             g.auto_fire = false;
             g.max_shots = max_shots;
-            g.series_complete = series_complete;
+            g.series_complete = false;
             g.endless_mode = false;
             g.probe_active = probe;
             g.last_training_save = None;
@@ -227,10 +227,7 @@ impl StandEngine {
 
         if series_complete {
             // Already at limit — do not restart poll; leave disconnected after close.
-            let _ = self.end_session()?;
-            let mut g = self.inner.lock();
-            g.series_complete = true;
-            return Ok(self.snapshot());
+            return self.close_completed_series();
         }
 
         let last_port = self.log.lock().get_setting("last_port")?;
@@ -451,7 +448,7 @@ impl StandEngine {
             self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
         }
         if let Some(shot_index) = finish_at {
-            self.finish_series_if_needed(app, shot_index);
+            self.finish_series_if_needed(app, shot_index)?;
         }
         Ok(self.snapshot())
     }
@@ -495,7 +492,7 @@ impl StandEngine {
             self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
         }
         if let Some(shot_index) = finish_at {
-            self.finish_series_if_needed(app, shot_index);
+            self.finish_series_if_needed(app, shot_index)?;
         }
         Ok(self.snapshot())
     }
