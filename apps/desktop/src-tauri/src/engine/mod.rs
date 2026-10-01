@@ -41,10 +41,11 @@ pub struct ConnectionUpdate {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveState {
+    pub contract_version: u8,
     /// Monotonic projection revision, allocated under the snapshot state lock.
     pub revision: u64,
     pub session_id: Option<String>,
-    pub phase: String,
+    pub phase: LivePhase,
     pub status: ConnectionStatus,
     pub transport: TransportKind,
     pub port: Option<String>,
@@ -67,6 +68,15 @@ pub struct LiveState {
     pub endless_mode: bool,
     /// Probe phase active — shots are Probeschüsse (unscored, no limit).
     pub probe_active: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LivePhase {
+    Idle,
+    Probe,
+    Match,
+    Closed,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -234,22 +244,22 @@ impl StandEngine {
     pub fn snapshot(&self) -> LiveState {
         let g = self.inner.lock();
         LiveState {
+            contract_version: 1,
             revision: self.projection_revision.fetch_add(1, Ordering::SeqCst) + 1,
             session_id: g.session.as_ref().map(|session| session.id.clone()),
             phase: if g.session.is_none() {
-                "idle"
+                LivePhase::Idle
             } else if g
                 .session
                 .as_ref()
                 .is_some_and(|session| session.ended_at.is_some())
             {
-                "closed"
+                LivePhase::Closed
             } else if g.probe_active {
-                "probe"
+                LivePhase::Probe
             } else {
-                "match"
-            }
-            .into(),
+                LivePhase::Match
+            },
             status: g.status,
             transport: g.transport,
             port: g.port.clone(),
@@ -357,9 +367,23 @@ mod maintenance_tests {
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../../../../../fixtures/live-idle.json")).unwrap();
         assert_eq!(serde_json::to_value(&snapshot).unwrap(), fixture);
+        let invalid: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../../../../fixtures/live-invalid.json"))
+                .unwrap();
+        for case in invalid {
+            let mut candidate = fixture.clone();
+            for (key, value) in case["patch"].as_object().unwrap() {
+                candidate[key] = value.clone();
+            }
+            assert!(
+                serde_json::from_value::<LiveState>(candidate).is_err(),
+                "{}",
+                case["name"]
+            );
+        }
         assert_eq!(
             serde_json::from_value::<LiveState>(fixture).unwrap().phase,
-            "idle"
+            LivePhase::Idle
         );
         assert!(engine.snapshot().revision > snapshot.revision);
         engine.apply_connection_update(&ConnectionUpdate {
