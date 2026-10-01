@@ -127,6 +127,12 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            if matches!(event, RunEvent::Exit) {
+                if let Some(engine) = app.try_state::<Arc<StandEngine>>() {
+                    engine.shutdown();
+                }
+                db::shutdown_snapshots();
+            }
             if matches!(event, RunEvent::Exit | RunEvent::ExitRequested { .. }) {
                 request_rfcomm_shutdown(app);
             }

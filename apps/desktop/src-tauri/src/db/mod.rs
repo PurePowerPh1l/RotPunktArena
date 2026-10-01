@@ -30,7 +30,7 @@ pub use recovery::{RecoverySessionInfo, StoredUiShot};
 pub use results::{EntryResultDetail, EntryResultSummary, SeriesResultSummary};
 pub use sessions::{append_event_in_tx, session_phase_in_tx, touch_autosave_in_tx, SessionInfo};
 pub use snapshots::{SNAPSHOT_EVERY_N_SHOTS, SNAPSHOT_SUBDIR};
-pub(crate) use snapshot_worker::pause_snapshots;
+pub(crate) use snapshot_worker::{pause_snapshots, shutdown_snapshots};
 pub use teams::{CompetitionTeam, TeamResultSummary};
 pub use training::{
     normalize_training_series_shots, TrainingSaveInfo, TrainingSessionDetail,

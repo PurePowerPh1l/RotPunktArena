@@ -295,3 +295,42 @@ pub(crate) fn emit_conn(
     engine.apply_connection_update(&u);
     let _ = app.emit("connection", u);
 }
+
+#[cfg(test)]
+mod maintenance_tests {
+    use super::*;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    #[test]
+    fn restore_waits_for_delayed_retired_worker_before_replacement() {
+        let dir = std::env::temp_dir().join(format!("reddot-maintenance-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("source.sqlite");
+        let backup = Database::open(&source).unwrap();
+        backup.set_setting("barrier_test", "replacement").unwrap();
+        drop(backup);
+        let engine = Arc::new(StandEngine::new(Database::open(dir.join("live.sqlite")).unwrap()));
+        let (entered, running) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        let old_engine = engine.clone();
+        let worker = std::thread::spawn(move || {
+            entered.send(()).unwrap();
+            wait.recv().unwrap();
+            old_engine.with_db(|db| db.set_setting("barrier_test", "old-worker")).unwrap();
+        });
+        running.recv_timeout(Duration::from_secs(2)).unwrap();
+        engine.retired_workers.lock().push(worker);
+        let (done, result) = mpsc::channel();
+        let restoring = engine.clone();
+        let restore = std::thread::spawn(move || done.send(restoring.swap_database_file(&source)).unwrap());
+        assert!(result.recv_timeout(Duration::from_millis(100)).is_err());
+        release.send(()).unwrap();
+        result.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
+        restore.join().unwrap();
+        assert_eq!(engine.with_db(|db| db.get_setting("barrier_test")).unwrap().as_deref(), Some("replacement"));
+        assert!(engine.retired_workers.lock().is_empty());
+        drop(engine);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
