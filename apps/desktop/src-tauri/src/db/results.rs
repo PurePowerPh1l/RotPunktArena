@@ -508,6 +508,20 @@ fn assign_entry_ranks(rows: &mut [EntryResultSummary]) {
     }
 }
 
+trait OptionalQuery<T> {
+    fn optional_err(self) -> Result<Option<T>, String>;
+}
+
+impl<T> OptionalQuery<T> for Result<T, rusqlite::Error> {
+    fn optional_err(self) -> Result<Option<T>, String> {
+        match self {
+            Ok(v) => Ok(Some(v)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -615,19 +629,5 @@ mod tests {
         assert!(!s[0].is_best);
         assert!(s[1].is_best);
         assert!(!s[2].is_best);
-    }
-}
-
-trait OptionalQuery<T> {
-    fn optional_err(self) -> Result<Option<T>, String>;
-}
-
-impl<T> OptionalQuery<T> for Result<T, rusqlite::Error> {
-    fn optional_err(self) -> Result<Option<T>, String> {
-        match self {
-            Ok(v) => Ok(Some(v)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e.to_string()),
-        }
     }
 }

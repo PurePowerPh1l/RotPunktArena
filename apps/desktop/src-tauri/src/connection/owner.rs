@@ -29,110 +29,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-#[cfg(test)]
-mod lease_tests {
-    use super::*;
-    use crate::connection::handle::ConnectionHandle;
-    use std::sync::mpsc;
-
-    fn fixture() -> (Owner, ConnectionHandle) {
-        let (cmd_tx, cmd_rx) = mpsc::channel();
-        let (sink_tx, sink_rx) = mpsc::sync_channel(8);
-        let shared = Arc::new(Mutex::new(SharedState {
-            status: ConnectionStatus::Linked,
-            generation: 0,
-            target: None,
-            last_reason: String::new(),
-            connect_phase: ConnectPhase::Idle,
-            connect_origin: ConnectOrigin::None,
-            sink_rx: Some(sink_rx),
-            sink_registered: false,
-            sink_epoch: 0,
-        }));
-        let handle = ConnectionHandle {
-            cmd_tx,
-            inner: shared.clone(),
-        };
-        (
-            Owner::new(PathBuf::new(), cmd_rx, sink_tx, shared, None),
-            handle,
-        )
-    }
-
-    fn register(owner: &mut Owner, lease: u64) -> Result<u64, String> {
-        let (reply, receive) = mpsc::channel();
-        owner.handle_cmd(ConnectionCommand::RegisterSink { lease, reply });
-        receive.recv().unwrap()
-    }
-
-    fn unregister(owner: &mut Owner, lease: u64) -> bool {
-        let (reply, receive) = mpsc::channel();
-        owner.handle_cmd(ConnectionCommand::UnregisterSink { lease, reply });
-        receive.recv().unwrap()
-    }
-
-    #[test]
-    fn delayed_old_close_cannot_remove_or_drain_new_sink() {
-        let (mut owner, handle) = fixture();
-        let old_epoch = register(&mut owner, 1).unwrap();
-        let new_epoch = register(&mut owner, 2).unwrap();
-        owner
-            .sink_tx
-            .send(super::super::sink::SinkChunk {
-                epoch: new_epoch,
-                bytes: vec![42],
-                diag: None,
-            })
-            .unwrap();
-        assert!(!unregister(&mut owner, 1));
-        assert!(owner.sink_fanout.enabled);
-        assert_eq!(owner.sink_lease, Some(2));
-        assert!(handle.try_recv_sink_chunk(old_epoch).is_none());
-        assert_eq!(
-            handle.try_recv_sink_chunk(new_epoch).unwrap().bytes,
-            vec![42]
-        );
-        assert!(register(&mut owner, 1).is_err());
-        assert!(register(&mut owner, 2).is_err());
-        assert!(unregister(&mut owner, 2));
-        assert!(!unregister(&mut owner, 2));
-        assert!(!owner.sink_fanout.enabled);
-    }
-
-    #[test]
-    fn timed_out_registration_does_not_replace_current_owner() {
-        let (mut owner, _) = fixture();
-        let epoch = register(&mut owner, 1).unwrap();
-        let (reply, receive) = mpsc::channel();
-        drop(receive);
-        owner.handle_cmd(ConnectionCommand::RegisterSink { lease: 2, reply });
-        assert_eq!(owner.sink_lease, Some(1));
-        assert_eq!(owner.sink_fanout.epoch, epoch);
-        assert!(unregister(&mut owner, 1));
-        assert!(register(&mut owner, 3).is_ok());
-    }
-
-    #[test]
-    fn bridge_open_and_close_wait_for_their_own_confirmation() {
-        use crate::transport::Transport;
-        let (mut owner, handle) = fixture();
-        let join = std::thread::spawn(move || {
-            for _ in 0..4 {
-                let command = owner.cmd_rx.recv_timeout(Duration::from_secs(2)).unwrap();
-                owner.handle_cmd(command);
-            }
-            owner.sink_fanout
-        });
-        let mut first = super::super::bridge::RfcommBridgeTransport::new(handle.clone());
-        let mut second = super::super::bridge::RfcommBridgeTransport::new(handle);
-        first.open().unwrap();
-        second.open().unwrap();
-        first.close().unwrap();
-        second.close().unwrap();
-        assert!(!join.join().unwrap().enabled);
-    }
-}
-
 pub(crate) struct Owner {
     pub(crate) data_dir: PathBuf,
     pub(crate) cmd_rx: Receiver<ConnectionCommand>,
@@ -757,4 +653,108 @@ pub(crate) fn switch_forget_addr(
     current
         .map(|a| a & 0xFFFF_FFFF_FFFF)
         .filter(|a| *a != new_addr & 0xFFFF_FFFF_FFFF)
+}
+
+#[cfg(test)]
+mod lease_tests {
+    use super::*;
+    use crate::connection::handle::ConnectionHandle;
+    use std::sync::mpsc;
+
+    fn fixture() -> (Owner, ConnectionHandle) {
+        let (cmd_tx, cmd_rx) = mpsc::channel();
+        let (sink_tx, sink_rx) = mpsc::sync_channel(8);
+        let shared = Arc::new(Mutex::new(SharedState {
+            status: ConnectionStatus::Linked,
+            generation: 0,
+            target: None,
+            last_reason: String::new(),
+            connect_phase: ConnectPhase::Idle,
+            connect_origin: ConnectOrigin::None,
+            sink_rx: Some(sink_rx),
+            sink_registered: false,
+            sink_epoch: 0,
+        }));
+        let handle = ConnectionHandle {
+            cmd_tx,
+            inner: shared.clone(),
+        };
+        (
+            Owner::new(PathBuf::new(), cmd_rx, sink_tx, shared, None),
+            handle,
+        )
+    }
+
+    fn register(owner: &mut Owner, lease: u64) -> Result<u64, String> {
+        let (reply, receive) = mpsc::channel();
+        owner.handle_cmd(ConnectionCommand::RegisterSink { lease, reply });
+        receive.recv().unwrap()
+    }
+
+    fn unregister(owner: &mut Owner, lease: u64) -> bool {
+        let (reply, receive) = mpsc::channel();
+        owner.handle_cmd(ConnectionCommand::UnregisterSink { lease, reply });
+        receive.recv().unwrap()
+    }
+
+    #[test]
+    fn delayed_old_close_cannot_remove_or_drain_new_sink() {
+        let (mut owner, handle) = fixture();
+        let old_epoch = register(&mut owner, 1).unwrap();
+        let new_epoch = register(&mut owner, 2).unwrap();
+        owner
+            .sink_tx
+            .send(super::super::sink::SinkChunk {
+                epoch: new_epoch,
+                bytes: vec![42],
+                diag: None,
+            })
+            .unwrap();
+        assert!(!unregister(&mut owner, 1));
+        assert!(owner.sink_fanout.enabled);
+        assert_eq!(owner.sink_lease, Some(2));
+        assert!(handle.try_recv_sink_chunk(old_epoch).is_none());
+        assert_eq!(
+            handle.try_recv_sink_chunk(new_epoch).unwrap().bytes,
+            vec![42]
+        );
+        assert!(register(&mut owner, 1).is_err());
+        assert!(register(&mut owner, 2).is_err());
+        assert!(unregister(&mut owner, 2));
+        assert!(!unregister(&mut owner, 2));
+        assert!(!owner.sink_fanout.enabled);
+    }
+
+    #[test]
+    fn timed_out_registration_does_not_replace_current_owner() {
+        let (mut owner, _) = fixture();
+        let epoch = register(&mut owner, 1).unwrap();
+        let (reply, receive) = mpsc::channel();
+        drop(receive);
+        owner.handle_cmd(ConnectionCommand::RegisterSink { lease: 2, reply });
+        assert_eq!(owner.sink_lease, Some(1));
+        assert_eq!(owner.sink_fanout.epoch, epoch);
+        assert!(unregister(&mut owner, 1));
+        assert!(register(&mut owner, 3).is_ok());
+    }
+
+    #[test]
+    fn bridge_open_and_close_wait_for_their_own_confirmation() {
+        use crate::transport::Transport;
+        let (mut owner, handle) = fixture();
+        let join = std::thread::spawn(move || {
+            for _ in 0..4 {
+                let command = owner.cmd_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+                owner.handle_cmd(command);
+            }
+            owner.sink_fanout
+        });
+        let mut first = super::super::bridge::RfcommBridgeTransport::new(handle.clone());
+        let mut second = super::super::bridge::RfcommBridgeTransport::new(handle);
+        first.open().unwrap();
+        second.open().unwrap();
+        first.close().unwrap();
+        second.close().unwrap();
+        assert!(!join.join().unwrap().enabled);
+    }
 }

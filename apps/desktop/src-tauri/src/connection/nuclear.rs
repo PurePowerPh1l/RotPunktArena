@@ -148,6 +148,10 @@ pub fn run_nuclear_link(
 }
 
 /// Forget → Pair → RFCOMM with phase labels, cooperative cancel, and soak report.
+#[expect(
+    clippy::result_large_err,
+    reason = "rare diagnostic failure owns its complete report; public report contract retained"
+)]
 pub fn run_nuclear_link_with(
     bt_addr: u64,
     display_name: &str,
@@ -170,6 +174,10 @@ pub fn run_nuclear_link_with(
         NuclearFail { message, report }
     };
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "same complete diagnostic report as the enclosing operation"
+    )]
     let check = |is_cancelled: &mut dyn FnMut() -> bool,
                  report: &NuclearRunReport|
      -> Result<(), NuclearFail> {

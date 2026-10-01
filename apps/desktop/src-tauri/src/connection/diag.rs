@@ -208,7 +208,13 @@ pub fn tail(data_dir: &Path, limit: usize) -> Vec<DiagEventOwned> {
     let Ok(f) = OpenOptions::new().read(true).open(&path) else {
         return Vec::new();
     };
-    let mut lines: Vec<String> = BufReader::new(f).lines().filter_map(|l| l.ok()).collect();
+    let mut lines: Vec<String> = match BufReader::new(f).lines().collect() {
+        Ok(lines) => lines,
+        Err(error) => {
+            eprintln!("Diagnoselog konnte nicht gelesen werden: {error}");
+            return Vec::new();
+        }
+    };
     if lines.len() > limit {
         lines = lines.split_off(lines.len() - limit);
     }

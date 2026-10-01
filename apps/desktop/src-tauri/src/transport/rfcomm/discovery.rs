@@ -491,7 +491,7 @@ mod discovery_windows {
     }
 
     #[repr(C)]
-    struct SYSTEMTIME {
+    struct SystemTimeRaw {
         w_year: u16,
         w_month: u16,
         w_day_of_week: u16,
@@ -510,8 +510,8 @@ mod discovery_windows {
         f_connected: i32,
         f_remembered: i32,
         f_authenticated: i32,
-        st_last_seen: SYSTEMTIME,
-        st_last_used: SYSTEMTIME,
+        st_last_seen: SystemTimeRaw,
+        st_last_used: SystemTimeRaw,
         sz_name: [u16; 248],
     }
 
@@ -724,7 +724,7 @@ mod discovery_windows {
             let pin_chars = pin_u16.len().saturating_sub(1) as u32;
             // Prefer the auth-hook radio handle — NULL often yields flaky PIN UI on Win11.
             let radio = crate::transport::rfcomm::auth_hook::local_radio_handle()
-                .map(|h| h.0 as *mut std::ffi::c_void)
+                .map(|h| h.0)
                 .unwrap_or(ptr::null_mut());
             let rc = BluetoothAuthenticateDevice(
                 ptr::null_mut(),
@@ -970,7 +970,7 @@ mod tests {
     #[test]
     fn parse_addr_from_parenthetical_name() {
         let n = "KT RDT ZIE 1 S/N 203 (a1:b2:c3:d4:e5:f6)";
-        assert_eq!(parse_addr_from_name(n), Some(0x00a1_b2c3_d4e5_f6));
+        assert_eq!(parse_addr_from_name(n), Some(0x0000_a1b2_c3d4_e5f6));
     }
 
     #[test]

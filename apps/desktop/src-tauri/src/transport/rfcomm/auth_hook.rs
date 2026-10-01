@@ -270,10 +270,12 @@ mod win {
     /// Answer LEGACY PIN as fast as possible. Radio → NULL Ex → legacy Send.
     fn send_legacy_pin(device: &BLUETOOTH_DEVICE_INFO) -> (u32, &'static str) {
         unsafe {
-            let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE::default();
-            resp.bthAddressRemote = device.Address;
-            resp.authMethod = BLUETOOTH_AUTHENTICATION_METHOD_LEGACY;
-            resp.negativeResponse = 0;
+            let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE {
+                bthAddressRemote: device.Address,
+                authMethod: BLUETOOTH_AUTHENTICATION_METHOD_LEGACY,
+                negativeResponse: 0,
+                ..Default::default()
+            };
             resp.Anonymous.pinInfo = pin_info();
 
             if let Some(radio) = radio_handle() {
@@ -325,10 +327,12 @@ mod win {
         let (rc, via) = match method {
             BLUETOOTH_AUTHENTICATION_METHOD_LEGACY => send_legacy_pin(&p.deviceInfo),
             BLUETOOTH_AUTHENTICATION_METHOD_NUMERIC_COMPARISON => unsafe {
-                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE::default();
-                resp.bthAddressRemote = p.deviceInfo.Address;
-                resp.authMethod = method;
-                resp.negativeResponse = 0;
+                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE {
+                    bthAddressRemote: p.deviceInfo.Address,
+                    authMethod: method,
+                    negativeResponse: 0,
+                    ..Default::default()
+                };
                 resp.Anonymous.numericCompInfo = BLUETOOTH_NUMERIC_COMPARISON_INFO {
                     NumericValue: p.Anonymous.Numeric_Value,
                 };
@@ -348,10 +352,12 @@ mod win {
             BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY_NOTIFICATION
             | BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY => {
                 let passkey: u32 = REDDOT_PAIR_PIN.parse().unwrap_or(0);
-                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE::default();
-                resp.bthAddressRemote = p.deviceInfo.Address;
-                resp.authMethod = BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY_NOTIFICATION;
-                resp.negativeResponse = 0;
+                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE {
+                    bthAddressRemote: p.deviceInfo.Address,
+                    authMethod: BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY_NOTIFICATION,
+                    negativeResponse: 0,
+                    ..Default::default()
+                };
                 resp.Anonymous.passkeyInfo = BLUETOOTH_PASSKEY_INFO { passkey };
                 unsafe {
                     if let Some(radio) = radio_handle() {

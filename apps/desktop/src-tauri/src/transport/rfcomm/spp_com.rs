@@ -149,8 +149,10 @@ mod win {
             if devs.is_invalid() {
                 return out;
             }
-            let mut info = SP_DEVINFO_DATA::default();
-            info.cbSize = std::mem::size_of::<SP_DEVINFO_DATA>() as u32;
+            let mut info = SP_DEVINFO_DATA {
+                cbSize: std::mem::size_of::<SP_DEVINFO_DATA>() as u32,
+                ..Default::default()
+            };
             let mut idx = 0u32;
             while SetupDiEnumDeviceInfo(devs, idx, &mut info).is_ok() {
                 idx += 1;

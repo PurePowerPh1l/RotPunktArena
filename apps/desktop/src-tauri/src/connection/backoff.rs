@@ -4,15 +4,9 @@ use std::time::Duration;
 
 const STEPS_MS: &[u64] = &[0, 1_000, 2_000, 5_000, 10_000, 30_000];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ReconnectBackoff {
     step: usize,
-}
-
-impl Default for ReconnectBackoff {
-    fn default() -> Self {
-        Self { step: 0 }
-    }
 }
 
 impl ReconnectBackoff {

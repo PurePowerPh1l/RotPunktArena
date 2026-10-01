@@ -195,6 +195,10 @@ pub struct TracedShotFrame {
 
 /// Parser outputs that poll must handle, with optional latency provenance on shots.
 #[derive(Debug, Clone)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "bounded diagnostic frame; avoid allocation per hardware shot before latency measurements"
+)]
 pub enum TracedIncoming {
     Nak,
     Shot(TracedShotFrame),

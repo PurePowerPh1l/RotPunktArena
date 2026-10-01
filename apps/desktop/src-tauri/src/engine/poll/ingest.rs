@@ -15,6 +15,11 @@ use tauri::{AppHandle, Emitter};
 /// (generation stale after Accepted).
 ///
 /// `latency_trace`: DIAGNOSE-ONLY provenance from Bridge/Owner; never changes accept/emit.
+// Explicit lifecycle/transaction inputs keep ownership visible at this boundary.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "existing explicit ownership boundary; avoid a generic context object"
+)]
 pub(super) fn handle_shot_frame(
     app: &AppHandle,
     engine: &Arc<StandEngine>,

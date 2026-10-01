@@ -6,12 +6,14 @@
 
 use rusqlite::Connection;
 
+type MigrationStep = fn(&Connection) -> Result<(), String>;
+
 struct Migration {
     version: i64,
     name: &'static str,
     sql: Option<&'static str>,
     /// Custom migrator when SQL batch is insufficient (schema rewrites).
-    custom: Option<fn(&Connection) -> Result<(), String>>,
+    custom: Option<MigrationStep>,
 }
 
 const MIGRATIONS: &[Migration] = &[

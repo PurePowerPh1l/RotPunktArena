@@ -156,17 +156,13 @@ impl Database {
             input.max_shots
         };
         let nachkauf_enabled = input.nachkauf_enabled;
-        let nachkauf_shots = if !nachkauf_enabled {
-            0
-        } else if input.nachkauf_shots < 0 {
+        let nachkauf_shots = if !nachkauf_enabled || input.nachkauf_shots < 0 {
             0
         } else {
             input.nachkauf_shots
         };
         let team_scoring_enabled = input.team_scoring_enabled;
-        let team_count = if !team_scoring_enabled {
-            3
-        } else if input.team_count <= 0 {
+        let team_count = if !team_scoring_enabled || input.team_count <= 0 {
             3
         } else {
             input.team_count
@@ -325,9 +321,7 @@ impl Database {
         let previous = self
             .get_competition(id)?
             .ok_or_else(|| "Wettkampf nicht gefunden".to_string())?;
-        let team_count = if !team_scoring_enabled {
-            3
-        } else if team_count <= 0 {
+        let team_count = if !team_scoring_enabled || team_count <= 0 {
             3
         } else {
             team_count.min(20)
@@ -379,9 +373,7 @@ impl Database {
         let nachkauf_enabled = input.nachkauf_enabled;
         let nachkauf_shots = 0i64;
         let team_scoring_enabled = input.team_scoring_enabled;
-        let team_count = if !team_scoring_enabled {
-            3
-        } else if input.team_count <= 0 {
+        let team_count = if !team_scoring_enabled || input.team_count <= 0 {
             3
         } else {
             input.team_count.min(20)

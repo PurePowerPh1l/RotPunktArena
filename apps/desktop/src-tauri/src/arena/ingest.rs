@@ -174,6 +174,11 @@ pub(crate) fn reject_limit(
 /// Accept a shot: event → shots projection → frame ok → autosave marker.
 /// `classification` is `scored` or `probe` (Probeschuss — unscored, own
 /// index/total sequence so the probe phase never mixes into results).
+// Explicit lifecycle/transaction inputs keep ownership visible at this boundary.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "existing explicit ownership boundary; avoid a generic context object"
+)]
 pub(crate) fn accept(
     tx: &Transaction<'_>,
     session_id: &str,

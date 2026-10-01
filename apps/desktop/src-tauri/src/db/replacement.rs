@@ -28,6 +28,88 @@ fn check_integrity(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+fn copy_database(source: &Connection, destination: &mut Connection) -> Result<(), String> {
+    let copy =
+        Backup::new(source, destination).map_err(|e| format!("DB-Kopie vorbereiten: {e}"))?;
+    // One step owns the destination transaction. Incomplete/error copies roll
+    // back on Backup drop. Busy/Locked are explicit failures, never endless retries.
+    match copy.step(-1).map_err(|e| format!("DB-Kopie: {e}"))? {
+        StepResult::Done => Ok(()),
+        other => Err(format!("DB-Kopie nicht abgeschlossen: {other:?}")),
+    }
+}
+
+impl Database {
+    pub(crate) fn prepare_replacement(
+        source: Option<&Path>,
+        staging: &Path,
+    ) -> Result<Self, String> {
+        if let Some(source) = source {
+            let input = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|e| format!("Backup öffnen: {e}"))?;
+            check_integrity(&input)?;
+            super::migrate::validate_backup_schema(&input)?;
+            let mut output = Connection::open(staging).map_err(|e| e.to_string())?;
+            copy_database(&input, &mut output)?;
+        }
+        let candidate = Self::open(staging)?;
+        candidate.validate_replacement()?;
+        Ok(candidate)
+    }
+
+    fn validate_replacement(&self) -> Result<(), String> {
+        check_integrity(&self.conn)?;
+        super::migrate::validate_backup_schema(&self.conn)?;
+        // Exercise the columns used by core persistence before touching live data.
+        for sql in [
+            "SELECT id, phase, max_shots, next_sequence FROM sessions LIMIT 0",
+            "SELECT frame_id, classification, score FROM shots LIMIT 0",
+            "SELECT session_id, sequence, payload FROM events LIMIT 0",
+            "SELECT raw_frame_hex, frame_sha256 FROM frames LIMIT 0",
+            "SELECT key, value FROM settings LIMIT 0",
+        ] {
+            self.conn
+                .prepare(sql)
+                .map_err(|e| format!("Backup-Schema: {e}"))?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn replace_contents(
+        &mut self,
+        candidate: &Database,
+        rollback_path: &Path,
+    ) -> Result<(), String> {
+        self.replace_contents_checked(candidate, rollback_path, Self::validate_replacement)
+    }
+
+    fn replace_contents_checked(
+        &mut self,
+        candidate: &Database,
+        rollback_path: &Path,
+        check: impl FnOnce(&Self) -> Result<(), String>,
+    ) -> Result<(), String> {
+        candidate.validate_replacement()?;
+        self.vacuum_into(rollback_path)?;
+        let rollback = Connection::open_with_flags(rollback_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|e| format!("Rückfallstand öffnen: {e}"))?;
+        check_integrity(&rollback)?;
+        copy_database(&candidate.conn, &mut self.conn)?;
+        if let Err(error) = check(self) {
+            return match copy_database(&rollback, &mut self.conn) {
+                Ok(()) => Err(format!(
+                    "Ersatzprüfung fehlgeschlagen; Rückfallstand wiederhergestellt: {error}"
+                )),
+                Err(restore_error) => Err(format!(
+                    "Ersatzprüfung: {error}; Rollback: {restore_error}; Rückfallstand: {}",
+                    rollback_path.display()
+                )),
+            };
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,87 +227,5 @@ mod tests {
         drop(candidate);
         drop(live);
         std::fs::remove_dir_all(dir).unwrap();
-    }
-}
-
-fn copy_database(source: &Connection, destination: &mut Connection) -> Result<(), String> {
-    let copy =
-        Backup::new(source, destination).map_err(|e| format!("DB-Kopie vorbereiten: {e}"))?;
-    // One step owns the destination transaction. Incomplete/error copies roll
-    // back on Backup drop. Busy/Locked are explicit failures, never endless retries.
-    match copy.step(-1).map_err(|e| format!("DB-Kopie: {e}"))? {
-        StepResult::Done => Ok(()),
-        other => Err(format!("DB-Kopie nicht abgeschlossen: {other:?}")),
-    }
-}
-
-impl Database {
-    pub(crate) fn prepare_replacement(
-        source: Option<&Path>,
-        staging: &Path,
-    ) -> Result<Self, String> {
-        if let Some(source) = source {
-            let input = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_ONLY)
-                .map_err(|e| format!("Backup öffnen: {e}"))?;
-            check_integrity(&input)?;
-            super::migrate::validate_backup_schema(&input)?;
-            let mut output = Connection::open(staging).map_err(|e| e.to_string())?;
-            copy_database(&input, &mut output)?;
-        }
-        let candidate = Self::open(staging)?;
-        candidate.validate_replacement()?;
-        Ok(candidate)
-    }
-
-    fn validate_replacement(&self) -> Result<(), String> {
-        check_integrity(&self.conn)?;
-        super::migrate::validate_backup_schema(&self.conn)?;
-        // Exercise the columns used by core persistence before touching live data.
-        for sql in [
-            "SELECT id, phase, max_shots, next_sequence FROM sessions LIMIT 0",
-            "SELECT frame_id, classification, score FROM shots LIMIT 0",
-            "SELECT session_id, sequence, payload FROM events LIMIT 0",
-            "SELECT raw_frame_hex, frame_sha256 FROM frames LIMIT 0",
-            "SELECT key, value FROM settings LIMIT 0",
-        ] {
-            self.conn
-                .prepare(sql)
-                .map_err(|e| format!("Backup-Schema: {e}"))?;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn replace_contents(
-        &mut self,
-        candidate: &Database,
-        rollback_path: &Path,
-    ) -> Result<(), String> {
-        self.replace_contents_checked(candidate, rollback_path, Self::validate_replacement)
-    }
-
-    fn replace_contents_checked(
-        &mut self,
-        candidate: &Database,
-        rollback_path: &Path,
-        check: impl FnOnce(&Self) -> Result<(), String>,
-    ) -> Result<(), String> {
-        candidate.validate_replacement()?;
-        self.vacuum_into(rollback_path)?;
-        let rollback = Connection::open_with_flags(rollback_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .map_err(|e| format!("Rückfallstand öffnen: {e}"))?;
-        check_integrity(&rollback)?;
-        copy_database(&candidate.conn, &mut self.conn)?;
-        if let Err(error) = check(self) {
-            return match copy_database(&rollback, &mut self.conn) {
-                Ok(()) => Err(format!(
-                    "Ersatzprüfung fehlgeschlagen; Rückfallstand wiederhergestellt: {error}"
-                )),
-                Err(restore_error) => Err(format!(
-                    "Ersatzprüfung: {error}; Rollback: {restore_error}; Rückfallstand: {}",
-                    rollback_path.display()
-                )),
-            };
-        }
-        Ok(())
     }
 }

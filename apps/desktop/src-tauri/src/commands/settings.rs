@@ -163,19 +163,21 @@ mod tests {
     #[test]
     fn roundtrip_preserves_full_dto() {
         let db = Database::open_in_memory().unwrap();
-        let mut prefs = UiPrefs::default();
-        prefs.start_view = AppViewPref::History;
-        prefs.remember_last_view = true;
-        prefs.last_view = Some(AppViewPref::Bureau);
-        prefs.compact_ui = true;
-        prefs.large_text = true;
-        prefs.extra_large_ui = true;
-        prefs.color_scheme = ColorSchemePref::Dark;
-        prefs.reduced_motion = true;
-        prefs.score_display = ScoreDisplayPref::Teiler;
-        prefs.remember_score_display = true;
-        prefs.hit_feedback = HitFeedbackPref::Minimal;
-        prefs.target_fit = TargetFitPref::Calm;
+        let prefs = UiPrefs {
+            start_view: AppViewPref::History,
+            remember_last_view: true,
+            last_view: Some(AppViewPref::Bureau),
+            compact_ui: true,
+            large_text: true,
+            extra_large_ui: true,
+            color_scheme: ColorSchemePref::Dark,
+            reduced_motion: true,
+            score_display: ScoreDisplayPref::Teiler,
+            remember_score_display: true,
+            hit_feedback: HitFeedbackPref::Minimal,
+            target_fit: TargetFitPref::Calm,
+            ..Default::default()
+        };
 
         store_ui_prefs(&db, &prefs).unwrap();
         let loaded = load_ui_prefs(&db).unwrap();
