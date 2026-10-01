@@ -39,6 +39,15 @@ fn ascii_field(buf: &[u8], offset: usize, length: usize) -> String {
 }
 
 fn parse_dotted_int(field: &str) -> Result<i32, String> {
+    let unsigned = field.strip_prefix(['+', '-']).unwrap_or(field);
+    let mut parts = unsigned.split('.');
+    let valid_digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    if !valid_digits(parts.next().unwrap_or(""))
+        || parts.next().is_some_and(|part| !valid_digits(part))
+        || parts.next().is_some()
+    {
+        return Err(format!("invalid decimal field '{field}'"));
+    }
     let cleaned: String = field.chars().filter(|c| *c != '.').collect();
     cleaned
         .parse::<i32>()
@@ -253,6 +262,18 @@ pub fn encode_ack() -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_parser_fixtures() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../../fixtures/protocol.json")).unwrap();
+        assert_eq!(fixture["version"], 1);
+        for case in fixture["cases"].as_array().unwrap() {
+            let fields = case["fields"].as_array().unwrap();
+            let frame = build_synthetic_shot_frame(fields[0].as_str().unwrap(), fields[1].as_str().unwrap(), fields[2].as_str().unwrap(), fields[3].as_str().unwrap()).unwrap();
+            let actual = parse_shot_frame(&frame).map(|shot| serde_json::json!([shot.value_raw, shot.distance_raw, shot.x, shot.y])).unwrap_or(serde_json::Value::Null);
+            assert_eq!(actual, case["expected"], "{}", case["name"]);
+        }
+    }
 
     #[test]
     fn incomplete_shot_frame_state_after_feed() {

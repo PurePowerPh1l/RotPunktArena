@@ -52,6 +52,9 @@ export function analyzeCaptureText(text: string): FrameRegionDump[] {
   let index = 0;
 
   for (const ev of events) {
+    if (ev.type === "parse_error") {
+      throw new Error(`Ungültiger STX-Frame: ${ev.error}; raw=${bytesToHex(ev.raw)}`);
+    }
     if (ev.type !== "shot") continue;
     const frame = ev.shot.raw;
     if (frame.length < SHOT_FRAME_LENGTH || frame[0] !== CONTROL.STX) continue;

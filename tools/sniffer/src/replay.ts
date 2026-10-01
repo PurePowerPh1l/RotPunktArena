@@ -27,6 +27,8 @@ export function formatIncoming(ev: Incoming): string | null {
       return "ACK";
     case "shot":
       return formatShot(ev.shot);
+    case "parse_error":
+      return `PARSE ERROR ${ev.error} raw=${bytesToHex(ev.raw)}`;
     case "need_more":
       return "… warte auf Rest des STX-Frames";
     case "skip":

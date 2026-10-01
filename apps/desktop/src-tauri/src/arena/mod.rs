@@ -8,7 +8,7 @@ use chrono::Utc;
 use rusqlite::params;
 
 /// Bump when STX layout / scoring interpretation changes.
-pub const PARSER_VERSION: &str = "reddot-stx-v1";
+pub const PARSER_VERSION: &str = "reddot-stx-v2";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

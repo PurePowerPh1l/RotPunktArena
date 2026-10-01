@@ -48,6 +48,7 @@ export type Incoming =
   | { type: "nak" }
   | { type: "ack" }
   | { type: "shot"; shot: Shot }
+  | { type: "parse_error"; raw: Uint8Array; error: string }
   | { type: "need_more" }
   | { type: "skip" };
 
@@ -56,7 +57,19 @@ function asciiField(buf: Uint8Array, offset: number, length: number): string {
 }
 
 function parseDottedInt(field: string): number {
-  return Number.parseInt(field.replace(/\./g, ""), 10);
+  if (!/^[+-]?[0-9]+(?:\.[0-9]+)?$/.test(field)) {
+    throw new Error(`Invalid decimal field '${field}'`);
+  }
+  return parseInteger(field.replace(".", ""));
+}
+
+function parseInteger(field: string): number {
+  if (!/^[+-]?[0-9]+$/.test(field)) throw new Error(`Invalid integer field '${field}'`);
+  const value = Number(field);
+  if (!Number.isInteger(value) || value < -2147483648 || value > 2147483647) {
+    throw new Error(`Integer out of range '${field}'`);
+  }
+  return value;
 }
 
 /** Parse one 59-byte STX frame (including STX at index 0). */
@@ -70,8 +83,8 @@ export function parseShotFrame(frame: Uint8Array): Shot {
 
   const valueRaw = parseDottedInt(asciiField(frame, 32, 4));
   const distanceRaw = parseDottedInt(asciiField(frame, 37, 6));
-  const x = Number.parseInt(asciiField(frame, 44, 5), 10);
-  const y = Number.parseInt(asciiField(frame, 50, 5), 10);
+  const x = parseInteger(asciiField(frame, 44, 5));
+  const y = parseInteger(asciiField(frame, 50, 5));
 
   return {
     valueRaw,
@@ -139,7 +152,11 @@ export class RedDotStreamParser {
           return out;
         }
         const frame = Uint8Array.from(this.buffer.splice(0, SHOT_FRAME_LENGTH));
-        out.push({ type: "shot", shot: parseShotFrame(frame) });
+        try {
+          out.push({ type: "shot", shot: parseShotFrame(frame) });
+        } catch (error) {
+          out.push({ type: "parse_error", raw: frame, error: String(error) });
+        }
         continue;
       }
       // Unknown leading byte — skip and continue

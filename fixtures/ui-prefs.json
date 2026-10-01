@@ -1,0 +1,15 @@
+{
+  "startView": "live",
+  "rememberLastView": false,
+  "lastView": null,
+  "compactUi": false,
+  "largeText": false,
+  "extraLargeUi": false,
+  "colorScheme": "system",
+  "reducedMotion": false,
+  "scoreDisplay": "punkte",
+  "rememberScoreDisplay": false,
+  "hitFeedback": "normal",
+  "targetFit": "auto",
+  "trainingSeriesShots": 10
+}
