@@ -39,3 +39,15 @@ Regressionen: ungültige/missing/neuere Backups, nach einer Seite abgebrochene
 Kopie mit Reopen, Fehler bei Ersatzprüfung mit Rollback/Retry, fehlgeschlagene
 Rückfall-Dateierstellung und erfolgreicher Reset. Windows-Dateisperren,
 Datenträger-voll und Strom-/OS-Ausfall bleiben manuell abzunehmen.
+
+## Ergänzung: Vollständiger Serienreset
+
+Der Trainingsreset besitzt lifecycle_gate und ingest_gate vom Lesen der alten
+Session über Abschluss und Projektion bis zum Start der neuen Session. Interne
+Start-/End-Helfer übernehmen bereits gehaltene Locks. Restore/Reset der gesamten
+DB kann nicht in die Lücke zwischen Serienende und Neustart treten. Ein Test
+verzögert den neuen Start, bestätigt die blockierte Wartung und prüft anschließend
+die Ablehnung wegen der neu laufenden Session sowie den erhaltenen Datenbestand.
+Gezieltes Recovery-Schließen und Training-Speichern halten ebenfalls ingest_gate
+von der Session-Auswahl bis zum Abschluss. Ein Test prüft den Erhalt einer
+anderen aktuellen Session und den idempotenten Abschluss ohne rekursiven Lock.

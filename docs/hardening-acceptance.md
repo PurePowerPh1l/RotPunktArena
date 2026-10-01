@@ -12,7 +12,7 @@ und synthetische Personen-/Gerätedaten.
 
 | Finding | Status | Ursache / Nachweis | Dokumentation |
 |---|---|---|---|
-| F01 | umgesetzt | SQLite-Backup-Transaktion, geprüfte Staging-/Rollback-DB; ungültig/neueres Schema, Teilkopie, Postprüfung, Rollback-Dateifehler und verzögerter Worker getestet | ADR 0010 |
+| F01 | umgesetzt | SQLite-Backup-Transaktion, geprüfte Staging-/Rollback-DB; ungültig/neueres Schema, Teilkopie, Postprüfung, Rollback-Dateifehler, verzögerter Worker und vollständige Reset-Barriere getestet | ADR 0010 |
 | F02 | umgesetzt | 30 gesperrte Commands im echten IPC-Dispatcher; freigegebene Mutation; Herkunft persistiert, Recovery-Modus geprüft, Hardware-/Wettkampf-Injektion abgewiesen | ADR 0011 |
 | F03 | umgesetzt | Recovery-Abschluss gibt Inner-Guard vor Snapshot frei; Timeout-Regression | ADR 0006 |
 | F04 | umgesetzt | eindeutige Sink-Leases mit Register-/Unregister-Antwort; alter Close/Drain, doppelte/veraltete und abgebrochene Registrierung getestet | ADR 0007 |
@@ -64,7 +64,7 @@ DB-Backups enthalten weder den separaten Gerätespeicher noch Browser-Trainingsz
 ## Automatisierte Prüfung und Produktionsbuild
 
 Der vollständige erweiterte Root-Verify umfasst [verification.md](verification.md).
-Vollständiger Lauf einschließlich finaler Contract-Fixtures: 162 Rust-Unit-,
+Vollständiger Lauf einschließlich finaler Contract-Fixtures und Reset-Barriere: 164 Rust-Unit-,
 15 Arena-Integrations- und 6 Session-Grenztests, sämtliche TS-/Sniffer-Prüfungen,
 TypeScript/Vite, Rustfmt und Clippy ohne Warnungen. Das Ergebnis wird im PR
 festgehalten. Cargo kann beim Linken eine rein informative MSVC-Ausgabe zur
