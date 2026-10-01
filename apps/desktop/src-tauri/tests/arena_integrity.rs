@@ -26,7 +26,7 @@ fn temp_db_path() -> PathBuf {
 #[test]
 fn migrations_and_parser_version() {
     let _db = ArenaDb::open_in_memory().unwrap();
-    assert_eq!(PARSER_VERSION, "reddot-stx-v1");
+    assert_eq!(PARSER_VERSION, "reddot-stx-v2");
 }
 
 #[test]

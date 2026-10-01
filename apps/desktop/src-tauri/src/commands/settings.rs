@@ -271,6 +271,9 @@ mod tests {
     #[test]
     fn default_json_shape_is_stable_camel_case() {
         let json = serde_json::to_value(UiPrefs::default()).unwrap();
+        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../../../fixtures/ui-prefs.json")).unwrap();
+        assert_eq!(json, fixture, "shared Rust/TypeScript preferences contract");
+        assert_eq!(serde_json::from_value::<UiPrefs>(fixture).unwrap(), UiPrefs::default());
         let obj = json.as_object().unwrap();
         for key in [
             "startView",
