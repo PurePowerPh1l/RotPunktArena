@@ -108,6 +108,14 @@ impl Database {
                 ],
             )
             .map_err(|e| e.to_string())?;
+        tx.execute("UPDATE sessions SET rules_origin='captured', rules_json =
+            (SELECT json_object('version', 1, 'tenthsEnabled', COALESCE(c.tenths_enabled, 1),
+             'maxShots', COALESCE(?2, c.max_shots), 'scoringMode', COALESCE(c.scoring_mode, 'ringe'),
+             'nachkaufEnabled', COALESCE(c.nachkauf_enabled, 0),
+             'teamScoringEnabled', COALESCE(c.team_scoring_enabled, 0), 'teamCount', COALESCE(c.team_count, 3),
+             'probeEnabled', COALESCE(c.probe_enabled, 0), 'discipline', COALESCE(c.discipline, 'training'))
+             FROM (SELECT 1) LEFT JOIN competitions c ON c.id = ?3) WHERE id = ?1",
+            params![id, max_shots, competition_id]).map_err(|e| e.to_string())?;
         let event = append_event_in_tx(
             tx,
             &id,

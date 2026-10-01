@@ -169,7 +169,29 @@ const MIGRATIONS: &[Migration] = &[
         sql: Some("ALTER TABLE sessions ADD COLUMN simulated INTEGER NOT NULL DEFAULT 0 CHECK(simulated IN (0,1));"),
         custom: None,
     },
+    Migration {
+        version: 18, name: "session_rule_snapshot",
+        sql: None, custom: Some(migrate_v18_session_rules),
+    },
 ];
+
+fn migrate_v18_session_rules(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch("ALTER TABLE sessions ADD COLUMN rules_json TEXT;
+        ALTER TABLE sessions ADD COLUMN rules_origin TEXT NOT NULL DEFAULT 'legacy_current';")
+        .map_err(|e| e.to_string())?;
+    let has_competitions: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='competitions' AND type='table')", [], |r| r.get(0)).map_err(|e| e.to_string())?;
+    let source = if has_competitions { "competitions c ON c.id = sessions.competition_id" }
+        else { "(SELECT NULL AS tenths_enabled, NULL AS max_shots, NULL AS scoring_mode,
+            NULL AS nachkauf_enabled, NULL AS team_scoring_enabled, NULL AS team_count,
+            NULL AS probe_enabled, NULL AS discipline) c ON 0" };
+    conn.execute_batch(&format!("UPDATE sessions SET rules_json = (SELECT json_object(
+        'version', 1, 'tenthsEnabled', COALESCE(c.tenths_enabled, 1),
+        'maxShots', COALESCE(sessions.max_shots, c.max_shots), 'scoringMode', COALESCE(c.scoring_mode, 'ringe'),
+        'nachkaufEnabled', COALESCE(c.nachkauf_enabled, 0), 'teamScoringEnabled', COALESCE(c.team_scoring_enabled, 0),
+        'teamCount', COALESCE(c.team_count, 3), 'probeEnabled', COALESCE(c.probe_enabled, 0),
+        'discipline', COALESCE(c.discipline, 'training')) FROM (SELECT 1) LEFT JOIN {source});"))
+        .map_err(|e| e.to_string())
+}
 
 pub(super) fn validate_backup_schema(conn: &Connection) -> Result<(), String> {
     let versions = conn.prepare("SELECT version, name FROM schema_migrations ORDER BY version")
@@ -795,7 +817,7 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(v, 17);
+        assert_eq!(v, 18);
         assert!(table_has_column(&conn, "events", "sequence"));
         assert!(table_has_column(&conn, "sessions", "next_sequence"));
         assert!(table_has_column(&conn, "sessions", "competition_id"));

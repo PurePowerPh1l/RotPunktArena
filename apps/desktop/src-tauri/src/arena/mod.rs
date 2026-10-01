@@ -75,7 +75,7 @@ impl Database {
 
         let tx = self
             .conn
-            .transaction()
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(|e| format!("begin ingest tx: {e}"))?;
 
         // Last authority: open session in same TX as any later persist (no frames/shots on fail).
