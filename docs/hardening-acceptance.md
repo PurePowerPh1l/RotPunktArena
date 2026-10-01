@@ -120,3 +120,7 @@ D — Weitere Produktideen der Review: Update/Neustart an offene Sessions
 koordinieren, versionierten selektiven Gesamtexport für DB/Geräte/Ziele und
 isolierte Ranking-Funktionen bei belegtem Wartungsnutzen. Eigene PRs mit
 Domain-/Interleaving-Tests; keine ungemessene Neuarchitektur im Hardening-PR.
+
+## Release-Anweisung nach Merge
+
+Am 2026-10-01 wurde die Veröffentlichung trotz der oben weiterhin ungeprüften manuellen Gates ausdrücklich angefordert ("release einfach"). Diese Abnahmen werden nicht als bestanden markiert. Version 0.2.0 wird separat vorbereitet; ein erfolgreicher signierter Build und korrekte Artefakte bleiben technische Voraussetzungen. Release Notes: [0.2.0](releases/0.2.0.md).
