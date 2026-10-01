@@ -2257,11 +2257,6 @@
   max-height: min(42vh, 360px);
 }
 
-/* ~thead + 2 rows; rest scrolls */
-.hist-table-wrap-compact {
-  max-height: 7.1rem;
-}
-
 .hist-table-more {
   margin: 0.4rem 0 0;
   font-size: 0.78rem;
