@@ -287,6 +287,28 @@ mod tests {
     }
 
     #[test]
+    fn export_never_overwrites_existing_backup_and_new_export_is_valid() {
+        let (dir, db) = temp_db();
+        let dest = dir.join("existing.sqlite");
+        db.set_setting("export_test", "before").unwrap();
+        db.vacuum_into(&dest).unwrap();
+        let before = std::fs::read(&dest).unwrap();
+        db.set_setting("export_test", "after").unwrap();
+        assert!(db.vacuum_into(&dest).is_err());
+        assert_eq!(std::fs::read(&dest).unwrap(), before);
+        let new = dir.join("new.sqlite");
+        db.vacuum_into(&new).unwrap();
+        let exported = Database::open(&new).unwrap();
+        assert_eq!(
+            exported.get_setting("export_test").unwrap().as_deref(),
+            Some("after")
+        );
+        drop(exported);
+        drop(db);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn write_session_snapshot_creates_file_and_latest() {
         let (dir, mut db) = temp_db();
         let session = db.start_session("Snap", None, None, None).unwrap();

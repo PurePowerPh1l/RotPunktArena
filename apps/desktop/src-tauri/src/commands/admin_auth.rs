@@ -184,7 +184,8 @@ fn validate_password_size(password: &str) -> Result<(), String> {
 fn new_record(password: &str) -> Result<AdminAuthRecord, String> {
     let salt_bytes = *Uuid::new_v4().as_bytes();
     let salt = SaltString::encode_b64(&salt_bytes).map_err(|e| e.to_string())?;
-    let params = argon2::Params::new(19456, 2, 1, Some(32)).map_err(|e| format!("Admin-KDF-Parameter: {e}"))?;
+    let params = argon2::Params::new(19456, 2, 1, Some(32))
+        .map_err(|e| format!("Admin-KDF-Parameter: {e}"))?;
     let hash = Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params)
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| format!("Admin-KDF: {e}"))?
