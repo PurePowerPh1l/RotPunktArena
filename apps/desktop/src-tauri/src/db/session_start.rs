@@ -72,8 +72,12 @@ impl Database {
             phase,
         )?;
         tx.execute(
-            "UPDATE sessions SET simulated = ?1 WHERE id = ?2",
-            rusqlite::params![simulated, session.id],
+            "UPDATE sessions SET simulated = ?1, endless = ?3 WHERE id = ?2",
+            rusqlite::params![
+                simulated,
+                session.id,
+                competition_id.is_none() && training_limit.is_none()
+            ],
         )
         .map_err(|e| e.to_string())?;
         session.simulated = simulated;

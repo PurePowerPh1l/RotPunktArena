@@ -37,21 +37,30 @@ pub fn needs_setup(handle: &ConnectionHandle) -> bool {
     true
 }
 
-fn set_shared_reason(handle: &ConnectionHandle, status: ConnectionStatus, reason: &str) {
-    let mut g = handle.inner.lock().unwrap();
-    g.status = status;
-    g.last_reason = reason.to_string();
+fn publish_setup(
+    handle: &ConnectionHandle,
+    generation: u64,
+    status: ConnectionStatus,
+    reason: &str,
+) -> Result<(), String> {
+    handle.send(ConnectionCommand::SetupProgress {
+        generation,
+        status,
+        reason: reason.into(),
+    })
 }
 
-fn pause_owner_for_setup(handle: &ConnectionHandle) -> Result<(), String> {
+fn pause_owner_for_setup(handle: &ConnectionHandle) -> Result<u64, String> {
+    let previous = handle.snapshot().generation;
     handle.send(ConnectionCommand::PauseForSetup)?;
     // An in-flight Nuclear may still be inside a blocking Windows pairing or
     // socket call. The Owner acknowledges Discovering only after that worker
     // has stopped, so scanning cannot race its Bluetooth operations.
     let deadline = Instant::now() + Duration::from_secs(90);
     while Instant::now() < deadline {
-        if handle.status() == ConnectionStatus::Discovering {
-            return Ok(());
+        let snapshot = handle.snapshot();
+        if snapshot.generation > previous && snapshot.status == ConnectionStatus::Discovering {
+            return Ok(snapshot.generation);
         }
         thread::sleep(Duration::from_millis(40));
     }
@@ -63,19 +72,34 @@ fn pause_owner_for_setup(handle: &ConnectionHandle) -> Result<(), String> {
 /// Always runs both sources so a new/second device shows up even while an
 /// old one is still bonded. Active (persisted) device sorts first.
 pub fn setup_scan(handle: &ConnectionHandle) -> Result<Vec<SetupCandidate>, String> {
-    pause_owner_for_setup(handle)?;
-    set_shared_reason(
+    let generation = pause_owner_for_setup(handle)?;
+    publish_setup(
         handle,
+        generation,
         ConnectionStatus::Discovering,
         "Suche RedDot in der Nähe…",
-    );
+    )?;
 
     let active_addr = handle.target().map(|t| t.bt_addr & 0xFFFF_FFFF_FFFF);
-    let devices = scan_all_reddots().map_err(|e| e.to_string())?;
+    let devices = match scan_all_reddots() {
+        Ok(devices) => devices,
+        Err(error) => {
+            publish_setup(
+                handle,
+                generation,
+                ConnectionStatus::NeedsTarget,
+                &error.to_string(),
+            )?;
+            return Err(error.to_string());
+        }
+    };
+    if handle.generation() != generation {
+        return Err("Gerätesuche abgebrochen".into());
+    }
     if devices.is_empty() {
         let msg = "Kein RedDot gefunden — Ziel einschalten, nah ans Gerät halten, erneut suchen"
             .to_string();
-        set_shared_reason(handle, ConnectionStatus::NeedsTarget, &msg);
+        publish_setup(handle, generation, ConnectionStatus::NeedsTarget, &msg)?;
         return Err(msg);
     }
 
@@ -99,7 +123,7 @@ pub fn setup_scan(handle: &ConnectionHandle) -> Result<Vec<SetupCandidate>, Stri
     } else {
         format!("{} RedDots gefunden", candidates.len())
     };
-    set_shared_reason(handle, ConnectionStatus::Discovering, &reason);
+    publish_setup(handle, generation, ConnectionStatus::Discovering, &reason)?;
     Ok(candidates)
 }
 
@@ -120,13 +144,14 @@ fn wait_nuclear_outcome(
 ) -> Result<RfcommTarget, String> {
     let deadline = Instant::now() + Duration::from_secs(90);
     while Instant::now() < deadline {
-        let st = handle.status();
-        let gen = handle.generation();
+        let snapshot = handle.snapshot();
+        let st = snapshot.status;
+        let gen = snapshot.generation;
         if st == ConnectionStatus::Linked {
             // New Nuclear bumps gen; attach to Startup keeps the same gen on success.
             if attach || gen > gen0 {
-                let target = handle
-                    .target()
+                let target = snapshot
+                    .target
                     .ok_or("Verbindung ohne aktives RedDot-Ziel")?;
                 if target.bt_addr & 0xFFFF_FFFF_FFFF != expected_addr & 0xFFFF_FFFF_FFFF {
                     return Err("Ein anderes RedDot wurde verbunden — bitte erneut wählen".into());
@@ -148,7 +173,7 @@ fn wait_nuclear_outcome(
                     | ConnectionStatus::Idle
             )
         {
-            let reason = handle.last_reason();
+            let reason = snapshot.reason;
             if st == ConnectionStatus::Idle
                 && !attach
                 && !reason.contains("Abgebrochen")
@@ -208,11 +233,6 @@ pub fn setup_connect(
         }
     }
 
-    set_shared_reason(
-        handle,
-        ConnectionStatus::Connecting,
-        &format!("Verbinde mit {display_name}…"),
-    );
     let gen0 = handle.generation();
     handle.send(ConnectionCommand::NuclearLink {
         bt_addr: addr,

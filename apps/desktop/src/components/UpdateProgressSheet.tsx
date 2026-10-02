@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
+import { useModal } from "../hooks/useModal";
 import { useAppUpdateContext } from "../hooks/AppUpdateProvider";
 
 function progressPercent(
@@ -61,6 +63,7 @@ export function UpdateProgressSheet() {
           status.kind === "needsManualRestart" ||
           status.kind === "error")));
 
+  const modal = useModal(visible, busy ? undefined : dismissUpdateSheet);
   if (!visible) return null;
 
   const update =
@@ -90,8 +93,9 @@ export function UpdateProgressSheet() {
           ? 8
           : 0;
 
-  return (
+  return createPortal(
     <div
+      ref={modal}
       className="update-notice-backdrop"
       role="dialog"
       aria-modal="true"
@@ -196,6 +200,6 @@ export function UpdateProgressSheet() {
           </p>
         ) : null}
       </div>
-    </div>
+    </div>, document.body
   );
 }

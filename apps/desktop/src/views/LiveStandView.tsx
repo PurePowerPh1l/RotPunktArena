@@ -244,7 +244,7 @@ export function LiveStandView({
   const sessionOpen = Boolean(live.state?.session && !live.state.session.endedAt);
   const probeActive = Boolean(live.state?.probeActive) && sessionOpen;
   const maxShots = live.state?.maxShots ?? null;
-  const shotCount = shots.length;
+  const shotCount = live.state?.shotCount ?? shots.length;
   const seriesComplete = Boolean(live.state?.seriesComplete);
   /** Best shot only after series end (Punkte = max, Teiler = min). */
   const bestShot =
@@ -452,6 +452,7 @@ export function LiveStandView({
       ) : null}
       <main className="stage">
         <LiveScoreColumn
+          sessionId={live.state?.session?.id}
           shooterFallback={shooter}
           sessionShooterName={live.state?.session?.shooterName}
           selectedEntry={selectedEntry}

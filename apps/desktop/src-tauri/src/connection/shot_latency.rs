@@ -12,8 +12,9 @@ use super::diag;
 use crate::protocol::{Incoming, RedDotStreamParser};
 use serde::Serialize;
 use std::cell::RefCell;
-use std::fs::OpenOptions;
-use std::io::{BufWriter, Write};
+
+#[cfg(test)]
+use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TrySendError};
 use std::sync::OnceLock;
@@ -555,6 +556,7 @@ pub(crate) fn try_enqueue_record(
 
 /// Serialize one record and flush so the JSONL line is visible without process exit.
 /// Diagnose-only; never called from the poll thread.
+#[cfg(test)]
 fn write_record_line(out: &mut BufWriter<std::fs::File>, record: &ShotLatencyRecordOwned) -> bool {
     match serde_json::to_string(record) {
         Ok(line) => {
@@ -581,23 +583,11 @@ fn writer_loop(rx: Receiver<ShotLatencyRecordOwned>) {
         return;
     };
     let path = dir.join("shot_latency.jsonl");
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    let Ok(file) = OpenOptions::new().create(true).append(true).open(&path) else {
-        while rx.recv().is_ok() {
-            JSONL_WRITE_FAIL.fetch_add(1, Ordering::Relaxed);
-        }
-        return;
-    };
-    let mut out = BufWriter::new(file);
     while let Ok(record) = rx.recv() {
-        if !write_record_line(&mut out, &record) {
+        if !diag::append_line(&path, &record) {
             JSONL_WRITE_FAIL.fetch_add(1, Ordering::Relaxed);
         }
     }
-    // Best-effort flush on channel disconnect (process teardown). Never joins from poll.
-    let _ = out.flush();
 }
 
 #[cfg(test)]

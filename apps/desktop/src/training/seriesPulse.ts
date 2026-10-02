@@ -1,7 +1,9 @@
+import { tenShotPoints } from "./comparison";
 import type { TrainingSessionSummary } from "@rotpunktarena/domain";
-import { leagueFromSessions, type LeagueRank } from "./league";
+import { leagueFromSessions, rankFromSr, type LeagueRank } from "./league";
 import {
   computeTrainingStats,
+  levelFromXp,
   type TrainingStats,
   xpFromSessions,
 } from "./stats";
@@ -66,7 +68,7 @@ export function placeHintForSerie(
   }
   const window = prior.slice(-PLACE_WINDOW);
   const avg =
-    window.reduce((sum, s) => sum + s.punkteTotal, 0) / window.length;
+    window.reduce((sum, s) => sum + tenShotPoints(s), 0) / window.length;
   const delta = seriePunkte - avg;
   if (Math.abs(delta) < 0.5) {
     return { text: "im Rahmen deines Schnitts", kind: "flat" };
@@ -111,14 +113,14 @@ export function computeSeriesPulse(
     ? null
     : afterLeague.sr - beforeLeague.sr;
 
-  const place = placeHintForSerie(latest.punkteTotal, prior);
+  const place = placeHintForSerie(tenShotPoints(latest), prior);
   let placeHint = place.text;
   let placeHintKind = place.kind;
   let rivalDelta: number | null = null;
   let rivalLabel: string | null = null;
 
   if (rival && Number.isFinite(rival.punkte)) {
-    rivalDelta = latest.punkteTotal - rival.punkte;
+    rivalDelta = tenShotPoints(latest) - rival.punkte;
     rivalLabel = rival.label;
     if (Math.abs(rivalDelta) < 0.5) {
       placeHint = `gleichauf mit ${rival.label}`;
@@ -172,6 +174,16 @@ export function pickEigenRival(
   const last = chrono[chrono.length - 1]!;
   return {
     label: "deiner letzten Serie",
-    punkte: last.punkteTotal,
+    punkte: tenShotPoints(last),
   };
+}
+
+/** Replace rolling-window rank/XP with the authoritative lifetime projection. */
+export function applyLifetimeToPulse(pulse: SeriesPulse | null, total?: import("../api/training").TrainingLifetime): SeriesPulse | null {
+  if (!pulse || !total) return pulse;
+  const after = rankFromSr(total.sr, total.sessionCount);
+  const before = rankFromSr(total.previousSr, total.sessionCount - 1);
+  const level = levelFromXp(total.pointsTotal + total.shotCount * 1.5);
+  const priorLevel = levelFromXp(total.previousPointsTotal + total.previousShotCount * 1.5);
+  return {...pulse,league:after,leagueBefore:before,srDelta:before.placementLeft || after.placementLeft ? null : after.sr-before.sr,tierChanged:after.tier!==before.tier || after.division!==before.division,levelAfter:level.level,levelTitleAfter:level.title,levelProgressAfter:level.progress,xpToNext:level.xpToNext,leveledUp:level.level>priorLevel.level};
 }

@@ -28,6 +28,7 @@ pub struct ConnectionManager {
 
 impl ConnectionManager {
     pub fn start(data_dir: PathBuf, event_tx: Option<Sender<ConnectionEvent>>) -> Self {
+        super::diag::initialize(&data_dir);
         let _ = WinsockRuntime::init();
         // PIN hook only around Nuclear (including Startup Nuclear).
         let (known, load_error) = match load_known_target(&data_dir) {

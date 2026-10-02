@@ -135,6 +135,14 @@ impl Database {
             return Ok(TrainingSaveInfo::not_training());
         }
 
+        if self.session_endless(session_id)? {
+            return Ok(TrainingSaveInfo {
+                saved: false,
+                shot_count: self.count_session_shots(session_id)?,
+                min_shots: TRAINING_HISTORY_MIN_SHOTS,
+                reason: "endless".into(),
+            });
+        }
         let min_shots = session_max
             .filter(|&n| n > 0)
             .map(normalize_training_series_shots)
@@ -206,6 +214,16 @@ impl Database {
         person_id: Option<&str>,
         shooter_name: Option<&str>,
     ) -> Result<Vec<TrainingSessionSummary>, String> {
+        self.list_saved_training_page(limit, person_id, shooter_name, 0)
+    }
+
+    pub fn list_saved_training_page(
+        &self,
+        limit: i64,
+        person_id: Option<&str>,
+        shooter_name: Option<&str>,
+        offset: i64,
+    ) -> Result<Vec<TrainingSessionSummary>, String> {
         let lim = if limit <= 0 { 80 } else { limit.min(200) };
         let person = person_id.map(str::trim).filter(|s| !s.is_empty());
         let name = shooter_name.map(str::trim).filter(|s| !s.is_empty());
@@ -214,12 +232,12 @@ impl Database {
             .conn
             .prepare(
                 "SELECT s.id, s.shooter_name, s.person_id, s.started_at, s.ended_at,
-                        COUNT(sh.id) AS shot_count,
-                        COALESCE(SUM(sh.score), 0) AS punkte_total,
-                        COALESCE(SUM(CAST(sh.distance_raw AS REAL) / 10.0), 0) AS teiler_sum,
-                        COALESCE(AVG(CAST(sh.distance_raw AS REAL) / 10.0), 0) AS teiler_avg
+                        COALESCE(sh.shot_count,0) AS shot_count,
+                        COALESCE(sh.score, 0) AS punkte_total,
+                        COALESCE(sh.teiler, 0) AS teiler_sum,
+                        COALESCE(sh.teiler / NULLIF(sh.shot_count,0), 0) AS teiler_avg
                  FROM sessions s
-                 LEFT JOIN shots sh ON sh.session_id = s.id
+                 LEFT JOIN session_totals sh ON sh.session_id = s.id AND sh.classification = 'scored'
                  WHERE s.competition_id IS NULL
                    AND s.training_saved = 1
                    AND s.ended_at IS NOT NULL
@@ -234,9 +252,8 @@ impl Database {
                        AND LOWER(TRIM(s.shooter_name)) = LOWER(TRIM(?2))
                      )
                    )
-                 GROUP BY s.id
-                 ORDER BY s.ended_at DESC
-                 LIMIT ?3",
+                 ORDER BY s.ended_at DESC, s.id DESC
+                 LIMIT ?3 OFFSET ?4",
             )
             .map_err(|e| e.to_string())?;
 
@@ -244,19 +261,22 @@ impl Database {
         let filter_name = if filter_person.is_some() { None } else { name };
 
         let rows = stmt
-            .query_map(params![filter_person, filter_name, lim], |r| {
-                Ok(TrainingSessionSummary {
-                    id: r.get(0)?,
-                    shooter_name: r.get(1)?,
-                    person_id: r.get(2)?,
-                    started_at: r.get(3)?,
-                    ended_at: r.get(4)?,
-                    shot_count: r.get(5)?,
-                    punkte_total: r.get(6)?,
-                    teiler_sum: r.get(7)?,
-                    teiler_avg: r.get(8)?,
-                })
-            })
+            .query_map(
+                params![filter_person, filter_name, lim, offset.max(0)],
+                |r| {
+                    Ok(TrainingSessionSummary {
+                        id: r.get(0)?,
+                        shooter_name: r.get(1)?,
+                        person_id: r.get(2)?,
+                        started_at: r.get(3)?,
+                        ended_at: r.get(4)?,
+                        shot_count: r.get(5)?,
+                        punkte_total: r.get(6)?,
+                        teiler_sum: r.get(7)?,
+                        teiler_avg: r.get(8)?,
+                    })
+                },
+            )
             .map_err(|e| e.to_string())?;
         let mut out = Vec::new();
         for row in rows {

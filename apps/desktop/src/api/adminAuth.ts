@@ -27,6 +27,10 @@ export async function lockAdminSession(): Promise<void> {
   await invoke("lock_admin_session");
 }
 
+export async function changeAdminPassword(currentPassword: string, newPassword: string): Promise<void> {
+  await invoke("change_admin_password", { currentPassword, newPassword });
+}
+
 /** DEV/TEST ONLY — unlock the server-side session without a password. */
 export async function devUnlockAdminSession(): Promise<void> {
   await invoke("dev_unlock_admin_session");

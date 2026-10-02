@@ -42,7 +42,7 @@ impl StandEngine {
             // Probe phase: unlimited shots, limit applies to the scored series only.
             if !g.probe_active {
                 if let Some(max) = g.max_shots {
-                    if g.shots.len() as i64 >= max {
+                    if g.shots.last().map_or(0, |s| i64::from(s.shot_index)) >= max {
                         return Err(format!("Maximal {max} Schüsse erreicht"));
                     }
                 }
@@ -114,20 +114,6 @@ impl StandEngine {
         self.inject_synthetic_shot(app, &value, &dist, &x_ascii, &y_ascii)
     }
 
-    /// After the last competition shot: close session, mark entry done, notify UI.
-    /// No-op during the probe phase (Probeschüsse never finish the series).
-    pub fn finish_series_if_needed<R: tauri::Runtime>(
-        &self,
-        app: &AppHandle<R>,
-        shot_index: i64,
-    ) -> Result<(), String> {
-        let session_id = self.snapshot().session_id;
-        let Some(session_id) = session_id else {
-            return Ok(());
-        };
-        self.finish_series_for_session(app, &session_id, shot_index)
-    }
-
     pub(crate) fn finish_series_for_session<R: tauri::Runtime>(
         &self,
         app: &AppHandle<R>,
@@ -194,7 +180,7 @@ impl StandEngine {
         self.complete_series_if_needed_locked(shot_index)
     }
 
-    fn complete_series_if_needed_locked(
+    pub(super) fn complete_series_if_needed_locked(
         &self,
         shot_index: i64,
     ) -> Result<Option<SeriesCompletePayload>, String> {

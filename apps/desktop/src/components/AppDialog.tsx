@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
+import { createPortal } from "react-dom";
+import { useModal } from "../hooks/useModal";
 import type { AlertDialogOptions, ConfirmDialogOptions } from "../hooks/useAppDialog";
 
 type ConfirmProps = {
@@ -20,28 +22,11 @@ type Props = ConfirmProps | AlertProps;
 export function AppDialog(props: Props) {
   const titleId = useId();
   const bodyId = useId();
-  const primaryRef = useRef<HTMLButtonElement>(null);
+  const modal = useModal(true, () => { if (props.kind === "confirm") props.onCancel(); else props.onOk(); });
   const options = props.options;
   const danger = props.kind === "confirm" && Boolean(props.options.danger);
   const eyebrow =
     options.eyebrow ?? (danger ? "Achtung" : props.kind === "alert" ? "Hinweis" : "Bestätigen");
-
-  useEffect(() => {
-    primaryRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        if (props.kind === "confirm") props.onCancel();
-        else props.onOk();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [props]);
 
   const confirmLabel =
     props.kind === "confirm"
@@ -50,8 +35,9 @@ export function AppDialog(props: Props) {
   const cancelLabel =
     props.kind === "confirm" ? (props.options.cancelLabel ?? "Abbrechen") : null;
 
-  return (
+  return createPortal(
     <div
+      ref={modal}
       className="app-dialog-backdrop"
       role="dialog"
       aria-modal="true"
@@ -74,6 +60,7 @@ export function AppDialog(props: Props) {
             <button
               type="button"
               className="secondary"
+              data-modal-initial={danger || undefined}
               onClick={() => {
                 if (props.kind === "confirm") props.onCancel();
               }}
@@ -82,7 +69,7 @@ export function AppDialog(props: Props) {
             </button>
           ) : null}
           <button
-            ref={primaryRef}
+            data-modal-initial={!danger || undefined}
             type="button"
             className={danger ? "app-dialog-danger" : undefined}
             onClick={() => {
@@ -94,6 +81,6 @@ export function AppDialog(props: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }

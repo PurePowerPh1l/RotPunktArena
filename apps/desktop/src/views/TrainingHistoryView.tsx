@@ -30,10 +30,10 @@ import {
   HISTORY_WINDOW_OPTIONS,
   type HistoryWindowDays,
 } from "../training/insights";
-import { leagueFromSessions, leagueMapFromSessions } from "../training/league";
-import { computeSeriesPulse } from "../training/seriesPulse";
+import { leagueFromSessions, rankFromSr } from "../training/league";
+import { computeSeriesPulse, applyLifetimeToPulse } from "../training/seriesPulse";
 import {
-  computeTrainingStats,
+  computeTrainingStats, levelFromXp,
   fmtDelta,
 } from "../training/stats";
 import { computeTransfer } from "../training/transfer";
@@ -79,9 +79,10 @@ function segFromWindow(v: HistoryWindowDays): WindowSeg {
 export function TrainingHistoryView({ defaultShooter }: Props) {
   const [section, setSection] = useState<HistorySection>("training");
   const [sessions, setSessions] = useState<TrainingSessionSummary[]>([]);
-  const [leagueSessions, setLeagueSessions] = useState<TrainingSessionSummary[]>(
-    [],
-  );
+  const [lifetimes, setLifetimes] = useState<api.TrainingLifetime[]>([]);
+  const [archive, setArchive] = useState<TrainingSessionSummary[]>([]);
+  const [archiveOffset, setArchiveOffset] = useState(0);
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const [shooters, setShooters] = useState<TrainingShooterOption[]>([]);
   const [filter, setFilter] = useState<FilterKey>(() => {
     if (!defaultShooter?.name.trim()) return "all";
@@ -110,7 +111,8 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
   const loadSeq = useRef(createRequestSeq()).current;
   const detailSeq = useRef(createRequestSeq()).current;
   const compSeq = useRef(createRequestSeq()).current;
-  const leagueCache = useRef<TrainingSessionSummary[] | null>(null);
+  const archiveSeq = useRef(createRequestSeq()).current;
+
   const { busy: actionBusy, run: runAction } = useAsyncAction();
 
   const apiFilter = useMemo(() => {
@@ -128,26 +130,24 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
       setLoading(true);
       try {
         setError(null);
-        const needLeague = opts?.refreshLeague || !leagueCache.current;
+        void opts;
         const [hist, optsList, allForLeague] = await Promise.all([
           api.listTrainingHistory(TRAINING_HISTORY_WINDOW, apiFilter),
           api.listTrainingShooters(),
-          needLeague
-            ? api.listTrainingHistory(TRAINING_HISTORY_WINDOW)
-            : Promise.resolve(leagueCache.current!),
+          api.getTrainingLifetime(),
         ]);
         if (!loadSeq.isCurrent(token)) return;
-        if (needLeague) leagueCache.current = allForLeague;
+        archiveSeq.begin(); setArchive([]); setArchiveOffset(0);
         setSessions(hist);
         setShooters(optsList);
-        setLeagueSessions(allForLeague);
+        setLifetimes(allForLeague);
       } catch (e) {
         if (loadSeq.isCurrent(token)) setError(String(e));
       } finally {
         if (loadSeq.isCurrent(token)) setLoading(false);
       }
     },
-    [apiFilter, loadSeq],
+    [apiFilter, loadSeq, archiveSeq],
   );
 
   useEffect(() => {
@@ -173,7 +173,7 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
   }, [filter]);
 
   useEffect(() => {
-    saveGoals(filter, goals);
+    try { saveGoals(filter, goals); } catch (e) { setError(`Trainingsziele konnten nicht gespeichert werden: ${String(e)}`); }
   }, [filter, goals]);
 
   /** Load competition bests for transfer panel (person-linked shooters only). */
@@ -252,6 +252,10 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
   const stats = useMemo(() => {
     const windowed = computeTrainingStats(windowedSessions);
     const lifetime = computeTrainingStats(sessions);
+    const rows = filter === "all" ? lifetimes : lifetimes.filter((s) => s.key === filter);
+    const xp = rows.reduce((total, s) => total + s.pointsTotal + s.shotCount * 1.5, 0);
+    const level = levelFromXp(xp);
+    Object.assign(lifetime, { xp, level:level.level, levelTitle:level.title, levelProgress:level.progress, xpIntoLevel:level.xpIntoLevel, xpForLevel:level.xpForLevel, xpToNext:level.xpToNext });
     return {
       ...windowed,
       level: lifetime.level,
@@ -262,14 +266,14 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
       xpForLevel: lifetime.xpForLevel,
       xpToNext: lifetime.xpToNext,
     };
-  }, [windowedSessions, sessions]);
+  }, [windowedSessions, sessions, lifetimes, filter]);
   const achievements = useMemo(
     () => evaluateAchievements(sessions),
     [sessions],
   );
   const leaguesByKey = useMemo(
-    () => leagueMapFromSessions(leagueSessions, filterKeyOf),
-    [leagueSessions],
+    () => new Map(lifetimes.map((s) => [s.key, rankFromSr(s.sr, s.sessionCount)])),
+    [lifetimes],
   );
   const league = useMemo(() => {
     if (filter === "all") return null;
@@ -289,8 +293,13 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
     [windowedSessions],
   );
   const lastPulse = useMemo(
-    () => computeSeriesPulse(windowedSessions),
-    [windowedSessions],
+    () => {
+      const latest = windowedSessions[windowedSessions.length - 1];
+      if (!latest) return null;
+      const key = filterKeyOf(latest);
+      return applyLifetimeToPulse(computeSeriesPulse(windowedSessions.filter((s) => filterKeyOf(s) === key)), lifetimes.find((s) => s.key === key));
+    },
+    [windowedSessions, lifetimes],
   );
   const goalProgress = useMemo(
     () => evaluateGoals(sessions, goals),
@@ -362,7 +371,7 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
     const result = await runAction(async () => {
       setError(null);
       await api.clearTrainingHistory(apiFilter);
-      leagueCache.current = null;
+
       setDetailView(null);
       setSelectedSessionId(null);
       await refresh({ refreshLeague: true });
@@ -378,7 +387,7 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
     const result = await runAction(async () => {
       setError(null);
       const promoted = await api.promoteTrainingShooter(selected.shooterName);
-      leagueCache.current = null;
+
       await refresh({ refreshLeague: true });
       setFilter(`id:${promoted.person.id}`);
     });
@@ -554,6 +563,22 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
               onClear={() => void clearHistory()}
               onRefresh={() => void refresh()}
             />
+
+            <section className="panel">
+              <h2>Gesamter Trainingsbestand</h2>
+              <p>{lifetimes.filter((s) => filter === "all" || s.key === filter).reduce((n,s) => n+s.sessionCount,0)} Serien · {lifetimes.filter((s) => filter === "all" || s.key === filter).reduce((n,s) => n+s.shotCount,0)} Schüsse insgesamt. Trends und Erfolge zeigen weiterhin das aktuelle 200er-Fenster.</p>
+              <button className="btn ghost" disabled={archiveBusy || loading} onClick={() => void (async () => {
+                const token = archiveSeq.begin();
+                setArchiveBusy(true);
+                try {
+                  const page = await api.listTrainingHistory(200, apiFilter, archiveOffset);
+                  if (!archiveSeq.isCurrent(token)) return;
+                  setArchive(page); setArchiveOffset(archiveOffset + page.length);
+                } catch (e) { setError(String(e)); } finally { setArchiveBusy(false); }
+              })()}>Nächste 200 Serien im Archiv</button>
+              {archiveOffset > 0 ? <button className="btn ghost" onClick={() => {archiveSeq.begin();setArchiveOffset(0);setArchive([]);}}>Archiv zurücksetzen</button> : null}
+              {archive.length ? <div className="shot-list"><table><thead><tr><th>Datum</th><th>Schütze</th><th>Schüsse</th><th>Punkte</th></tr></thead><tbody>{[...archive].reverse().map((s) => <tr key={s.id}><td>{new Date(s.endedAt).toLocaleString("de-DE")}</td><td><button className="btn ghost" onClick={() => void openSession(s.id)}>{s.shooterName}</button></td><td>{s.shotCount}</td><td>{s.punkteTotal.toFixed(1)}</td></tr>)}</tbody></table></div> : null}
+            </section>
 
             <section className="panel hist-progress">
               <div className="hist-progress-head">
