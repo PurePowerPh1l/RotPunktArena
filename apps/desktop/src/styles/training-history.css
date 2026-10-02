@@ -1731,6 +1731,165 @@
   margin-top: 0.35rem;
 }
 
+/* Saved series and lifetime inventory share a quieter, compact hierarchy. */
+.hist-series-heading,
+.hist-series-title,
+.hist-series-actions,
+.hist-series-footer,
+.hist-archive-heading,
+.hist-archive-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.hist-series-heading {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.hist-series-title > svg { color: var(--accent); flex-shrink: 0; }
+.hist-count-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  background: var(--panel-inset);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-small-action,
+.hist-archive-open,
+.hist-row-open,
+.hist-reset-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.7rem;
+  min-height: 2.35rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.hist-small-action:not(:disabled):hover,
+.hist-row-open:not(:disabled):hover {
+  background: var(--btn-secondary-hover);
+  border-color: var(--accent-line);
+  color: var(--ink);
+}
+
+.hist-icon-action { width: 2.35rem; padding: 0.45rem; }
+.app-frame.is-extra-large-ui .hist-series-panel .hist-icon-action,
+.app-frame.is-extra-large-ui .hist-inventory .hist-row-open { width: 3rem; height: 3rem; padding: 0.65rem; }
+.hist-series-empty {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.35rem;
+  border: 1px dashed var(--panel-border);
+  border-radius: var(--radius);
+  background: var(--panel-inset);
+}
+
+.hist-empty-icon,
+.hist-section-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.8rem;
+  height: 2.8rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 10px;
+}
+
+.hist-series-empty p { margin: 0 0 0.3rem; font-weight: 600; color: var(--ink); }
+.hist-series-empty div > span { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+.hist-series-footer {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.hist-reset-action { border: none; padding: 0.3rem 0; font-size: 0.75rem; font-weight: 400; }
+.hist-reset-action:not(:disabled):hover { color: var(--danger, #e8998b); text-decoration: underline; }
+.hist-score-unit { margin-left: 0.45rem; color: var(--muted); font-family: var(--font-ui); font-size: 0.75rem; font-weight: 500; }
+
+.hist-inventory { padding: 1.1rem 1.2rem; }
+.hist-inventory-overview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.2rem 1.6rem;
+}
+
+.hist-inventory-title { display: flex; align-items: center; gap: 0.8rem; flex: 1 1 18rem; min-width: 0; }
+.hist-inventory-title p { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+.hist-inventory-metrics { display: flex; gap: 0.65rem; margin: 0; }
+.hist-inventory-metrics > div {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: center;
+  min-width: 6.5rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-inset);
+}
+
+.hist-inventory-metrics dt { color: var(--muted); font-size: 0.73rem; }
+.hist-inventory-metrics dd { margin: 0 0 0.1rem; font-family: var(--font-score); font-size: 2rem; line-height: 1.1; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hist-archive-open { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); padding: 0.65rem 0.9rem; }
+.hist-archive-open:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, var(--accent) 60%, var(--ink)); }
+.hist-inventory.is-open .hist-archive-open > svg { transform: rotate(90deg); }
+.hist-inventory-archive { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--hairline-strong); }
+.hist-archive-heading { justify-content: space-between; flex-wrap: wrap; margin-bottom: 0.7rem; color: var(--muted); font-size: 0.75rem; }
+.hist-archive-heading > span:first-child { display: flex; align-items: center; gap: 0.4rem; color: var(--ink); font-weight: 600; }
+.hist-archive-table-wrap { border: 1px solid var(--panel-border); border-radius: var(--radius-sm); }
+.hist-archive-table { min-width: 30rem; }
+.hist-archive-table th,
+.hist-archive-table td { padding: 0.6rem 0.85rem; }
+.hist-archive-table tbody tr:last-child td { border-bottom: none; }
+.hist-archive-table tbody tr:hover td { background: var(--panel); }
+.hist-archive-table td:last-child { text-align: right; width: 3rem; }
+.hist-row-date { display: block; }
+.hist-row-time { display: block; font-size: 0.73rem; color: var(--muted); margin-top: 0.15rem; }
+.hist-row-score { font-weight: 600; font-variant-numeric: tabular-nums; }
+.hist-row-open { padding: 0.35rem; min-width: 2rem; min-height: 2rem; }
+.hist-archive-footer { justify-content: space-between; flex-wrap: wrap; padding-top: 0.8rem; color: var(--muted); font-size: 0.75rem; }
+.hist-inventory .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.hist-small-action:focus-visible,
+.hist-archive-open:focus-visible,
+.hist-row-open:focus-visible,
+.hist-reset-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+@media (max-width: 700px) {
+  .hist-inventory-title { flex-basis: 100%; }
+  .hist-inventory-metrics { flex: 1; }
+  .hist-inventory-metrics > div { flex: 1; min-width: 0; padding-inline: 0.85rem; }
+  .hist-series-footer-hint { display: none; }
+  .hist-series-empty { padding: 1rem; align-items: flex-start; }
+}
+
+@media (max-width: 420px) {
+  .hist-archive-open { width: 100%; }
+  .hist-series-actions { margin-left: auto; }
+  .hist-last-serie { flex-direction: column; }
+  .hist-last-serie-side { align-items: flex-start; text-align: left; }
+}
+
 .expand-slot {
   display: grid;
   grid-template-rows: 0fr;

@@ -152,6 +152,22 @@ export function IconPrint({ size, className }: IconProps) {
   );
 }
 
+export function IconRefresh({ size, className }: IconProps) {
+  return <Svg size={size} className={className}><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9" /></Svg>;
+}
+
+export function IconArchive({ size, className }: IconProps) {
+  return <Svg size={size} className={className}><rect x="3" y="3" width="18" height="5" rx="1.5" /><path d="M5 8v12h14V8M9 12h6" /></Svg>;
+}
+
+export function IconShare({ size, className }: IconProps) {
+  return <Svg size={size} className={className}><path d="M12 15V3m-4 4 4-4 4 4M5 12v8h14v-8" /></Svg>;
+}
+
+export function IconChevronRight({ size, className }: IconProps) {
+  return <Svg size={size} className={className}><path d="m9 5 7 7-7 7" /></Svg>;
+}
+
 export function IconTrophy({ size, className }: IconProps) {
   return (
     <Svg size={size} className={className}>
