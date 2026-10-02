@@ -11,6 +11,7 @@ type Props = {
   loading: boolean;
   busy?: boolean;
   printDisabled?: boolean;
+  emptyMessage?: string;
   bestSerie: number;
   sessionCount: number;
   /** Soft pulse for the newest saved series (XP / Schnitt-Hinweis). */
@@ -30,6 +31,7 @@ export function TrainingSeriesPanel({
   loading,
   busy = false,
   printDisabled = false,
+  emptyMessage = "Noch keine Serien — vollständige Trainings erscheinen automatisch.",
   bestSerie,
   sessionCount,
   lastPulse = null,
@@ -204,7 +206,7 @@ export function TrainingSeriesPanel({
 
       {newestFirst.length === 0 && !loading ? (
         <p className="hint">
-          Noch keine Serien — beendete Trainings erscheinen automatisch.
+          {emptyMessage}
         </p>
       ) : (
         <>
