@@ -249,6 +249,16 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
     [sessions, windowDays],
   );
 
+  const selectedLifetime = useMemo(
+    () => lifetimes.filter((s) => filter === "all" || s.key === filter),
+    [lifetimes, filter],
+  );
+  const totalSessionCount = selectedLifetime.reduce((sum, s) => sum + s.sessionCount, 0);
+  const totalShotCount = selectedLifetime.reduce((sum, s) => sum + s.shotCount, 0);
+  const emptyHistoryMessage = totalSessionCount > 0 && windowDays != null
+    ? `Keine Trainingsserien in den letzten ${windowDays} Tagen. Ältere Serien sind weiterhin gespeichert.`
+    : "Noch keine gespeicherten Trainingsserien — vollständige Trainings erscheinen automatisch.";
+
   const stats = useMemo(() => {
     const windowed = computeTrainingStats(windowedSessions);
     const lifetime = computeTrainingStats(sessions);
@@ -461,7 +471,7 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
         <div className="hist-training-wrap">
           {error ? <p className="banner-error">{error}</p> : null}
 
-          <p className="hint">Auswertung der zuletzt geladenen maximal {TRAINING_HISTORY_WINDOW} Serien im gewählten Zeitraum; Liga je Schütze im zuletzt geladenen Gesamtfenster. Punktevergleiche auf zehn Schüsse normiert. Keine Gesamtstatistik über die vollständige Historie.</p>
+          <p className="hint">Leistungsverlauf und Serienliste zeigen die letzten maximal {TRAINING_HISTORY_WINDOW} Serien im gewählten Zeitraum. Liga, Level und Gesamtbestand berücksichtigen alle gespeicherten Serien. Punktevergleiche beziehen sich auf zehn Schüsse.</p>
           <div className="hist-filter-row">
             <ShooterFilterBar
               shooters={shooters}
@@ -523,9 +533,13 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
                   sessions={windowedSessions}
                   metric={metric}
                   average={chartAvg}
+                  emptyMessage={emptyHistoryMessage}
                   onSelectSession={(id) => void openSession(id)}
                 />
               )}
+              {!loading && windowedSessions.length === 0 && totalSessionCount > 0 && windowDays != null ? (
+                <button type="button" className="secondary" onClick={() => setWindowDays(null)}>Alle Zeiträume anzeigen</button>
+              ) : null}
             </section>
 
             <ExpandSlot
@@ -552,6 +566,7 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
               loading={loading}
               busy={actionBusy}
               printDisabled={!printDetail?.shots.length}
+              emptyMessage={emptyHistoryMessage}
               bestSerie={stats.bestSerie}
               sessionCount={stats.sessionCount}
               lastPulse={lastPulse}
@@ -566,8 +581,8 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
 
             <section className="panel">
               <h2>Gesamter Trainingsbestand</h2>
-              <p>{lifetimes.filter((s) => filter === "all" || s.key === filter).reduce((n,s) => n+s.sessionCount,0)} Serien � {lifetimes.filter((s) => filter === "all" || s.key === filter).reduce((n,s) => n+s.shotCount,0)} Sch�sse insgesamt. Trends und Erfolge zeigen weiterhin das aktuelle 200er-Fenster.</p>
-              <button className="btn ghost" disabled={archiveBusy || loading} onClick={() => void (async () => {
+              <p>{totalSessionCount} Serien · {totalShotCount} Schüsse insgesamt · alle Zeiträume.</p>
+              <button className="btn ghost" disabled={archiveBusy || loading || totalSessionCount === 0 || archiveOffset >= totalSessionCount} onClick={() => void (async () => {
                 const token = archiveSeq.begin();
                 setArchiveBusy(true);
                 try {
@@ -575,9 +590,9 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
                   if (!archiveSeq.isCurrent(token)) return;
                   setArchive(page); setArchiveOffset(archiveOffset + page.length);
                 } catch (e) { setError(String(e)); } finally { setArchiveBusy(false); }
-              })()}>N�chste 200 Serien im Archiv</button>
-              {archiveOffset > 0 ? <button className="btn ghost" onClick={() => {archiveSeq.begin();setArchiveOffset(0);setArchive([]);}}>Archiv zur�cksetzen</button> : null}
-              {archive.length ? <div className="shot-list"><table><thead><tr><th>Datum</th><th>Sch�tze</th><th>Sch�sse</th><th>Punkte</th></tr></thead><tbody>{[...archive].reverse().map((s) => <tr key={s.id}><td>{new Date(s.endedAt).toLocaleString("de-DE")}</td><td><button className="btn ghost" onClick={() => void openSession(s.id)}>{s.shooterName}</button></td><td>{s.shotCount}</td><td>{s.punkteTotal.toFixed(1)}</td></tr>)}</tbody></table></div> : null}
+              })()}>{archiveBusy ? "Archiv wird geladen…" : archiveOffset === 0 ? "Serienarchiv öffnen" : "Weitere Serien anzeigen"}</button>
+              {archiveOffset > 0 ? <button className="btn ghost" onClick={() => {archiveSeq.begin();setArchiveOffset(0);setArchive([]);}}>Archiv schließen</button> : null}
+              {archive.length ? <div className="shot-list"><table><thead><tr><th>Datum</th><th>Schütze</th><th>Schüsse</th><th>Punkte</th></tr></thead><tbody>{[...archive].reverse().map((s) => <tr key={s.id}><td>{new Date(s.endedAt).toLocaleString("de-DE")}</td><td><button className="btn ghost" onClick={() => void openSession(s.id)}>{s.shooterName}</button></td><td>{s.shotCount}</td><td>{s.punkteTotal.toFixed(1)}</td></tr>)}</tbody></table></div> : null}
             </section>
 
             <section className="panel hist-progress">
