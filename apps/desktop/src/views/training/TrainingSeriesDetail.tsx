@@ -42,7 +42,7 @@ export function TrainingSeriesDetail({
             <p className="hist-series-detail-kicker">Serie im Fokus</p>
             <h3 className="hist-series-detail-title">Laden…</h3>
           </div>
-          <button type="button" className="secondary" onClick={onClose}>
+          <button type="button" className="hist-small-action" onClick={onClose}>
             Schließen
           </button>
         </div>
@@ -92,13 +92,13 @@ export function TrainingSeriesDetail({
           />
           <button
             type="button"
-            className="secondary"
+            className="hist-small-action print-action"
             disabled={shots.length === 0 || loading}
             onClick={onPrint}
           >
             <IconPrint /> Drucken
           </button>
-          <button type="button" className="secondary" onClick={onClose}>
+          <button type="button" className="hist-small-action" onClick={onClose}>
             Schließen
           </button>
         </div>

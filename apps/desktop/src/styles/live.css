@@ -290,7 +290,7 @@
   padding: 0.25rem 0.55rem;
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -330,7 +330,7 @@
 }
 
 .series-ceremony-levelup .series-ceremony-kicker {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .series-ceremony-total {
@@ -363,26 +363,26 @@
 }
 
 .series-ceremony-xp {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
 .series-ceremony-liga.is-up {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
   font-weight: 600;
 }
 
 .series-ceremony-liga.is-down {
-  color: #d0887a;
+  color: var(--trend-down-ink);
   font-weight: 600;
 }
 
 .series-ceremony-hint.hint-up {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
 }
 
 .series-ceremony-hint.hint-down {
-  color: #d0887a;
+  color: var(--trend-down-ink);
 }
 
 .series-ceremony-bar {
@@ -892,7 +892,7 @@
   padding: 0.65rem 0.85rem;
   margin: 0;
   border-radius: var(--radius);
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--panel-inset);
   border: 1px solid var(--panel-border);
   flex-shrink: 0;
   min-width: 0;

@@ -1,0 +1,86 @@
+/* Shared action emphasis; the compact/detail toolbars retain their own sizing. */
+button.print-action:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent-line);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+button.print-action:not(:disabled):hover {
+  background: color-mix(in srgb, var(--accent) 88%, var(--ink));
+  color: var(--accent-ink);
+  border-color: var(--accent-text);
+}
+
+button.print-action:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+
+.hist-series-actions { gap: 0.5rem; }
+.hist-small-action { color: var(--ink); background: var(--btn-secondary-bg); }
+.hist-series-actions .hist-icon-action { color: var(--muted); }
+.hist-small-action > svg { flex-shrink: 0; }
+
+/* Light panels have white reading surfaces and subdued blue-grey insets. */
+html[data-color-scheme="light"] .panel {
+  box-shadow: 0 2px 8px rgba(25, 42, 63, 0.04);
+}
+
+html[data-color-scheme="light"] :is(.hist-insight-chip.insight-up, .hist-insight-chip.insight-down) {
+  background: color-mix(in srgb, currentColor 7%, white);
+  border-color: color-mix(in srgb, currentColor 25%, white);
+}
+
+html[data-color-scheme="light"] :is(.train-xp-track, .hist-goal-track, .achieve-track, .hist-progress-body) {
+  background: var(--panel-inset);
+}
+
+html[data-color-scheme="light"] :is(.chip:hover:not(:disabled), .shooter-picker-trigger:hover, .shooter-picker-trigger.is-open, .achieve-toggle:hover) {
+  background: var(--btn-secondary-hover);
+}
+
+html[data-color-scheme="light"] :is(.chip-on, .shooter-picker-trigger.is-on, .hist-last-serie, .hist-last-serie.is-levelup) {
+  background: #fff1e9;
+  border-color: #dca78d;
+}
+
+html[data-color-scheme="light"] :is(.hist-table tbody tr[role="button"]:hover td, .list-item:hover) {
+  background: #edf2f8;
+}
+
+html[data-color-scheme="light"] .hist-table tbody tr.hist-row-selected td {
+  background: #fff0e5;
+}
+
+html[data-color-scheme="light"] .podium-slot--1 .podium-score { color: #805b0d; }
+html[data-color-scheme="light"] .podium-slot--2 .podium-score { color: #526074; }
+html[data-color-scheme="light"] .podium-slot--3 .podium-score { color: #8b4925; }
+html[data-color-scheme="light"] .league-unranked { color: #526074; }
+html[data-color-scheme="light"] .league-bronze { color: #8b4925; }
+html[data-color-scheme="light"] .league-silver { color: #526074; }
+html[data-color-scheme="light"] :is(.league-gold, .league-champion) { color: #805b0d; }
+html[data-color-scheme="light"] .league-platinum { color: #176d69; }
+html[data-color-scheme="light"] .league-diamond { color: #326797; }
+html[data-color-scheme="light"] .league-master { color: #85368e; }
+html[data-color-scheme="light"] .league-grandmaster { color: #a5362d; }
+
+html[data-color-scheme="light"] .trend-dot { fill: white; stroke: var(--chart-series); }
+html[data-color-scheme="light"] .trend-dot.active { fill: var(--chart-series); stroke: white; }
+html[data-color-scheme="light"] .trend-dot.is-best { fill: #98700a; stroke: #624800; }
+html[data-color-scheme="light"] .trend-dot.is-worst { fill: #a5362d; stroke: #79251e; }
+html[data-color-scheme="light"] .trend-legend-best { background: #98700a; box-shadow: 0 0 0 1px #624800; }
+
+html[data-color-scheme="light"] :is(.people-list-box, .start-table, .hist-table-wrap) {
+  border-color: var(--panel-border);
+}
+
+html[data-color-scheme="light"] .shot-best-tag { color: #805b0d; }
+html[data-color-scheme="light"] .shot-focus-tag { color: #326797; }
+html[data-color-scheme="light"] .start-nk-badge { color: var(--status-warn-ink); }
+html[data-color-scheme="light"] :is(.danger-text, .shooter-ac-error) { color: var(--status-bad-ink); }
+html[data-color-scheme="light"] .check-field > input[type="checkbox"]:checked,
+html[data-color-scheme="light"] .side-sheet-toggle > input[type="checkbox"]:checked {
+  background: color-mix(in srgb, var(--check-accent) 14%, white);
+  color: var(--check-accent);
+}
