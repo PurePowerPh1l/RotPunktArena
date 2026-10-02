@@ -47,6 +47,7 @@ import { TrainingHeroPanel } from "./training/TrainingHeroPanel";
 import { TrainingInsightsBar } from "./training/TrainingInsightsBar";
 import { TrainingProgressPeek } from "./training/TrainingProgressPeek";
 import { TrainingSeriesDetail } from "./training/TrainingSeriesDetail";
+import { TrainingInventoryPanel } from "./training/TrainingInventoryPanel";
 import { TrainingSeriesPanel } from "./training/TrainingSeriesPanel";
 import { TrainingTransferPanel } from "./training/TrainingTransferPanel";
 
@@ -579,21 +580,26 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
               onRefresh={() => void refresh()}
             />
 
-            <section className="panel">
-              <h2>Gesamter Trainingsbestand</h2>
-              <p>{totalSessionCount} Serien · {totalShotCount} Schüsse insgesamt · alle Zeiträume.</p>
-              <button className="btn ghost" disabled={archiveBusy || loading || totalSessionCount === 0 || archiveOffset >= totalSessionCount} onClick={() => void (async () => {
+            <TrainingInventoryPanel
+              totalSessions={totalSessionCount}
+              totalShots={totalShotCount}
+              archive={archive}
+              offset={archiveOffset}
+              busy={archiveBusy}
+              loading={loading}
+              selectedId={selectedSessionId}
+              onSelect={(id) => void openSession(id)}
+              onClose={() => { archiveSeq.begin(); setArchiveOffset(0); setArchive([]); }}
+              onLoad={() => void (async () => {
                 const token = archiveSeq.begin();
                 setArchiveBusy(true);
                 try {
-                  const page = await api.listTrainingHistory(200, apiFilter, archiveOffset);
+                  const page = await api.listTrainingHistory(TRAINING_HISTORY_WINDOW, apiFilter, archiveOffset);
                   if (!archiveSeq.isCurrent(token)) return;
                   setArchive(page); setArchiveOffset(archiveOffset + page.length);
                 } catch (e) { setError(String(e)); } finally { setArchiveBusy(false); }
-              })()}>{archiveBusy ? "Archiv wird geladen…" : archiveOffset === 0 ? "Serienarchiv öffnen" : "Weitere Serien anzeigen"}</button>
-              {archiveOffset > 0 ? <button className="btn ghost" onClick={() => {archiveSeq.begin();setArchiveOffset(0);setArchive([]);}}>Archiv schließen</button> : null}
-              {archive.length ? <div className="shot-list"><table><thead><tr><th>Datum</th><th>Schütze</th><th>Schüsse</th><th>Punkte</th></tr></thead><tbody>{[...archive].reverse().map((s) => <tr key={s.id}><td>{new Date(s.endedAt).toLocaleString("de-DE")}</td><td><button className="btn ghost" onClick={() => void openSession(s.id)}>{s.shooterName}</button></td><td>{s.shotCount}</td><td>{s.punkteTotal.toFixed(1)}</td></tr>)}</tbody></table></div> : null}
-            </section>
+              })()}
+            />
 
             <section className="panel hist-progress">
               <div className="hist-progress-head">
