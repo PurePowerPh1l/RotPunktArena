@@ -20,7 +20,27 @@ pub struct ConnectionHandle {
     pub(crate) inner: Arc<Mutex<SharedState>>,
 }
 
+pub struct ConnectionSnapshot {
+    pub status: ConnectionStatus,
+    pub reason: String,
+    pub generation: u64,
+    pub target: Option<RfcommTarget>,
+    pub phase: ConnectPhase,
+    pub origin: ConnectOrigin,
+}
+
 impl ConnectionHandle {
+    pub fn snapshot(&self) -> ConnectionSnapshot {
+        let state = self.inner.lock().unwrap();
+        ConnectionSnapshot {
+            status: state.status,
+            reason: state.last_reason.clone(),
+            generation: state.generation,
+            target: state.target.clone(),
+            phase: state.connect_phase,
+            origin: state.connect_origin,
+        }
+    }
     pub fn register_sink(&self) -> Result<(u64, u64), String> {
         let lease = NEXT_SINK_LEASE.fetch_add(1, Ordering::SeqCst);
         let (reply, receive) = std::sync::mpsc::channel();

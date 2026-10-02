@@ -71,6 +71,9 @@ pub fn parse_shot_frame(frame: &[u8]) -> Result<Shot, String> {
         .parse::<i32>()
         .map_err(|e| format!("y: {e}"))?;
 
+    if !(0..=109).contains(&value_raw) || distance_raw < 0 {
+        return Err("Ringwert muss 0..10.9 und Distanz nichtnegativ sein".into());
+    }
     Ok(Shot {
         value_raw,
         distance_raw,

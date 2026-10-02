@@ -8,7 +8,9 @@ import {
   type AdminAccessState,
 } from "../access";
 import * as api from "../api/commands";
-import type { DbBackupInfo } from "../api/admin";
+import { changeAdminPassword } from "../api/adminAuth";
+import { exportTrainingGoals } from "../training/goals";
+import type { BackupHealth, DbBackupInfo } from "../api/admin";
 import {
   alertDialog,
   confirmDialog,
@@ -89,6 +91,10 @@ export function SettingsSheet({
   currentView,
 }: Props) {
   const appUpdate = useAppUpdateContext();
+  const [health, setHealth] = useState<BackupHealth | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmedPassword, setConfirmedPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backups, setBackups] = useState<DbBackupInfo[]>([]);
@@ -109,7 +115,8 @@ export function SettingsSheet({
   const latestBackup = useMemo(() => backups[0], [backups]);
 
   const reloadBackups = async () => {
-    const list = await api.listDbBackups();
+    const [list, status] = await Promise.all([api.listDbBackups(), api.getBackupHealth()]);
+    setHealth(status);
     setBackups(list);
     if (selectedBackup && !list.some((b) => b.name === selectedBackup)) {
       setSelectedBackup("");
@@ -123,6 +130,12 @@ export function SettingsSheet({
     void reloadBackups().catch((e) => setError(String(e)));
     void appUpdate.refreshVersion();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Verbindung default + reload when sheet opens
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) { setCurrentPassword(""); setNewPassword(""); setConfirmedPassword(""); return; }
+    const timer = window.setInterval(() => void api.getBackupHealth().then(setHealth).catch(e => setError(String(e))), 5000);
+    return () => window.clearInterval(timer);
   }, [open]);
 
   if (!open) return null;
@@ -262,6 +275,12 @@ export function SettingsSheet({
             variant="path"
           />
         </div>
+        {health ? <div className="settings-info-block">
+          <SettingsInfoRow label="Automatische Sicherung" value={health.snapshot.lastCompletedAt ? new Date(health.snapshot.lastCompletedAt).toLocaleString("de-DE") : "Noch kein Snapshot in dieser App-Sitzung"} />
+          <SettingsInfoRow label="Daten und Sicherungen" value={`${(health.storageBytes / 1048576).toFixed(1)} MiB`} />
+          <SettingsInfoRow label="Übersprungene Sicherungen" value={String(health.snapshot.queueDrops)} />
+          {health.snapshot.lastError ? <p className="banner-error">{health.snapshot.lastError}</p> : null}
+        </div> : null}
         <div className="settings-backup-actions">
           <button
             type="button"
@@ -271,6 +290,15 @@ export function SettingsSheet({
           >
             {busy ? "…" : "Backup erstellen"}
           </button>
+        </div>
+        <div className="side-sheet-actions">
+          <button type="button" disabled={busy} onClick={() => void run(async () => { await api.retrySnapshot(); await reloadBackups(); })}>Automatische Sicherung erneut anfordern</button>
+          <button type="button" disabled={busy} onClick={() => void run(async () => {
+            if (!(await requireAdminAuth())) return;
+            if (!(await confirmDialog({title:"Persönliches Gesamtbackup erstellen?",body:"Enthält alle Personen, Wettkämpfe, Trainingsdaten, Admin-Passworthash, Gerätegedächtnis und Trainingsziele. Nur an vertrauenswürdige Personen weitergeben.",confirmLabel:"Gesamtbackup erstellen"}))) return;
+            const result = await api.exportPersonalBackup(exportTrainingGoals());
+            setLastCreatedPath(result.path); await reloadBackups();
+          })}>Gesamtbackup (DB, Geräte, Ziele)</button>
         </div>
         <SettingsHint>
           Ein Backup enthält die aktuellen Arena- und Sitzungsdaten.
@@ -322,6 +350,17 @@ export function SettingsSheet({
         )}
         {isAdminModeEnabled ? (
           <>
+            <div className="settings-info-block">
+              <p>Admin-Passwort ändern — danach erneut entsperren.</p>
+              <label className="field">Aktuelles Passwort<input type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} disabled={busy} /></label>
+              <label className="field">Neues Passwort<input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} disabled={busy} /></label>
+              <label className="field">Neues Passwort bestätigen<input type="password" autoComplete="new-password" value={confirmedPassword} onChange={e => setConfirmedPassword(e.target.value)} disabled={busy} /></label>
+              <button type="button" disabled={busy || !currentPassword || newPassword.length < 8 || newPassword !== confirmedPassword} onClick={() => void run(async () => {
+                await changeAdminPassword(currentPassword,newPassword);
+                setCurrentPassword("");setNewPassword("");setConfirmedPassword("");adminAccessStore.lock();
+                await alertDialog({title:"Passwort geändert",body:"Die Admin-Sitzung wurde gesperrt. Bitte mit dem neuen Passwort entsperren."});
+              })}>Passwort ändern</button>
+            </div>
             <label className="field">
               Backup wiederherstellen
               <SearchSelect

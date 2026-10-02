@@ -10,6 +10,84 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
+#[tauri::command]
+pub async fn prepare_app_update(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<(), String> {
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || engine.prepare_update())
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn finish_app_update(engine: tauri::State<'_, Arc<StandEngine>>) {
+    engine.finish_update();
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupHealth {
+    snapshot: crate::db::SnapshotHealth,
+    storage_bytes: u64,
+}
+
+#[tauri::command]
+pub async fn get_backup_health(app: AppHandle) -> Result<BackupHealth, String> {
+    let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut health = crate::db::snapshot_health();
+        if health.last_completed_at.is_none() {
+            health.last_completed_at = directory
+                .join("snapshots/latest.sqlite")
+                .metadata()
+                .ok()
+                .and_then(|meta| meta.modified().ok())
+                .map(|time| chrono::DateTime::<chrono::Utc>::from(time).to_rfc3339());
+        }
+        let mut bytes = 0;
+        for directory in [
+            directory.clone(),
+            directory.join("snapshots"),
+            directory.join("backups"),
+            directory.join("exports"),
+        ] {
+            if !directory.exists() {
+                continue;
+            }
+            for entry in std::fs::read_dir(directory).map_err(|e| e.to_string())? {
+                let metadata = entry
+                    .map_err(|e| e.to_string())?
+                    .metadata()
+                    .map_err(|e| e.to_string())?;
+                if metadata.is_file() {
+                    bytes += metadata.len();
+                }
+            }
+        }
+        Ok(BackupHealth {
+            snapshot: health,
+            storage_bytes: bytes,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn retry_snapshot(engine: tauri::State<'_, Arc<StandEngine>>) -> Result<(), String> {
+    engine.with_db(|db| {
+        let id: String = db
+            .conn
+            .query_row(
+                "SELECT id FROM sessions ORDER BY started_at DESC LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(|_| "Noch keine Session zum Sichern".to_string())?;
+        db.spawn_session_boundary_snapshot(&id);
+        Ok(())
+    })
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DbBackupInfo {

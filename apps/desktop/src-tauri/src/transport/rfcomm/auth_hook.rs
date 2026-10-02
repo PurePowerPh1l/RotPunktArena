@@ -17,7 +17,7 @@
 //! RFCOMM page cancelled it — returning failure then shows the Windows PIN UI
 //! (manual `0000` still works).
 
-use super::discovery::{name_hint_rank, REDDOT_PAIR_PIN};
+use super::discovery::REDDOT_PAIR_PIN;
 use super::error::TransportError;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -199,10 +199,7 @@ mod win {
     }
 
     fn should_auto_pin(info: &BLUETOOTH_DEVICE_INFO) -> bool {
-        if addr_allowed(addr_ull(info)) {
-            return true;
-        }
-        name_hint_rank(&device_name(info)).is_some()
+        addr_allowed(addr_ull(info))
     }
 
     fn pin_info() -> BLUETOOTH_PIN_INFO {
@@ -321,64 +318,16 @@ mod win {
         }
 
         let method = p.authenticationMethod;
+        // RedDot uses the documented legacy PIN. Never approve a numeric
+        // comparison or another method without the operator comparing it.
+        if method != BLUETOOTH_AUTHENTICATION_METHOD_LEGACY {
+            set_auth_note(format!("authEx rejected unexpected method={}", method.0));
+            return BOOL(0);
+        }
         let name = device_name(&p.deviceInfo);
         let addr = addr_ull(&p.deviceInfo);
 
-        let (rc, via) = match method {
-            BLUETOOTH_AUTHENTICATION_METHOD_LEGACY => send_legacy_pin(&p.deviceInfo),
-            BLUETOOTH_AUTHENTICATION_METHOD_NUMERIC_COMPARISON => unsafe {
-                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE {
-                    bthAddressRemote: p.deviceInfo.Address,
-                    authMethod: method,
-                    negativeResponse: 0,
-                    ..Default::default()
-                };
-                resp.Anonymous.numericCompInfo = BLUETOOTH_NUMERIC_COMPARISON_INFO {
-                    NumericValue: p.Anonymous.Numeric_Value,
-                };
-                if let Some(radio) = radio_handle() {
-                    let rc = BluetoothSendAuthenticationResponseEx(Some(radio), &resp);
-                    if rc == 0 {
-                        (rc, "ex_radio")
-                    } else {
-                        let rc2 = BluetoothSendAuthenticationResponseEx(None, &resp);
-                        (rc2, if rc2 == 0 { "ex_null" } else { "fail_numeric" })
-                    }
-                } else {
-                    let rc = BluetoothSendAuthenticationResponseEx(None, &resp);
-                    (rc, if rc == 0 { "ex_null" } else { "fail_numeric" })
-                }
-            },
-            BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY_NOTIFICATION
-            | BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY => {
-                let passkey: u32 = REDDOT_PAIR_PIN.parse().unwrap_or(0);
-                let mut resp = BLUETOOTH_AUTHENTICATE_RESPONSE {
-                    bthAddressRemote: p.deviceInfo.Address,
-                    authMethod: BLUETOOTH_AUTHENTICATION_METHOD_PASSKEY_NOTIFICATION,
-                    negativeResponse: 0,
-                    ..Default::default()
-                };
-                resp.Anonymous.passkeyInfo = BLUETOOTH_PASSKEY_INFO { passkey };
-                unsafe {
-                    if let Some(radio) = radio_handle() {
-                        let rc = BluetoothSendAuthenticationResponseEx(Some(radio), &resp);
-                        if rc == 0 {
-                            (rc, "ex_radio")
-                        } else {
-                            let rc2 = BluetoothSendAuthenticationResponseEx(None, &resp);
-                            (rc2, if rc2 == 0 { "ex_null" } else { "fail_passkey" })
-                        }
-                    } else {
-                        let rc = BluetoothSendAuthenticationResponseEx(None, &resp);
-                        (rc, if rc == 0 { "ex_null" } else { "fail_passkey" })
-                    }
-                }
-            }
-            other => {
-                set_auth_note(format!("authEx unsupported method={}", other.0));
-                return BOOL(0);
-            }
-        };
+        let (rc, via) = send_legacy_pin(&p.deviceInfo);
 
         set_auth_note(format!(
             "authEx method={} addr={addr:012X} name={name:?} send_rc={rc} via={via}",

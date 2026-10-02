@@ -142,7 +142,11 @@ impl Database {
         if name.is_empty() {
             return Err("Name ist Pflicht".into());
         }
-
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(|e| e.to_string())?;
         let existing = self.find_person_by_display_name(name)?;
         let (person, created) = if let Some(p) = existing {
             (p, false)
@@ -159,6 +163,7 @@ impl Database {
         };
 
         let linked = self.link_training_sessions_to_person(&person.id, name)?;
+        tx.commit().map_err(|e| e.to_string())?;
         Ok(PromoteTrainingShooterResult {
             person,
             created,
@@ -234,6 +239,11 @@ impl Database {
     }
 
     pub fn update_person(&self, id: &str, input: CreatePerson) -> Result<Person, String> {
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(|e| e.to_string())?;
         let first = input.first_name.trim();
         let last = input.last_name.trim();
         if first.is_empty() || last.is_empty() {
@@ -266,8 +276,9 @@ impl Database {
             )
             .map_err(|e| e.to_string())?;
 
-        self.get_person(id)?
-            .ok_or_else(|| "Schütze nicht gefunden".into())
+        let person = self.get_person(id)?.ok_or("Schütze nicht gefunden")?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(person)
     }
 
     /// Permanently remove a shooter. Start-list entries and linked training

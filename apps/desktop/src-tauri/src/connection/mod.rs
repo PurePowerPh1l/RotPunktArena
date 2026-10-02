@@ -38,8 +38,8 @@ pub use manager::{
     ConnectionHandle, ConnectionManager, RfcommBridgeTransport, SetupCandidate,
 };
 pub use persist::{
-    clear_known_target, list_known_devices, load_known_target, remove_known_device,
-    save_known_target, KnownDeviceSummary,
+    clear_known_target, list_known_devices, load_device_store, load_known_target,
+    remove_known_device, save_known_target, KnownDeviceSummary,
 };
 pub use status::ConnectionStatus;
 

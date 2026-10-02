@@ -175,6 +175,28 @@ const MIGRATIONS: &[Migration] = &[
         version: 18, name: "session_rule_snapshot",
         sql: None, custom: Some(migrate_v18_session_rules),
     },
+    Migration {
+        version: 19, name: "persist_training_mode",
+        sql: Some("ALTER TABLE sessions ADD COLUMN endless INTEGER NOT NULL DEFAULT 0 CHECK(endless IN (0,1));
+            UPDATE sessions SET endless=1 WHERE competition_id IS NULL AND max_shots IS NULL AND training_saved=0;"), custom: None,
+    },
+    Migration {
+        version: 20, name: "incremental_shot_totals",
+        sql: Some("ALTER TABLE shots ADD COLUMN running_score REAL NOT NULL DEFAULT 0;
+            ALTER TABLE shots ADD COLUMN running_teiler REAL NOT NULL DEFAULT 0;
+            CREATE TABLE session_totals(session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, classification TEXT NOT NULL, shot_count INTEGER NOT NULL, score REAL NOT NULL, teiler REAL NOT NULL, PRIMARY KEY(session_id,classification));
+            INSERT INTO session_totals SELECT session_id,classification,COUNT(*),SUM(score),SUM(distance_raw/10.0) FROM shots GROUP BY session_id,classification;
+            WITH running AS MATERIALIZED (SELECT id,SUM(score) OVER (PARTITION BY session_id,classification ORDER BY shot_index,session_sequence) AS total,SUM(distance_raw/10.0) OVER (PARTITION BY session_id,classification ORDER BY shot_index,session_sequence) AS teiler FROM shots)
+            UPDATE shots SET running_score=(SELECT total FROM running WHERE running.id=shots.id),running_teiler=(SELECT teiler FROM running WHERE running.id=shots.id);
+            CREATE INDEX idx_shots_class_index ON shots(session_id,classification,shot_index);
+            CREATE TRIGGER shot_totals_insert AFTER INSERT ON shots BEGIN
+              UPDATE shots SET running_score=NEW.score+COALESCE((SELECT score FROM session_totals WHERE session_id=NEW.session_id AND classification=NEW.classification),0),running_teiler=NEW.distance_raw/10.0+COALESCE((SELECT teiler FROM session_totals WHERE session_id=NEW.session_id AND classification=NEW.classification),0) WHERE id=NEW.id;
+              INSERT INTO session_totals VALUES(NEW.session_id,NEW.classification,1,NEW.score,NEW.distance_raw/10.0) ON CONFLICT(session_id,classification) DO UPDATE SET shot_count=shot_count+1,score=score+NEW.score,teiler=teiler+NEW.distance_raw/10.0;
+            END;
+            CREATE TRIGGER shot_totals_delete AFTER DELETE ON shots BEGIN
+              UPDATE session_totals SET shot_count=shot_count-1,score=score-OLD.score,teiler=teiler-OLD.distance_raw/10.0 WHERE session_id=OLD.session_id AND classification=OLD.classification;
+            END;"), custom: None,
+    },
 ];
 
 fn migrate_v18_session_rules(conn: &Connection) -> Result<(), String> {

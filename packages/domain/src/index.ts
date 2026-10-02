@@ -157,6 +157,8 @@ export interface UiShot {
 }
 
 export interface LiveState {
+  /** Total count; shots contains at most the latest 500 marks. */
+  shotCount: number;
   contractVersion: 1;
   revision: number;
   sessionId: string | null;

@@ -10,6 +10,23 @@ static GENERATION: RwLock<u64> = RwLock::new(0);
 static WORKER: Mutex<Option<Service>> = Mutex::new(None);
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 const QUEUE_CAPACITY: usize = 16;
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SnapshotHealth {
+    pub completed: u64,
+    pub queue_drops: u64,
+    pub last_completed_at: Option<String>,
+    pub last_error: Option<String>,
+}
+static HEALTH: Mutex<SnapshotHealth> = Mutex::new(SnapshotHealth {
+    completed: 0,
+    queue_drops: 0,
+    last_completed_at: None,
+    last_error: None,
+});
+pub(crate) fn snapshot_health() -> SnapshotHealth {
+    HEALTH.lock().clone()
+}
 struct Service {
     sender: SyncSender<Job>,
     worker: JoinHandle<()>,
@@ -50,8 +67,17 @@ pub(super) fn enqueue(db: &Database, session: &str, sequence: Option<i64>) {
                         db.write_session_snapshot(&job.session, sequence)
                             .map(|_| ())
                     });
-                    if let Err(error) = result {
-                        eprintln!("Snapshot fehlgeschlagen ({}): {error}", job.session);
+                    let mut health = HEALTH.lock();
+                    match result {
+                        Ok(()) => {
+                            health.completed += 1;
+                            health.last_completed_at = Some(chrono::Utc::now().to_rfc3339());
+                            health.last_error = None;
+                        }
+                        Err(error) => {
+                            eprintln!("Snapshot fehlgeschlagen ({}): {error}", job.session);
+                            health.last_error = Some(error);
+                        }
                     }
                 }
             }) {
@@ -62,6 +88,7 @@ pub(super) fn enqueue(db: &Database, session: &str, sequence: Option<i64>) {
                 })
             }
             Err(error) => {
+                HEALTH.lock().last_error = Some(error.to_string());
                 eprintln!("Snapshot-Worker konnte nicht starten: {error}");
                 return;
             }
@@ -75,9 +102,14 @@ pub(super) fn enqueue(db: &Database, session: &str, sequence: Option<i64>) {
             generation,
         }) {
             Ok(()) => {}
-            Err(TrySendError::Full(_)) => eprintln!(
-                "Snapshot-Queue voll (max. {QUEUE_CAPACITY}); Sicherungsanforderung übersprungen"
-            ),
+            Err(TrySendError::Full(_)) => {
+                let mut health = HEALTH.lock();
+                health.queue_drops += 1;
+                health.last_error = Some(format!(
+                    "Snapshot-Queue voll (max. {QUEUE_CAPACITY}); bitte erneut sichern"
+                ));
+                eprintln!("{}", health.last_error.as_deref().unwrap_or_default());
+            }
             Err(TrySendError::Disconnected(_)) => {
                 if let Some(active) = service.take() {
                     if active.worker.join().is_err() {

@@ -10,6 +10,7 @@
  * stays outside the repo (local `.keys/`, gitignored).
  */
 import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type DownloadEvent } from "@tauri-apps/plugin-updater";
 
@@ -52,11 +53,16 @@ export async function checkForAppUpdate(): Promise<AppUpdateInfo | null> {
  * Caller must have confirmed with the user before invoking.
  */
 export async function downloadAndInstallAppUpdate(
+  expectedVersion: string,
   onProgress?: (progress: AppUpdateProgress) => void,
 ): Promise<AppUpdateInfo> {
   const update = await check();
   if (!update) {
     throw new Error("Kein Update mehr verfügbar. Bitte erneut prüfen.");
+  }
+  if (update.version !== expectedVersion) {
+    await update.close();
+    throw new Error("Die verfügbare Version hat sich geändert. Bitte erneut prüfen und auswählen.");
   }
 
   let downloaded = 0;
@@ -85,7 +91,12 @@ export async function downloadAndInstallAppUpdate(
       body: update.body ?? null,
       date: update.date ?? null,
     };
-    await update.downloadAndInstall(handleProgress);
+    await invoke("prepare_app_update");
+    try {
+      await update.downloadAndInstall(handleProgress);
+    } finally {
+      await invoke("finish_app_update");
+    }
     return info;
   } finally {
     try {
@@ -98,5 +109,7 @@ export async function downloadAndInstallAppUpdate(
 
 /** Restart the app so the installed update can take effect. */
 export async function relaunchApp(): Promise<void> {
-  await relaunch();
+  await invoke("prepare_app_update");
+  try { await relaunch(); }
+  finally { await invoke("finish_app_update"); }
 }

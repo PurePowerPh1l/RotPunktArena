@@ -41,14 +41,16 @@ pub fn save_training_session(
 pub fn list_training_history(
     engine: tauri::State<'_, Arc<StandEngine>>,
     limit: Option<i64>,
+    offset: Option<i64>,
     person_id: Option<String>,
     shooter_name: Option<String>,
 ) -> Result<Vec<TrainingSessionSummary>, String> {
     engine.with_db(|db| {
-        db.list_saved_training_sessions(
+        db.list_saved_training_page(
             limit.unwrap_or(80),
             person_id.as_deref(),
             shooter_name.as_deref(),
+            offset.unwrap_or(0),
         )
     })
 }
@@ -87,4 +89,14 @@ pub fn promote_training_shooter(
 ) -> Result<crate::db::PromoteTrainingShooterResult, String> {
     session.require()?;
     engine.with_db(|db| db.promote_training_shooter(&shooter_name))
+}
+
+#[tauri::command]
+pub async fn get_training_lifetime(
+    engine: tauri::State<'_, Arc<StandEngine>>,
+) -> Result<Vec<crate::db::TrainingLifetime>, String> {
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || engine.with_db(|db| db.training_lifetime()))
+        .await
+        .map_err(|e| e.to_string())?
 }
