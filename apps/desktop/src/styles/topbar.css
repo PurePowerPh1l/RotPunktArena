@@ -51,7 +51,7 @@
 
 .top-nav-seg .sliding-seg-btn.on .seg-label svg {
   opacity: 1;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 html[data-color-scheme="light"] .top-nav-seg.sliding-seg {
@@ -86,7 +86,7 @@ html[data-color-scheme="light"] .top-nav-seg .sliding-seg-pill {
   padding-inline: calc((var(--live-link-size) - var(--live-link-dot)) / 2);
   gap: 0;
   border-radius: 9px;
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--panel-inset);
   border: 1px solid var(--panel-border);
   color: var(--muted);
   font-size: 0.8rem;
@@ -470,7 +470,7 @@ html[data-color-scheme="light"] .live-link.is-expanded {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--accent);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 

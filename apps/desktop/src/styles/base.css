@@ -7,6 +7,7 @@
   --ink: #f2f0eb;
   --muted: #9aa3b0;
   --accent: #e0764c;
+  --accent-text: #e0764c;
   --accent-ink: #12151a;
   --accent-soft: rgba(224, 118, 76, 0.18);
   --accent-line: rgba(224, 118, 76, 0.55);
@@ -16,6 +17,13 @@
   --panel: rgba(255, 255, 255, 0.035);
   --panel-border: rgba(255, 255, 255, 0.09);
   --panel-inset: rgba(0, 0, 0, 0.28);
+  --surface-subtle: rgba(0, 0, 0, 0.22);
+  --trend-up-ink: #8fbf8a;
+  --trend-down-ink: #d0887a;
+  --chart-series: #e0764c;
+  --chart-series-end: #e8987a;
+  --chart-roll: #8cb4dc;
+  --chart-average: rgba(255, 255, 255, 0.4);
   /* Elevated surfaces — values match prior hardcoded dark look */
   --elevated: rgba(16, 19, 24, 0.98);
   --elevated-alt: rgba(18, 21, 26, 0.98);
@@ -59,32 +67,43 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Minimal light tokens — readability/contrast only, not a redesign. */
+/* Light surfaces and semantic inks are tuned together for readable contrast. */
 html[data-color-scheme="light"] {
   color-scheme: light;
-  --bg0: #f3f4f6;
-  --bg1: #e7e9ee;
-  --ink: #1a1f27;
-  --muted: #5a6472;
+  --bg0: #f3f5f8;
+  --bg1: #e9edf3;
+  --ink: #182330;
+  --muted: #4d5b6c;
+  --accent-text: #9c411e;
+  --ok: #236b3a;
+  --warn: #805b0d;
+  --bad: #a5362d;
+  --trend-up-ink: #236b3a;
+  --trend-down-ink: #a5362d;
+  --chart-series: #b34a23;
+  --chart-series-end: #a9411e;
+  --chart-roll: #326797;
+  --chart-average: #657386;
   --accent-soft: rgba(224, 118, 76, 0.12);
   --accent-line: rgba(224, 118, 76, 0.4);
-  --panel: rgba(0, 0, 0, 0.035);
-  --panel-border: rgba(0, 0, 0, 0.1);
-  --panel-inset: rgba(0, 0, 0, 0.05);
+  --panel: #ffffff;
+  --panel-border: #d3dbe5;
+  --panel-inset: #f1f4f8;
+  --surface-subtle: #f1f4f8;
   --elevated: #ffffff;
   --elevated-alt: #ffffff;
   --elevated-diag: #ffffff;
   --elevated-toast: #ffffff;
   --elevated-sticky: #eef0f4;
   --elevated-recovery: #ffffff;
-  --input-fill: rgba(0, 0, 0, 0.06);
-  --input-fill-muted: rgba(0, 0, 0, 0.04);
-  --input-fill-deep: rgba(0, 0, 0, 0.08);
+  --input-fill: #ffffff;
+  --input-fill-muted: #f3f5f8;
+  --input-fill-deep: #edf1f6;
   --menu-border: rgba(0, 0, 0, 0.12);
   --hairline: rgba(0, 0, 0, 0.08);
   --hairline-strong: rgba(0, 0, 0, 0.1);
-  --btn-secondary-bg: rgba(0, 0, 0, 0.06);
-  --btn-secondary-hover: rgba(0, 0, 0, 0.1);
+  --btn-secondary-bg: #edf1f6;
+  --btn-secondary-hover: #e1e7ef;
   --btn-secondary-border-hover: rgba(0, 0, 0, 0.18);
   --start-list-surface: color-mix(in srgb, var(--bg0) 82%, #fff);
   --start-list-border: rgba(0, 0, 0, 0.1);

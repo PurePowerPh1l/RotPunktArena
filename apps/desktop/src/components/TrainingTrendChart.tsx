@@ -289,8 +289,8 @@ export function TrainingTrendChart({
               x2="1"
               y2="0"
             >
-              <stop offset="0%" stopColor="#e0764c" stopOpacity="0.75" />
-              <stop offset="100%" stopColor="#e8987a" />
+              <stop offset="0%" stopColor="var(--chart-series)" />
+              <stop offset="100%" stopColor="var(--chart-series-end)" />
             </linearGradient>
             <clipPath id={`trendClip-${clipId}`}>
               <rect
