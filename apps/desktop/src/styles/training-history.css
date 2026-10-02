@@ -165,7 +165,7 @@
 }
 
 .podium-kicker svg {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .podium-sub {
@@ -219,7 +219,7 @@
 
 .podium-slot--clickable:hover .podium-name,
 .podium-slot--clickable:focus-visible .podium-name {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .podium-slot--clickable:hover .podium-block {
@@ -711,7 +711,7 @@
   margin-left: auto;
   padding: 0.55rem 0.8rem;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--surface-subtle);
   border: 1px solid var(--panel-border);
   display: flex;
   flex-direction: column;
@@ -757,7 +757,7 @@
 .train-stat {
   padding: 0.7rem 0.75rem;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--surface-subtle);
   border: 1px solid var(--panel-border);
   min-width: 0;
 }
@@ -811,7 +811,7 @@
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   padding: 0.35rem 0.75rem;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--surface-subtle);
   color: var(--ink);
   font-size: 0.82rem;
   font-weight: 500;
@@ -846,7 +846,7 @@
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   padding: 0.35rem 0.85rem;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--surface-subtle);
   color: var(--ink);
   font-size: 0.82rem;
   font-weight: 500;
@@ -1089,7 +1089,7 @@
 }
 
 .hist-last-serie.is-levelup .hist-last-serie-kicker {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .hist-last-serie-total {
@@ -1116,26 +1116,26 @@
 }
 
 .hist-last-serie-xp {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
 .hist-last-serie-liga.is-up {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
   font-weight: 600;
 }
 
 .hist-last-serie-liga.is-down {
-  color: #d0887a;
+  color: var(--trend-down-ink);
   font-weight: 600;
 }
 
 .hist-last-serie-hint.hint-up {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
 }
 
 .hist-last-serie-hint.hint-down {
-  color: #d0887a;
+  color: var(--trend-down-ink);
 }
 
 .hist-last-serie-side {
@@ -1294,8 +1294,8 @@
   gap: 0.12rem;
   padding: 0.4rem 0.5rem;
   border-radius: 7px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-subtle);
+  border: 1px solid var(--hairline);
   min-width: 0;
 }
 
@@ -1315,11 +1315,11 @@
 }
 
 .hist-peek-stat.peek-trend-up strong {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
 }
 
 .hist-peek-stat.peek-trend-down strong {
-  color: #d0887a;
+  color: var(--trend-down-ink);
 }
 
 .hist-peek-goal-target {
@@ -1491,11 +1491,11 @@
 }
 
 .hist-compare-up .hist-compare-delta {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
 }
 
 .hist-compare-down .hist-compare-delta {
-  color: #d0887a;
+  color: var(--trend-down-ink);
 }
 
 .hist-compare-hint {
@@ -1534,8 +1534,8 @@
   gap: 0.35rem;
   padding: 0.28rem 0.55rem;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--panel-border);
+  background: var(--surface-subtle);
   font-size: 0.78rem;
   color: var(--ink);
 }
@@ -1550,12 +1550,12 @@
 
 .hist-insight-chip.insight-up {
   border-color: rgba(143, 191, 138, 0.35);
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
 }
 
 .hist-insight-chip.insight-down {
   border-color: rgba(208, 136, 122, 0.35);
-  color: #d0887a;
+  color: var(--trend-down-ink);
 }
 
 .hist-goals-panel .hist-goal-list {
@@ -1609,7 +1609,7 @@
 }
 
 .hist-goal-done {
-  color: #8fbf8a !important;
+  color: var(--trend-up-ink) !important;
   font-weight: 650 !important;
 }
 
@@ -1701,11 +1701,11 @@
 }
 
 .hist-transfer-up .hist-transfer-delta {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
 }
 
 .hist-transfer-down .hist-transfer-delta {
-  color: #d0887a;
+  color: var(--trend-down-ink);
 }
 
 .hist-transfer-hint {
@@ -1749,7 +1749,7 @@
   margin-bottom: 1rem;
 }
 
-.hist-series-title > svg { color: var(--accent); flex-shrink: 0; }
+.hist-series-title > svg { color: var(--accent-text); flex-shrink: 0; }
 .hist-count-badge {
   padding: 0.15rem 0.5rem;
   border-radius: 99px;
@@ -1807,7 +1807,7 @@
   flex-shrink: 0;
   width: 2.8rem;
   height: 2.8rem;
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-soft);
   border-radius: 10px;
 }
@@ -1823,7 +1823,7 @@
 }
 
 .hist-reset-action { border: none; padding: 0.3rem 0; font-size: 0.75rem; font-weight: 400; }
-.hist-reset-action:not(:disabled):hover { color: var(--danger, #e8998b); text-decoration: underline; }
+.hist-reset-action:not(:disabled):hover { color: var(--bad); text-decoration: underline; }
 .hist-score-unit { margin-left: 0.45rem; color: var(--muted); font-family: var(--font-ui); font-size: 0.75rem; font-weight: 500; }
 
 .hist-inventory { padding: 1.1rem 1.2rem; }
@@ -1850,7 +1850,7 @@
 
 .hist-inventory-metrics dt { color: var(--muted); font-size: 0.73rem; }
 .hist-inventory-metrics dd { margin: 0 0 0.1rem; font-family: var(--font-score); font-size: 2rem; line-height: 1.1; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
-.hist-archive-open { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); padding: 0.65rem 0.9rem; }
+.hist-archive-open { color: var(--accent-text); background: var(--accent-soft); border-color: var(--accent-line); padding: 0.65rem 0.9rem; }
 .hist-archive-open:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
 html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, var(--accent) 60%, var(--ink)); }
 .hist-inventory.is-open .hist-archive-open > svg { transform: rotate(90deg); }
@@ -1953,7 +1953,7 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .hist-series-detail-title {
@@ -2130,8 +2130,8 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
   gap: 0.12rem;
   padding: 0.4rem 0.55rem;
   border-radius: 7px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-subtle);
+  border: 1px solid var(--hairline);
   min-width: 0;
 }
 
@@ -2152,11 +2152,11 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
 }
 
 .trend-stat-mom.mom-up strong {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
 }
 
 .trend-stat-mom.mom-down strong {
-  color: #d0887a;
+  color: var(--trend-down-ink);
 }
 
 .trend-chart-frame {
@@ -2200,29 +2200,29 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
 }
 
 .trend-plot {
-  fill: rgba(0, 0, 0, 0.28);
-  stroke: rgba(255, 255, 255, 0.05);
+  fill: var(--panel-inset);
+  stroke: var(--hairline);
   stroke-width: 1;
 }
 
 .trend-grid {
-  stroke: rgba(255, 255, 255, 0.07);
+  stroke: var(--hairline-strong);
   stroke-width: 1;
 }
 
 .trend-axis,
 .trend-caption {
   fill: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-ui);
 }
 
 .trend-x-label {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .trend-avg {
-  stroke: rgba(255, 255, 255, 0.28);
+  stroke: var(--chart-average);
   stroke-width: 1.15;
   stroke-dasharray: 4 5;
 }
@@ -2230,16 +2230,16 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
 .trend-avg-label,
 .trend-roll-label {
   fill: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-ui);
 }
 
 .trend-roll-label {
-  fill: rgba(160, 190, 220, 0.85);
+  fill: var(--chart-roll);
 }
 
 .trend-roll {
-  stroke: rgba(140, 180, 220, 0.7);
+  stroke: var(--chart-roll);
   stroke-width: 1.6;
   stroke-dasharray: 6 4;
   stroke-linecap: round;
@@ -2255,7 +2255,7 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
 }
 
 .trend-crosshair {
-  stroke: rgba(255, 255, 255, 0.18);
+  stroke: var(--chart-average);
   stroke-width: 1;
   stroke-dasharray: 3 4;
   pointer-events: none;
@@ -2314,26 +2314,26 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
 }
 
 .trend-legend-series {
-  background: linear-gradient(90deg, #e0764c, #e8987a);
+  background: linear-gradient(90deg, var(--chart-series), var(--chart-series-end));
   height: 3px;
 }
 
 .trend-legend-roll {
-  background: rgba(140, 180, 220, 0.85);
+  background: transparent;
   height: 2px;
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(140, 180, 220, 0.9) 0 5px,
+    var(--chart-roll) 0 5px,
     transparent 5px 8px
   );
 }
 
 .trend-legend-avg {
-  background: rgba(255, 255, 255, 0.35);
+  background: transparent;
   height: 2px;
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.4) 0 4px,
+    var(--chart-average) 0 4px,
     transparent 4px 8px
   );
 }
@@ -2367,11 +2367,11 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
 }
 
 .trend-tip-delta.tip-up {
-  color: #8fbf8a;
+  color: var(--trend-up-ink);
 }
 
 .trend-tip-delta.tip-down {
-  color: #d0887a;
+  color: var(--trend-down-ink);
 }
 
 .trend-tip-sep {
@@ -2457,7 +2457,7 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
 }
 
 .hist-table th.hist-sort-active {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .achieve-block {
@@ -2500,7 +2500,7 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   padding: 0.2rem 0.65rem;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--surface-subtle);
   color: var(--ink);
   font-size: 0.72rem;
   font-weight: 600;
@@ -2535,7 +2535,7 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
   max-width: 100%;
   padding: 0.35rem 0.55rem;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--surface-subtle);
   border: 1px solid var(--panel-border);
   opacity: 0.55;
   min-width: 0;
@@ -2568,7 +2568,7 @@ html[data-color-scheme="light"] .hist-archive-open { color: color-mix(in srgb, v
   place-items: center;
   flex-shrink: 0;
   color: var(--muted);
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--panel-inset);
 }
 
 .achieve-chip.is-on .achieve-chip-icon {

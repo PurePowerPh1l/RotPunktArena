@@ -98,7 +98,7 @@ export function TrainingSeriesPanel({
           </button>
           <button
             type="button"
-            className="hist-small-action"
+            className="hist-small-action print-action"
             disabled={busy || printDisabled || sessions.length === 0}
             onClick={onPrint}
             title={selectedId
