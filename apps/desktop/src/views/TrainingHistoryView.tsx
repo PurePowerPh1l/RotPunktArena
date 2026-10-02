@@ -509,8 +509,6 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
           ) : null}
 
           <div className="training-body">
-            <TrainingInsightsBar compare={compare} insights={insights} />
-
             <section className="panel trend-panel hist-primary">
               <div className="trend-head">
                 <h2>
@@ -542,6 +540,13 @@ export function TrainingHistoryView({ defaultShooter }: Props) {
                 <button type="button" className="secondary" onClick={() => setWindowDays(null)}>Alle Zeiträume anzeigen</button>
               ) : null}
             </section>
+
+            {compare || insights.length ? (
+              <details className="trend-more-insights">
+                <summary>Form & Serienvergleich <span>Punkte / 10 Schüsse</span></summary>
+                <TrainingInsightsBar compare={compare} insights={insights} />
+              </details>
+            ) : null}
 
             <ExpandSlot
               open={Boolean(selectedSessionId)}
