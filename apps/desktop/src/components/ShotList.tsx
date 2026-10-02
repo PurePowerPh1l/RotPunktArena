@@ -82,9 +82,9 @@ export function ShotList({
         {(shots[0]?.shotIndex ?? 1) > 1 ? <span className="shot-list-hint">Letzte {shots.length} Treffer · ältere über Verlauf</span> : shots.length > 12 ? <span className="shot-list-hint">scrollen</span> : null}
       </div>
       {sessionId && ((visible[0]?.shotIndex ?? 1) > 1 || page) ? <div className="score-actions">
-        <button className="btn ghost" disabled={busy || (visible[0]?.shotIndex ?? 1) <= 1} onClick={() => void earlier()}>�ltere 500 Sch�sse</button>
+        <button className="btn ghost" disabled={busy || (visible[0]?.shotIndex ?? 1) <= 1} onClick={() => void earlier()}>Ältere Schüsse anzeigen</button>
         {page ? <button className="btn ghost" onClick={() => { request.current++; setBusy(false); setPage(null); }}>Zur aktuellen Liste</button> : null}
-        <span>{visible[0]?.shotIndex}�{visible[visible.length - 1]?.shotIndex}</span>
+        <span>{visible[0]?.shotIndex}–{visible[visible.length - 1]?.shotIndex}</span>
       </div> : null}
       {error ? <p role="alert">{error}</p> : null}
       <div className="shot-list" tabIndex={0} aria-label="Frühere Schüsse">

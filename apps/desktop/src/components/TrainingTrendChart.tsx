@@ -8,6 +8,7 @@ type Props = {
   sessions: TrainingSessionSummary[];
   metric: ScoreDisplayMode;
   average?: number | null;
+  emptyMessage?: string;
   /** Open series detail when a point is activated. */
   onSelectSession?: (sessionId: string) => void;
 };
@@ -52,6 +53,7 @@ export function TrainingTrendChart({
   sessions,
   metric,
   average,
+  emptyMessage = "Noch keine Trainingsserien — in der Arena eine vollständige Serie schießen.",
   onSelectSession,
 }: Props) {
   const [hover, setHover] = useState<number | null>(null);
@@ -225,7 +227,7 @@ export function TrainingTrendChart({
   if (sessions.length === 0) {
     return (
       <div className="trend-empty">
-        Noch keine Trainingsserien — in der Arena eine volle 10er-Serie schießen.
+        {emptyMessage}
       </div>
     );
   }
