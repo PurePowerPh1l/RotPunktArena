@@ -834,7 +834,7 @@ pub fn session_effective_max_shots(
 ) -> Result<Option<i64>, String> {
     let (session_max, competition_id): (Option<i64>, Option<String>) = tx
         .query_row(
-            "SELECT max_shots, competition_id FROM sessions WHERE id = ?1",
+            "SELECT CASE WHEN competition_id IS NULL THEN max_shots ELSE COALESCE(max_shots,json_extract(rules_json,'$.maxShots')) END, competition_id FROM sessions WHERE id = ?1",
             params![session_id],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )

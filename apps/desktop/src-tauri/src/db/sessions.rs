@@ -190,6 +190,11 @@ impl Database {
         Ok(())
     }
 
+    /// Recovery keeps the captured competition rule when a legacy limit is NULL.
+    pub fn session_recovery_max_shots(&self, session_id: &str) -> Result<Option<i64>, String> {
+        self.conn.query_row("SELECT CASE WHEN competition_id IS NULL THEN max_shots ELSE COALESCE(max_shots,json_extract(rules_json,'$.maxShots')) END FROM sessions WHERE id=?1", params![session_id], |r| r.get(0)).map_err(|e| e.to_string())
+    }
+
     pub fn get_session_max_shots(&self, session_id: &str) -> Result<Option<i64>, String> {
         self.conn
             .query_row(
