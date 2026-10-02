@@ -1,17 +1,200 @@
 {
   "version": 1,
   "cases": [
-    {"name":"tenths", "fields":["10.5","012.30","00123","-0045"], "expected":[105,1230,123,-45]},
-    {"name":"signed", "fields":["-1.5","+12.30","+0123","00000"], "expected":[-15,1230,123,0]},
-    {"name":"integer", "fields":["0105","001230","00000","00000"], "expected":[105,1230,0,0]},
-    {"name":"prefix", "fields":["1x.5","012.30","00123","-0045"], "expected":null},
-    {"name":"nan", "fields":["xxxx","012.30","00123","-0045"], "expected":null},
-    {"name":"two-dots", "fields":["1..5","012.30","00123","-0045"], "expected":null},
-    {"name":"trailing-dot", "fields":["105.","012.30","00123","-0045"], "expected":null},
-    {"name":"space", "fields":[" 105","012.30","00123","-0045"], "expected":null},
-    {"name":"distance-prefix", "fields":["10.5","01x.30","00123","-0045"], "expected":null},
-    {"name":"coordinate-prefix", "fields":["10.5","012.30","12x34","-0045"], "expected":null},
-    {"name":"coordinate-decimal", "fields":["10.5","012.30","001.2","-0045"], "expected":null},
-    {"name":"coordinate-space", "fields":["10.5","012.30","00123","-004 "], "expected":null}
+    {
+      "name": "tenths",
+      "fields": [
+        "10.5",
+        "012.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": [
+        105,
+        1230,
+        123,
+        -45
+      ]
+    },
+    {
+      "name": "negative-ring",
+      "fields": [
+        "-1.5",
+        "+12.30",
+        "+0123",
+        "00000"
+      ],
+      "expected": null
+    },
+    {
+      "name": "integer",
+      "fields": [
+        "0105",
+        "001230",
+        "00000",
+        "00000"
+      ],
+      "expected": [
+        105,
+        1230,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "prefix",
+      "fields": [
+        "1x.5",
+        "012.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "nan",
+      "fields": [
+        "xxxx",
+        "012.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "two-dots",
+      "fields": [
+        "1..5",
+        "012.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "trailing-dot",
+      "fields": [
+        "105.",
+        "012.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "space",
+      "fields": [
+        " 105",
+        "012.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "distance-prefix",
+      "fields": [
+        "10.5",
+        "01x.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "coordinate-prefix",
+      "fields": [
+        "10.5",
+        "012.30",
+        "12x34",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "coordinate-decimal",
+      "fields": [
+        "10.5",
+        "012.30",
+        "001.2",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "coordinate-space",
+      "fields": [
+        "10.5",
+        "012.30",
+        "00123",
+        "-004 "
+      ],
+      "expected": null
+    },
+    {
+      "name": "signed-positive",
+      "fields": [
+        "+105",
+        "+12.30",
+        "+0123",
+        "00000"
+      ],
+      "expected": [
+        105,
+        1230,
+        123,
+        0
+      ]
+    },
+    {
+      "name": "ring-above-maximum",
+      "fields": [
+        "99.9",
+        "012.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "ring-maximum",
+      "fields": [
+        "10.9",
+        "012.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": [
+        109,
+        1230,
+        123,
+        -45
+      ]
+    },
+    {
+      "name": "negative-distance",
+      "fields": [
+        "10.5",
+        "-12.30",
+        "00123",
+        "-0045"
+      ],
+      "expected": null
+    },
+    {
+      "name": "zero-ring-and-distance",
+      "fields": [
+        "00.0",
+        "000.00",
+        "00000",
+        "00000"
+      ],
+      "expected": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
   ]
 }
