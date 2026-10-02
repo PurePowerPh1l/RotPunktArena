@@ -201,7 +201,7 @@ impl StandEngine {
 
         let endless = session.competition_id.is_none()
             && self.with_db(|db| db.session_endless(session_id))?;
-        let max_shots = self.with_db(|db| db.get_session_max_shots(session_id))?;
+        let max_shots = self.with_db(|db| db.session_recovery_max_shots(session_id))?;
         let series_complete = !probe
             && max_shots.is_some_and(|m| shots.last().map_or(0, |s| i64::from(s.shot_index)) >= m);
 
