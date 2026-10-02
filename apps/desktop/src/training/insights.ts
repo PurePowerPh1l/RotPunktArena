@@ -1,6 +1,7 @@
 import type { TrainingSessionSummary, UiShot } from "@rotpunktarena/domain";
 import { sessionsChronological } from "./seriesPulse";
 import { fmtStat } from "./stats";
+import { tenShotPoints } from "./comparison";
 
 export type HistoryWindowDays = 7 | 30 | 90 | null;
 
@@ -60,11 +61,11 @@ export function computeCompareBanner(
   const prior = chrono.slice(0, -1);
   const avg5 =
     prior.length > 0
-      ? avg(prior.slice(-5).map((s) => s.punkteTotal))
+      ? avg(prior.slice(-5).map((s) => tenShotPoints(s)))
       : null;
   const avg10 =
     prior.length > 0
-      ? avg(prior.slice(-10).map((s) => s.punkteTotal))
+      ? avg(prior.slice(-10).map((s) => tenShotPoints(s)))
       : null;
 
   const weekStart = new Date(now);
@@ -75,11 +76,11 @@ export function computeCompareBanner(
   const weekSeries = chrono.filter((s) => Date.parse(s.endedAt) >= weekMs);
   const bestWeek =
     weekSeries.length > 0
-      ? Math.max(...weekSeries.map((s) => s.punkteTotal))
+      ? Math.max(...weekSeries.map((s) => tenShotPoints(s)))
       : null;
 
   const deltaVs5 =
-    avg5 != null ? last.punkteTotal - avg5 : null;
+    avg5 != null ? tenShotPoints(last) - avg5 : null;
   let kind: CompareBanner["kind"] = "flat";
   let hint = "erste Serie im Fenster";
   if (deltaVs5 != null) {
@@ -96,7 +97,7 @@ export function computeCompareBanner(
   }
 
   return {
-    lastPunkte: last.punkteTotal,
+    lastPunkte: tenShotPoints(last),
     avg5,
     avg10,
     bestWeek,
@@ -115,11 +116,11 @@ export function computeFormInsights(
   const out: FormInsight[] = [];
   if (chrono.length === 0) return out;
 
-  const punkte = chrono.map((s) => s.punkteTotal);
+  const punkte = chrono.map((s) => tenShotPoints(s));
   const mean = avg(punkte);
   let above = 0;
   for (let i = chrono.length - 1; i >= 0; i--) {
-    if ((chrono[i]?.punkteTotal ?? 0) >= mean) above += 1;
+    if (tenShotPoints(chrono[i]!) >= mean) above += 1;
     else break;
   }
   if (above >= 2) {
@@ -133,7 +134,7 @@ export function computeFormInsights(
 
   let below = 0;
   for (let i = chrono.length - 1; i >= 0; i--) {
-    if ((chrono[i]?.punkteTotal ?? 0) < mean) below += 1;
+    if (tenShotPoints(chrono[i]!) < mean) below += 1;
     else break;
   }
   if (below >= 2) {
@@ -146,10 +147,10 @@ export function computeFormInsights(
   }
 
   if (chrono.length >= 3) {
-    const last3 = avg(chrono.slice(-3).map((s) => s.punkteTotal));
+    const last3 = avg(chrono.slice(-3).map((s) => tenShotPoints(s)));
     const prior = chrono.slice(0, -3);
     if (prior.length > 0) {
-      const base = avg(prior.slice(-5).map((s) => s.punkteTotal));
+      const base = avg(prior.slice(-5).map((s) => tenShotPoints(s)));
       const d = last3 - base;
       if (Math.abs(d) >= 0.5) {
         out.push({
