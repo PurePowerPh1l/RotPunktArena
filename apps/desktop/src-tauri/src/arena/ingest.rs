@@ -190,9 +190,13 @@ pub(crate) fn accept(
     shot: &Shot,
     classification: &str,
 ) -> Result<AcceptedShot, String> {
-    let shot_index = count_shots(tx, session_id, classification)? + 1;
-    let series_total = sum_scores(tx, session_id, classification)? + shot.value_display;
-    let series_teiler_total = sum_teiler(tx, session_id, classification)? + shot.distance_display;
+    let (count, score, teiler): (i32, f64, f64) = tx.query_row(
+        "SELECT shot_count,score,teiler FROM session_totals WHERE session_id=?1 AND classification=?2",
+        params![session_id,classification], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)),
+    ).optional_err()?.unwrap_or((0,0.0,0.0));
+    let shot_index = count + 1;
+    let series_total = score + shot.value_display;
+    let series_teiler_total = teiler + shot.distance_display;
     let shot_row_id = Uuid::new_v4().to_string();
 
     let payload = serde_json::json!({
@@ -281,45 +285,6 @@ pub(crate) fn frame_content_sha(raw: &[u8]) -> String {
     hasher.update(b"empty-frame-fallback");
     hasher.update(Utc::now().timestamp_nanos_opt().unwrap_or(0).to_le_bytes());
     hex::encode(hasher.finalize())
-}
-
-fn count_shots(
-    tx: &Transaction<'_>,
-    session_id: &str,
-    classification: &str,
-) -> Result<i32, String> {
-    let n: i64 = tx
-        .query_row(
-            "SELECT COUNT(*) FROM shots WHERE session_id = ?1 AND classification = ?2",
-            params![session_id, classification],
-            |r| r.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    Ok(n as i32)
-}
-
-fn sum_scores(tx: &Transaction<'_>, session_id: &str, classification: &str) -> Result<f64, String> {
-    let n: f64 = tx
-        .query_row(
-            "SELECT COALESCE(SUM(score), 0) FROM shots
-             WHERE session_id = ?1 AND classification = ?2",
-            params![session_id, classification],
-            |r| r.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    Ok(n)
-}
-
-fn sum_teiler(tx: &Transaction<'_>, session_id: &str, classification: &str) -> Result<f64, String> {
-    let n: f64 = tx
-        .query_row(
-            "SELECT COALESCE(SUM(CAST(distance_raw AS REAL) / 10.0), 0)
-             FROM shots WHERE session_id = ?1 AND classification = ?2",
-            params![session_id, classification],
-            |r| r.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    Ok(n)
 }
 
 trait OptionalQuery<T> {

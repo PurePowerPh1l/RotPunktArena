@@ -98,23 +98,26 @@ fn wait_authenticated(addr: u64, deadline: Duration) -> bool {
 
 /// Remove Windows bonds for `primary` and every paired name-hint RedDot.
 pub fn forget_reddot_bonds(primary: u64) {
-    forget_bonds(primary, ForgetScope::AllRedDotHints);
+    if let Err(error) = forget_bonds(primary, ForgetScope::AllRedDotHints) {
+        eprintln!("Lab bond cleanup: {error}");
+    }
 }
 
 /// Forget bonds according to scope.
 ///
 /// `PrimaryOnly`: `remove_bond(primary)` only — never `enumerate_paired`, never name hints.
-fn forget_bonds(primary: u64, scope: ForgetScope) {
+fn forget_bonds(primary: u64, scope: ForgetScope) -> Result<(), String> {
     let primary = primary & 0xFFFF_FFFF_FFFF;
     match scope {
         ForgetScope::PrimaryOnly => {
-            let _ = remove_bond(primary);
+            remove_bond(primary).map_err(|e| e.to_string())?;
             spp_com::restore_for(primary);
         }
         ForgetScope::AllRedDotHints => {
             let mut addrs: HashSet<u64> = HashSet::new();
             addrs.insert(primary);
-            if let Ok(list) = enumerate_paired() {
+            {
+                let list = enumerate_paired().map_err(|e| e.to_string())?;
                 for d in list {
                     if name_hint_rank(&d.display_name).is_some() {
                         addrs.insert(d.bt_addr & 0xFFFF_FFFF_FFFF);
@@ -122,12 +125,13 @@ fn forget_bonds(primary: u64, scope: ForgetScope) {
                 }
             }
             for addr in addrs {
-                let _ = remove_bond(addr);
+                remove_bond(addr).map_err(|e| e.to_string())?;
                 spp_com::restore_for(addr);
             }
             spp_com::restore_all();
         }
     }
+    Ok(())
 }
 
 /// Lab / simple call — no UI progress, not cancellable mid-flight.
@@ -202,8 +206,12 @@ pub fn run_nuclear_link_with(
     on_phase("Gerät wird vorbereitet…");
     check(&mut is_cancelled, &report)?;
     let t_forget = Instant::now();
-    forget_bonds(addr, forget_scope);
+    let forget = forget_bonds(addr, forget_scope);
     report.forget_duration_ms = t_forget.elapsed().as_millis() as u64;
+    if let Err(error) = forget {
+        report.forget_result = format!("fail:{error}");
+        return Err(fail(error, report, "forget"));
+    }
     report.forget_result = "ok".into();
     thread::sleep(FORGET_SETTLE);
     check(&mut is_cancelled, &report)?;

@@ -155,6 +155,16 @@ impl Owner {
                 self.set_status(ConnectionStatus::Discovering, "setup pause");
                 false
             }
+            ConnectionCommand::SetupProgress {
+                generation,
+                status,
+                reason,
+            } => {
+                if generation == self.generation && self.status == ConnectionStatus::Discovering {
+                    self.set_status(status, &reason);
+                }
+                false
+            }
             ConnectionCommand::SelectTarget(t) => {
                 self.bump_generation();
                 self.socket = None;
@@ -322,10 +332,8 @@ impl Owner {
         self.socket = None;
         self.link_name = None;
         let gen0 = self.generation;
-        let forget_scope = match origin {
-            ConnectOrigin::StartupAuto => ForgetScope::PrimaryOnly,
-            _ => ForgetScope::AllRedDotHints,
-        };
+        // Repair only the selected device. Broad name-based cleanup is lab-only.
+        let forget_scope = ForgetScope::PrimaryOnly;
         let addr_hex = format!("{:012X}", bt_addr & 0xFFFF_FFFF_FFFF);
         let run_id = diag::startup_run_id(gen0);
         self.set_connect_origin(origin);

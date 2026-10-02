@@ -870,7 +870,7 @@ pub fn count_scored_shots_for_limit(
     session_id: &str,
 ) -> Result<i64, String> {
     tx.query_row(
-        "SELECT COUNT(*) FROM shots WHERE session_id = ?1 AND classification = 'scored'",
+        "SELECT COALESCE((SELECT shot_count FROM session_totals WHERE session_id=?1 AND classification='scored'),0)",
         params![session_id],
         |r| r.get(0),
     )

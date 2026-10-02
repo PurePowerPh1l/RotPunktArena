@@ -8,6 +8,13 @@ export type DbBackupInfo = {
   modifiedAt?: string | null;
 };
 
+export type BackupHealth = {
+  snapshot: { completed: number; queueDrops: number; lastCompletedAt: string | null; lastError: string | null };
+  storageBytes: number;
+};
+export async function getBackupHealth(): Promise<BackupHealth> { return invoke("get_backup_health"); }
+export async function retrySnapshot(): Promise<void> { return invoke("retry_snapshot"); }
+
 /** Always allowed — no admin unlock required. */
 export async function createDbBackup(): Promise<DbBackupInfo> {
   assertCapability("backup:create", getAppAccessSnapshot());
@@ -28,4 +35,8 @@ export async function restoreDbBackup(name: string): Promise<string> {
 export async function resetAllDatabase(): Promise<void> {
   assertCapability("admin:reset", getAppAccessSnapshot());
   await invoke("reset_all_database");
+}
+
+export async function exportPersonalBackup(goals: string): Promise<{ path: string }> {
+  return invoke("export_personal_backup", { goals });
 }

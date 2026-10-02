@@ -1,3 +1,4 @@
+import { tenShotPoints } from "./comparison";
 import type { TrainingSessionSummary } from "@rotpunktarena/domain";
 import { levelFromXp, xpFromSessions } from "./stats";
 
@@ -136,7 +137,7 @@ function hasImprovingStreak(sessions: TrainingSessionSummary[], len: number): bo
   for (let i = len - 1; i < sessions.length; i++) {
     let ok = true;
     for (let j = i - len + 2; j <= i; j++) {
-      if (sessions[j]!.punkteTotal <= sessions[j - 1]!.punkteTotal) {
+      if (tenShotPoints(sessions[j]!) <= tenShotPoints(sessions[j - 1]!)) {
         ok = false;
         break;
       }

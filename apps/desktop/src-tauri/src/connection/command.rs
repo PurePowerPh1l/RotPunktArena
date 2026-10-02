@@ -32,6 +32,12 @@ pub enum ConnectionCommand {
     WriteBytes(Vec<u8>),
     /// Stop work (pairing / first-setup scan).
     PauseForSetup,
+    /// Scan results may publish only while their acknowledged generation is current.
+    SetupProgress {
+        generation: u64,
+        status: super::status::ConnectionStatus,
+        reason: String,
+    },
     /// Abort Nuclear (or other connect) in flight (bumps generation).
     CancelConnect,
     Shutdown,

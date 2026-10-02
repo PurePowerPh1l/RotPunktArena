@@ -1,7 +1,7 @@
 //! Admin password aggregate (`settings` key `admin.auth`).
 //!
 //! Stores salt+hash only. Status commands never return the hash.
-//! Setup is one-shot until a future change-password slice.
+//! Setup is one-shot; password changes require current credentials.
 
 use crate::db::Database;
 use crate::engine::StandEngine;
@@ -272,6 +272,41 @@ pub fn verify_admin_password(
 #[tauri::command]
 pub fn lock_admin_session(session: tauri::State<'_, AdminSession>) {
     session.lock();
+}
+
+#[tauri::command]
+pub async fn change_admin_password(
+    app: tauri::AppHandle,
+    engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, AdminSession>,
+    current_password: String,
+    new_password: String,
+) -> Result<(), String> {
+    session.require()?;
+    validate_password(&new_password)?;
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        let session = app.state::<AdminSession>();
+        session.require()?;
+        let mut attempts = session.attempts.lock();
+        attempts.check(Instant::now())?;
+        let result = engine.with_db(|db| -> Result<bool, String> {
+            if !verify_and_migrate(db, &current_password)? {
+                return Ok(false);
+            }
+            store_record(db, &new_record(&new_password)?)?;
+            Ok(true)
+        })?;
+        attempts.record(result, Instant::now());
+        if !result {
+            return Err("Aktuelles Admin-Passwort ist falsch".into());
+        }
+        session.lock();
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// DEV/TEST ONLY — unlock the server-side session without a password so the

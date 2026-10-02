@@ -86,6 +86,9 @@ export function parseShotFrame(frame: Uint8Array): Shot {
   const x = parseInteger(asciiField(frame, 44, 5));
   const y = parseInteger(asciiField(frame, 50, 5));
 
+  if (valueRaw < 0 || valueRaw > 109 || distanceRaw < 0) {
+    throw new Error("Ringwert muss 0..10.9 und Distanz nichtnegativ sein");
+  }
   return {
     valueRaw,
     distanceRaw,

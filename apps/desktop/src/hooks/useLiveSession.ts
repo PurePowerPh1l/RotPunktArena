@@ -13,8 +13,8 @@ function isRunning(status: LiveState["status"]): boolean {
 function detailAfterStop(s: LiveState): string | null {
   const saveMsg = s.trainingSave ? trainingSaveUiMessage(s.trainingSave) : null;
   if (saveMsg) return saveMsg;
-  if (s.shots.length > 0 && (s.session?.competitionId || s.session?.entryId)) {
-    return `Session beendet (${s.shots.length} Schüsse) — unter Verwaltung → Ergebnisse`;
+  if (s.shotCount > 0 && (s.session?.competitionId || s.session?.entryId)) {
+    return `Session beendet (${s.shotCount} Schüsse) — unter Verwaltung → Ergebnisse`;
   }
   return null;
 }
@@ -239,7 +239,7 @@ export function useLiveSession() {
             const saveMsg = s.trainingSave ? trainingSaveUiMessage(s.trainingSave) : null;
             setDetail(
               saveMsg ??
-                `Serie beendet — ${s.shots.length}/${s.maxShots ?? s.shots.length} Schüsse`,
+                `Serie beendet — ${s.shotCount}/${s.maxShots ?? s.shotCount} Schüsse`,
             );
           }
         } catch (e) {
@@ -251,10 +251,10 @@ export function useLiveSession() {
   );
 
   const fireOnce = useCallback(async () => {
-    const angle = ((state?.shots.length ?? 0) * 0.9) % (Math.PI * 2);
-    const r = 40 + ((state?.shots.length ?? 0) % 5) * 25;
+    const angle = ((state?.shotCount ?? 0) * 0.9) % (Math.PI * 2);
+    const r = 40 + ((state?.shotCount ?? 0) % 5) * 25;
     await fireAt(Math.cos(angle) * r, Math.sin(angle) * r);
-  }, [fireAt, state?.shots.length]);
+  }, [fireAt, state?.shotCount]);
 
   const toggleAuto = useCallback(async () => {
     await runExclusive(async () => {

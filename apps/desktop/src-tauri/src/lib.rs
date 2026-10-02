@@ -46,6 +46,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_live_state,
+            commands::get_session_shot_page,
             commands::start_training,
             commands::start_entry_session,
             commands::end_training,
@@ -99,6 +100,10 @@ pub fn run() {
             commands::dev_diagnostics,
             commands::dev_inject_test_shot,
             commands::create_db_backup,
+            commands::prepare_app_update,
+            commands::finish_app_update,
+            commands::get_backup_health,
+            commands::retry_snapshot,
             commands::list_db_backups,
             commands::restore_db_backup,
             commands::reset_all_database,
@@ -108,12 +113,14 @@ pub fn run() {
             commands::setup_admin_password,
             commands::verify_admin_password,
             commands::lock_admin_session,
+            commands::change_admin_password,
             commands::dev_unlock_admin_session,
             commands::reset_training_series,
             commands::set_training_endless,
             commands::set_training_series_shots,
             commands::save_training_session,
             commands::list_training_history,
+            commands::get_training_lifetime,
             commands::get_training_session_detail,
             commands::list_training_shooters,
             commands::clear_training_history,
@@ -122,6 +129,7 @@ pub fn run() {
             commands::close_interrupted_session,
             commands::resume_session,
             commands::export_diagnostics,
+            commands::export_personal_backup,
             commands::export_emergency_bundle,
         ])
         .build(tauri::generate_context!())

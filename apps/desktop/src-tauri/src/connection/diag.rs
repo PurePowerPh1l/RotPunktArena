@@ -1,23 +1,59 @@
 //! Append-only RFCOMM connection diagnostics (JSON lines).
 //!
-//! Log file: `<repo>/logs/rfcomm_connection.jsonl` (gitignored).
-//! Falls back to `{data_dir}/rfcomm_connection.jsonl` if the repo path is unwritable.
+//! Logs live in app_data/logs; each stream keeps the active file and one rotated file.
 
 use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
+use std::sync::OnceLock;
+static APP_DATA: OnceLock<PathBuf> = OnceLock::new();
+static LOG_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+const LOG_MAX_BYTES: u64 = 2 * 1024 * 1024;
+pub fn initialize(data_dir: &Path) {
+    let _ = APP_DATA.set(data_dir.to_path_buf());
+}
 use std::path::{Path, PathBuf};
 
 pub fn log_path(data_dir: &Path) -> PathBuf {
-    repo_logs_dir()
-        .map(|d| d.join("rfcomm_connection.jsonl"))
-        .unwrap_or_else(|| data_dir.join("rfcomm_connection.jsonl"))
+    data_dir.join("logs").join("rfcomm_connection.jsonl")
 }
 
 fn repo_logs_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../logs");
-    create_dir_all(&dir).ok()?;
-    Some(dir)
+    let directory = if let Some(data) = APP_DATA.get() {
+        data.join("logs")
+    } else if cfg!(debug_assertions) {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../logs")
+    } else {
+        return None;
+    };
+    create_dir_all(&directory).ok()?;
+    Some(directory)
+}
+
+pub(crate) fn append_line(path: &Path, event: &impl Serialize) -> bool {
+    let _guard = LOG_LOCK.lock();
+    if let Some(parent) = path.parent() {
+        if create_dir_all(parent).is_err() {
+            return false;
+        }
+    }
+    if path
+        .metadata()
+        .is_ok_and(|meta| meta.len() >= LOG_MAX_BYTES)
+    {
+        let old = path.with_extension("jsonl.1");
+        if old.exists() && std::fs::remove_file(&old).is_err() {
+            return false;
+        }
+        if std::fs::rename(path, old).is_err() {
+            return false;
+        }
+    }
+    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) else {
+        return false;
+    };
+    serde_json::to_string(event)
+        .is_ok_and(|line| line.len() <= 65536 && writeln!(file, "{line}").is_ok())
 }
 
 /// Shared repo `logs/` directory for diagnose JSONL (RFCOMM + shot latency).
@@ -110,23 +146,13 @@ pub fn winsock_name(code: i32) -> &'static str {
 }
 
 pub fn append(data_dir: &Path, ev: &DiagEvent<'_>) {
-    let path = log_path(data_dir);
-    if let Some(parent) = path.parent() {
-        let _ = create_dir_all(parent);
-    }
-    let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) else {
-        return;
-    };
-    if let Ok(line) = serde_json::to_string(ev) {
-        let _ = writeln!(f, "{line}");
-    }
+    append_line(&log_path(data_dir), ev);
 }
 
 pub fn append_repo(ev: &DiagEvent<'_>) {
-    let Some(dir) = repo_logs_dir() else {
-        return;
-    };
-    append(&dir, ev);
+    if let Some(directory) = repo_logs_dir() {
+        append_line(&directory.join("rfcomm_connection.jsonl"), ev);
+    }
 }
 
 /// Full Startup-Nuclear soak line (observation fields; toast is manual).
@@ -166,16 +192,7 @@ pub struct StartupNuclearLog<'a> {
 }
 
 pub fn append_startup_nuclear(data_dir: &Path, ev: &StartupNuclearLog<'_>) {
-    let path = log_path(data_dir);
-    if let Some(parent) = path.parent() {
-        let _ = create_dir_all(parent);
-    }
-    let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) else {
-        return;
-    };
-    if let Ok(line) = serde_json::to_string(ev) {
-        let _ = writeln!(f, "{line}");
-    }
+    append_line(&log_path(data_dir), ev);
 }
 
 pub fn now_ts() -> String {
@@ -205,10 +222,22 @@ fn anonymize_addr(addr: &str) -> String {
 /// Last `limit` JSONL events, newest last; addresses anonymized for Support UI.
 pub fn tail(data_dir: &Path, limit: usize) -> Vec<DiagEventOwned> {
     let path = log_path(data_dir);
-    let Ok(f) = OpenOptions::new().read(true).open(&path) else {
+    let Ok(mut f) = OpenOptions::new().read(true).open(&path) else {
         return Vec::new();
     };
-    let mut lines: Vec<String> = match BufReader::new(f).lines().collect() {
+    let offset = f
+        .metadata()
+        .map(|m| m.len().saturating_sub(65536))
+        .unwrap_or(0);
+    if f.seek(SeekFrom::Start(offset)).is_err() {
+        return Vec::new();
+    }
+    let mut reader = BufReader::new(f.take(65536));
+    if offset > 0 {
+        let mut partial = String::new();
+        let _ = reader.read_line(&mut partial);
+    }
+    let mut lines: Vec<String> = match reader.lines().collect() {
         Ok(lines) => lines,
         Err(error) => {
             eprintln!("Diagnoselog konnte nicht gelesen werden: {error}");

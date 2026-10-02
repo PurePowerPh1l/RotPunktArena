@@ -40,6 +40,26 @@ pub struct StoredEvent {
 }
 
 impl Database {
+    pub fn session_endless(&self, id: &str) -> Result<bool, String> {
+        self.conn
+            .query_row("SELECT endless FROM sessions WHERE id=?1", [id], |r| {
+                r.get(0)
+            })
+            .map_err(|e| e.to_string())
+    }
+    pub fn set_training_configuration(
+        &self,
+        id: &str,
+        endless: bool,
+        limit: Option<i64>,
+    ) -> Result<(), String> {
+        let changed = self.conn.execute("UPDATE sessions SET endless=?2, max_shots=?3 WHERE id=?1 AND competition_id IS NULL AND ended_at IS NULL", params![id,endless,limit]).map_err(|e| e.to_string())?;
+        if changed != 1 {
+            return Err("Keine offene Trainingssession".into());
+        }
+        Ok(())
+    }
+
     pub fn finish_probe_phase(&self, session_id: &str, probe_shots: i64) -> Result<(), String> {
         let tx = rusqlite::Transaction::new_unchecked(
             &self.conn,
