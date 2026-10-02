@@ -1,5 +1,5 @@
 import type { TrainingSessionSummary } from "@rotpunktarena/domain";
-import { IconPrint } from "../../components/UiIcons";
+import { IconPrint, IconRefresh, IconShare, IconTraining } from "../../components/UiIcons";
 import { formatScoreCompact } from "../../lib/format";
 import type { SeriesPulse } from "../../training/seriesPulse";
 import { shareSummaryText } from "../../training/insights";
@@ -83,45 +83,40 @@ export function TrainingSeriesPanel({
 
   return (
     <section className="panel hist-series-panel">
-      <div className="trend-head">
-        <h2>Gespeicherte Serien</h2>
-        <div className="trend-head-actions">
+      <div className="hist-series-heading">
+        <div className="hist-series-title"><IconTraining size={19} /><h2>Gespeicherte Serien</h2><span className="hist-count-badge">{loading ? "…" : newestFirst.length}</span></div>
+        <div className="hist-series-actions">
+          {latest ? <>
           <button
             type="button"
-            className="secondary"
+            className="hist-small-action"
             disabled={busy || !latest}
             onClick={() => void shareLatest()}
             title="Kurz-Summary in die Zwischenablage"
           >
-            Teilen
+            <IconShare size={15} /> Teilen
           </button>
           <button
             type="button"
-            className="secondary"
+            className="hist-small-action"
             disabled={busy || printDisabled || sessions.length === 0}
             onClick={onPrint}
             title={selectedId
               ? "Ausgewählte Serie mit Schussbild drucken (Strg+P)"
               : "Letzte Serie mit Schussbild drucken (Strg+P)"}
           >
-            <IconPrint /> Drucken
+            <IconPrint size={15} /> Drucken
           </button>
+          </> : null}
           <button
             type="button"
-            className="secondary"
-            disabled={busy || sessions.length === 0}
-            onClick={onClear}
-            title="Historie für den aktuellen Filter zurücksetzen"
-          >
-            Historie resetten
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
+            className="hist-small-action hist-icon-action"
+            disabled={busy || loading}
             onClick={onRefresh}
+            title="Serien aktualisieren"
+            aria-label="Serien aktualisieren"
           >
-            Aktualisieren
+            <IconRefresh size={17} />
           </button>
         </div>
       </div>
@@ -138,7 +133,7 @@ export function TrainingSeriesPanel({
           >
             <p className="hist-last-serie-kicker">Letzte Serie</p>
             <p className="hist-last-serie-total">
-              {formatScoreCompact(latest.punkteTotal)}
+              {formatScoreCompact(latest.punkteTotal)}<span className="hist-score-unit">Punkte</span>
             </p>
             <p className="hist-last-serie-meta">
               {latest.shotCount} Schüsse · Ø Teiler {fmtStat(latest.teilerAvg)}
@@ -188,13 +183,6 @@ export function TrainingSeriesPanel({
                 />
               </span>
             ) : null}
-            <button
-              type="button"
-              className="secondary hist-last-serie-share"
-              onClick={() => void shareLatest()}
-            >
-              Teilen
-            </button>
           </div>
         </article>
       ) : null}
@@ -205,9 +193,7 @@ export function TrainingSeriesPanel({
       {detailError ? <p className="banner-error">{detailError}</p> : null}
 
       {newestFirst.length === 0 && !loading ? (
-        <p className="hint">
-          {emptyMessage}
-        </p>
+        <div className="hist-series-empty"><span className="hist-empty-icon" aria-hidden><IconTraining size={26} /></span><div><p>Deine Serien im Überblick</p><span>{emptyMessage}</span></div></div>
       ) : (
         <>
           <div className="hist-table-wrap">
@@ -250,10 +236,10 @@ export function TrainingSeriesPanel({
                       aria-pressed={isSelected}
                       title="Serie öffnen"
                     >
-                      <td>{new Date(s.endedAt).toLocaleString("de-DE")}</td>
+                      <td><span className="hist-row-date">{new Date(s.endedAt).toLocaleDateString("de-DE")}</span><span className="hist-row-time">{new Date(s.endedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</span></td>
                       <td>{s.shooterName}</td>
                       <td>{s.shotCount}</td>
-                      <td>{fmtStat(s.punkteTotal)}</td>
+                      <td className="hist-row-score">{fmtStat(s.punkteTotal)}</td>
                       <td>{fmtStat(perShot)}</td>
                       <td>{fmtStat(s.teilerAvg)}</td>
                     </tr>
@@ -262,10 +248,11 @@ export function TrainingSeriesPanel({
               </tbody>
             </table>
           </div>
-          <p className="hint hist-table-more">
+          <div className="hist-series-footer"><span>
             {newestFirst.length} gespeicherte Serie
             {newestFirst.length === 1 ? "" : "n"}
-          </p>
+            <span className="hist-series-footer-hint"> · Serie für Schussbild und Details auswählen</span>
+          </span><button type="button" className="hist-reset-action" disabled={busy || sessions.length === 0} onClick={onClear}>Historie zurücksetzen</button></div>
         </>
       )}
     </section>
