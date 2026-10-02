@@ -51,6 +51,8 @@ pub struct LiveState {
     pub port: Option<String>,
     pub session: Option<SessionInfo>,
     pub shots: Vec<UiShot>,
+    #[serde(default)]
+    pub shot_count: u32,
     pub series_total: f64,
     pub series_teiler_total: f64,
     pub last_shot: Option<UiShot>,
@@ -109,6 +111,7 @@ struct SharedInner {
 }
 
 pub struct StandEngine {
+    maintenance: AtomicBool,
     projection_revision: AtomicU64,
     /// Lock order: ingest_gate -> log -> inner. Covers commit through projection.
     ingest_gate: Mutex<()>,
@@ -136,6 +139,7 @@ pub struct StartSessionArgs {
 impl StandEngine {
     pub fn new(log: Database) -> Self {
         Self {
+            maintenance: AtomicBool::new(false),
             projection_revision: AtomicU64::new(0),
             ingest_gate: Mutex::new(()),
             lifecycle_gate: Mutex::new(()),
@@ -168,6 +172,47 @@ impl StandEngine {
         f(&self.log.lock())
     }
 
+    pub(crate) fn require_available(&self) -> Result<(), String> {
+        if self.maintenance.load(Ordering::SeqCst) {
+            Err("Update/Wartung läuft — neue Sessions sind vorübergehend gesperrt".into())
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Own the complete shutdown boundary before allowing the installer to exit.
+    pub fn prepare_update(&self) -> Result<(), String> {
+        let _lifecycle = self.lifecycle_gate.lock();
+        if self.maintenance.load(Ordering::SeqCst) {
+            return Err("Wartung läuft bereits".into());
+        }
+        if !self.with_db(|db| db.list_unclean_sessions())?.is_empty() {
+            return Err("Bitte zuerst alle offenen Sessions beenden oder wiederherstellen".into());
+        }
+        self.stop_worker();
+        for worker in std::mem::take(&mut *self.retired_workers.lock()) {
+            worker
+                .join()
+                .map_err(|_| "Worker-Abschluss fehlgeschlagen".to_string())?;
+        }
+        let _transition = self.ingest_gate.lock();
+        let _snapshots = crate::db::pause_snapshots();
+        self.with_db(|db| {
+            let parent = db.path().parent().ok_or("DB ohne Datenverzeichnis")?;
+            db.vacuum_into(
+                &parent
+                    .join("backups")
+                    .join(format!("pre-update-{}.sqlite", uuid::Uuid::new_v4())),
+            )
+        })?;
+        self.maintenance.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    pub fn finish_update(&self) {
+        self.maintenance.store(false, Ordering::SeqCst);
+    }
+
     pub fn with_db_mut<R>(&self, f: impl FnOnce(&mut Database) -> R) -> R {
         f(&mut self.log.lock())
     }
@@ -183,6 +228,7 @@ impl StandEngine {
 
     fn replace_database(&self, source: Option<&std::path::Path>) -> Result<(), String> {
         let _lifecycle = self.lifecycle_gate.lock();
+        self.require_available()?;
         if self.is_running() {
             return Err("Bitte zuerst die laufende Session in der Arena beenden".into());
         }
@@ -265,6 +311,7 @@ impl StandEngine {
             port: g.port.clone(),
             session: g.session.clone(),
             shots: g.shots.clone(),
+            shot_count: g.shots.last().map_or(0, |s| s.shot_index),
             series_total: g.series_total,
             series_teiler_total: g.series_teiler_total,
             last_shot: g.shots.last().cloned(),
@@ -300,12 +347,19 @@ impl StandEngine {
     /// Idempotent: ignore duplicate shotIndex from stale emits / double apply.
     pub fn apply_shot(&self, shot: UiShot) -> bool {
         let mut g = self.inner.lock();
-        if g.shots.iter().any(|s| s.shot_index == shot.shot_index) {
+        if g.shots
+            .last()
+            .is_some_and(|s| s.shot_index >= shot.shot_index)
+        {
             return false;
         }
         g.series_total = shot.series_total;
         g.series_teiler_total = shot.series_teiler_total;
         g.shots.push(shot);
+        let excess = g.shots.len().saturating_sub(500);
+        if excess > 0 {
+            g.shots.drain(..excess);
+        }
         g.status = ConnectionStatus::Connected;
         true
     }

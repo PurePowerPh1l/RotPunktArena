@@ -36,6 +36,38 @@ pub struct StoredUiShot {
 }
 
 impl Database {
+    pub fn load_live_shot_page(
+        &self,
+        id: &str,
+        classification: &str,
+        before: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<StoredUiShot>, String> {
+        let mut statement = self.conn.prepare("SELECT shot_index,value_raw,distance_raw,x,y,score,running_score,running_teiler FROM shots WHERE session_id=?1 AND classification=?2 AND (?3 IS NULL OR shot_index<?3) ORDER BY shot_index DESC LIMIT ?4").map_err(|e| e.to_string())?;
+        let mut shots = statement
+            .query_map(
+                params![id, classification, before, limit.clamp(1, 500)],
+                |r| {
+                    Ok(StoredUiShot {
+                        shot_index: r.get(0)?,
+                        value_raw: r.get(1)?,
+                        distance_raw: r.get(2)?,
+                        x: r.get(3)?,
+                        y: r.get(4)?,
+                        value_display: r.get(5)?,
+                        distance_display: r.get::<_, i32>(2)? as f64 / 10.0,
+                        series_total: r.get(6)?,
+                        series_teiler_total: r.get(7)?,
+                    })
+                },
+            )
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        shots.reverse();
+        Ok(shots)
+    }
+
     pub fn get_session(&self, session_id: &str) -> Result<Option<SessionInfo>, String> {
         let mut stmt = self
             .conn

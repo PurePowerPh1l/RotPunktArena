@@ -2,6 +2,7 @@
 
 use super::poll;
 use super::{ConnectionUpdate, LiveState, StandEngine, StartSessionArgs, UiShot};
+use crate::db::Database;
 use crate::transport::{ConnectionStatus, TransportKind};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -33,6 +34,7 @@ impl StandEngine {
         app: AppHandle,
         args: StartSessionArgs,
     ) -> Result<LiveState, String> {
+        self.require_available()?;
         if self.is_running() {
             return Ok(self.snapshot());
         }
@@ -141,6 +143,7 @@ impl StandEngine {
         use_simulator: bool,
     ) -> Result<LiveState, String> {
         let _lifecycle = self.lifecycle_gate.lock();
+        self.require_available()?;
         let _transition = self.ingest_gate.lock();
         if self.is_running() {
             return Err("Es läuft bereits eine Session — zuerst beenden".into());
@@ -173,7 +176,8 @@ impl StandEngine {
         } else {
             crate::db::shot_classification::SCORED
         };
-        let stored = self.with_db(|db| db.load_session_ui_shots(session_id, classification))?;
+        let stored =
+            self.with_db(|db| db.load_live_shot_page(session_id, classification, None, 500))?;
         let shots: Vec<UiShot> = stored
             .into_iter()
             .map(|s| UiShot {
@@ -195,28 +199,11 @@ impl StandEngine {
             self.with_db(|db| db.reactivate_entry_for_resume(entry_id))?;
         }
 
-        // Interrupted sessions resume as normal series (endless is not persisted).
-        // Prefer the limit already stored on the session row.
-        let pref = {
-            let g = self.inner.lock();
-            crate::db::normalize_training_series_shots(g.training_series_shots)
-        };
-        let max_shots = match &session.competition_id {
-            Some(cid) => {
-                self.with_db(|db| db.effective_max_shots(cid, session.entry_id.as_deref()))?
-            }
-            None => {
-                let stored = self.with_db(|db| db.get_session_max_shots(session_id))?;
-                Some(
-                    stored
-                        .filter(|&n| n > 0)
-                        .map(crate::db::normalize_training_series_shots)
-                        .unwrap_or(pref),
-                )
-            }
-        };
-        self.with_db_mut(|db| db.set_session_max_shots(session_id, max_shots))?;
-        let series_complete = !probe && max_shots.is_some_and(|m| shots.len() as i64 >= m);
+        let endless = session.competition_id.is_none()
+            && self.with_db(|db| db.session_endless(session_id))?;
+        let max_shots = self.with_db(|db| db.session_recovery_max_shots(session_id))?;
+        let series_complete = !probe
+            && max_shots.is_some_and(|m| shots.last().map_or(0, |s| i64::from(s.shot_index)) >= m);
 
         {
             let mut g = self.inner.lock();
@@ -234,7 +221,7 @@ impl StandEngine {
             g.auto_fire = false;
             g.max_shots = max_shots;
             g.series_complete = false;
-            g.endless_mode = false;
+            g.endless_mode = endless;
             g.probe_active = probe;
             g.last_training_save = None;
         }
@@ -311,7 +298,11 @@ impl StandEngine {
             if !g.probe_active {
                 return Err("Keine Probephase aktiv".into());
             }
-            (s.id.clone(), g.shots.len() as i64, s.shooter_name.clone())
+            (
+                s.id.clone(),
+                g.shots.last().map_or(0, |s| i64::from(s.shot_index)),
+                s.shooter_name.clone(),
+            )
         };
 
         self.with_db(|db| db.finish_probe_phase(&session_id, probe_shots))?;
@@ -397,7 +388,7 @@ impl StandEngine {
                     s.entry_id.clone(),
                     s.competition_id.clone(),
                     g.endless_mode,
-                    g.shots.len() as i64,
+                    g.shots.last().map_or(0, |s| i64::from(s.shot_index)),
                 )
             })
         };
@@ -469,91 +460,85 @@ impl StandEngine {
         Ok(self.snapshot())
     }
 
-    /// Toggle training endless mode (preference + live session limit).
+    /// Serialize configuration with ingest; persist before changing the projection.
     pub fn set_training_endless(
         &self,
         app: &AppHandle,
         endless: bool,
     ) -> Result<LiveState, String> {
-        let (finish_at, persist) = {
-            let mut g = self.inner.lock();
-            if g.session
-                .as_ref()
-                .is_some_and(|s| s.competition_id.is_some())
-            {
-                return Err("Endlosmodus nur im Training".into());
-            }
-            g.endless_mode = endless;
-            let open =
-                g.session.as_ref().is_some_and(|s| s.ended_at.is_none()) && !g.series_complete;
-            if !open {
-                (None, None)
-            } else {
-                let session_id = g.session.as_ref().map(|s| s.id.clone());
-                if endless {
-                    g.max_shots = None;
-                    (None, session_id.map(|id| (id, None)))
-                } else {
-                    let max = crate::db::normalize_training_series_shots(g.training_series_shots);
-                    g.max_shots = Some(max);
-                    let n = g.shots.len() as i64;
-                    let finish = if n >= max { Some(n) } else { None };
-                    (finish, session_id.map(|id| (id, Some(max))))
-                }
-            }
-        };
-        // Keep the persisted per-session limit in sync so Arena ingest
-        // enforces the same cap as the live engine.
-        if let Some((session_id, max)) = persist {
-            self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
-        }
-        if let Some(shot_index) = finish_at {
-            self.finish_series_if_needed(app, shot_index)?;
-        }
-        Ok(self.snapshot())
+        let _transition = self.ingest_gate.lock();
+        let shots = self.inner.lock().training_series_shots;
+        self.configure_training_locked(app, endless, shots)
     }
 
-    /// Remember preferred training series length (does not mutate an open session).
     pub fn set_training_series_shots_pref(&self, shots: i64) {
-        let n = crate::db::normalize_training_series_shots(shots);
-        let mut g = self.inner.lock();
-        g.training_series_shots = n;
+        self.inner.lock().training_series_shots = crate::db::normalize_training_series_shots(shots);
     }
 
-    /// Set training series length preference and apply to an open non-endless session.
+    pub fn store_training_preferences<R>(
+        &self,
+        shots: i64,
+        store: impl FnOnce(&Database) -> Result<R, String>,
+    ) -> Result<R, String> {
+        let _transition = self.ingest_gate.lock();
+        self.require_available()?;
+        let result = self.with_db(store)?;
+        self.set_training_series_shots_pref(shots);
+        Ok(result)
+    }
+
     pub fn set_training_series_shots(
         &self,
         app: &AppHandle,
         shots: i64,
     ) -> Result<LiveState, String> {
-        let n = crate::db::normalize_training_series_shots(shots);
-        let (finish_at, persist) = {
-            let mut g = self.inner.lock();
-            if g.session
+        let _transition = self.ingest_gate.lock();
+        let endless = self.inner.lock().endless_mode;
+        self.configure_training_locked(app, endless, shots)
+    }
+
+    fn configure_training_locked(
+        &self,
+        app: &AppHandle,
+        endless: bool,
+        shots: i64,
+    ) -> Result<LiveState, String> {
+        self.require_available()?;
+        let shots = crate::db::normalize_training_series_shots(shots);
+        let (session, count) = {
+            let state = self.inner.lock();
+            if state
+                .session
                 .as_ref()
                 .is_some_and(|s| s.competition_id.is_some())
             {
-                return Err("Schusszahl nur im Training änderbar".into());
+                return Err("Konfiguration nur im Training änderbar".into());
             }
-            g.training_series_shots = n;
-            let open =
-                g.session.as_ref().is_some_and(|s| s.ended_at.is_none()) && !g.series_complete;
-            if !open || g.endless_mode {
-                (None, None)
-            } else {
-                let session_id = g.session.as_ref().map(|s| s.id.clone());
-                g.max_shots = Some(n);
-                let count = g.shots.len() as i64;
-                let finish = if count >= n { Some(count) } else { None };
-                (finish, session_id.map(|id| (id, Some(n))))
-            }
+            (
+                state
+                    .session
+                    .as_ref()
+                    .filter(|s| s.ended_at.is_none())
+                    .map(|s| s.id.clone()),
+                state.shots.last().map_or(0, |s| i64::from(s.shot_index)),
+            )
         };
-        if let Some((session_id, max)) = persist {
-            self.with_db_mut(|db| db.set_session_max_shots(&session_id, max))?;
+        let limit = (!endless).then_some(shots);
+        if let Some(id) = &session {
+            self.with_db(|db| db.set_training_configuration(id, endless, limit))?;
         }
-        if let Some(shot_index) = finish_at {
-            self.finish_series_if_needed(app, shot_index)?;
+        {
+            let mut state = self.inner.lock();
+            state.endless_mode = endless;
+            state.training_series_shots = shots;
+            if session.is_some() {
+                state.max_shots = limit;
+            }
         }
+        if session.is_some() && limit.is_some_and(|max| count >= max) {
+            self.complete_series_if_needed_locked(count)?;
+        }
+        self.emit_live(app, None);
         Ok(self.snapshot())
     }
 

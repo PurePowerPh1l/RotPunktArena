@@ -1,3 +1,4 @@
+import { tenShotPoints } from "./comparison";
 import type { TrainingSessionSummary } from "@rotpunktarena/domain";
 import { filterSessionsByWindow, type HistoryWindowDays } from "./insights";
 import { fmtStat } from "./stats";
@@ -6,6 +7,7 @@ export type GoalKind = "avgSerie" | "avgTeiler" | "seriesCount" | "bestSerie";
 
 export type TrainingGoal = {
   id: string;
+  legacySeriesTarget?: boolean;
   kind: GoalKind;
   target: number;
   /** Evaluate against this window; null = all loaded sessions. */
@@ -21,15 +23,15 @@ export type GoalProgress = {
   done: boolean;
 };
 
-const STORAGE_PREFIX = "reddot.trainingGoals.v1:";
+const STORAGE_PREFIX = "reddot.trainingGoals.v2:";
 
 export const GOAL_KIND_OPTIONS: {
   value: GoalKind;
   label: string;
   unit: string;
 }[] = [
-  { value: "avgSerie", label: "Ø Serie (Punkte)", unit: "Punkte" },
-  { value: "bestSerie", label: "Beste Serie", unit: "Punkte" },
+  { value: "avgSerie", label: "Ø Leistung (10 Schuss)", unit: "Punkte" },
+  { value: "bestSerie", label: "Beste Leistung (10 Schuss)", unit: "Punkte" },
   { value: "avgTeiler", label: "Ø Teiler", unit: "Teiler" },
   { value: "seriesCount", label: "Anzahl Serien", unit: "Serien" },
 ];
@@ -44,7 +46,8 @@ function isGoalKind(v: unknown): v is GoalKind {
 
 export function loadGoals(filterKey: string): TrainingGoal[] {
   try {
-    const raw = localStorage.getItem(storageKey(filterKey));
+    const current = localStorage.getItem(storageKey(filterKey));
+    const raw = current ?? localStorage.getItem(`reddot.trainingGoals.v1:${filterKey || "all"}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as TrainingGoal[];
     if (!Array.isArray(parsed)) return [];
@@ -52,9 +55,10 @@ export function loadGoals(filterKey: string): TrainingGoal[] {
       (g) =>
         g &&
         typeof g.id === "string" &&
-        typeof g.target === "number" &&
+        typeof g.target === "number" && Number.isFinite(g.target) && g.target > 0 &&
+        (g.windowDays == null || [7,30,90].includes(g.windowDays)) &&
         isGoalKind(g.kind),
-    );
+    ).slice(0,4).map((g) => !current && (g.kind === "avgSerie" || g.kind === "bestSerie") ? {...g, legacySeriesTarget:true} : g);
   } catch {
     return [];
   }
@@ -85,12 +89,12 @@ function currentForGoal(
   if (scoped.length === 0) return 0;
   if (goal.kind === "seriesCount") return scoped.length;
   if (goal.kind === "bestSerie") {
-    return Math.max(...scoped.map((s) => s.punkteTotal));
+    return Math.max(...scoped.map(tenShotPoints));
   }
   if (goal.kind === "avgTeiler") {
     return scoped.reduce((a, s) => a + s.teilerAvg, 0) / scoped.length;
   }
-  return scoped.reduce((a, s) => a + s.punkteTotal, 0) / scoped.length;
+  return scoped.reduce((a, s) => a + tenShotPoints(s), 0) / scoped.length;
 }
 
 export function evaluateGoals(
@@ -127,4 +131,17 @@ export function evaluateGoals(
 export function formatGoalValue(kind: GoalKind, v: number): string {
   if (kind === "seriesCount") return fmtStat(v, 0);
   return fmtStat(v);
+}
+
+/** Contains only this app's versioned training goals, never arbitrary browser storage. */
+export function exportTrainingGoals(): string {
+  const entries: Record<string, unknown> = {};
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key?.startsWith("reddot.trainingGoals.v")) {
+      const raw = localStorage.getItem(key);
+      if (raw) { try { entries[key] = JSON.parse(raw); } catch { /* retain other valid goals */ } }
+    }
+  }
+  return JSON.stringify({ formatVersion: 2, comparison: "tenShotPoints", entries });
 }

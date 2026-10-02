@@ -88,6 +88,7 @@ export function useAppUpdate() {
 
     try {
       const installed = await updatesApi.downloadAndInstallAppUpdate(
+        known.version,
         (progress) => {
           setStatus({
             kind: "downloading",

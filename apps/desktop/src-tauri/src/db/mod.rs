@@ -30,6 +30,7 @@ pub use recovery::{RecoverySessionInfo, StoredUiShot};
 pub use results::{EntryResultDetail, EntryResultSummary, SeriesResultSummary};
 pub use sessions::{append_event_in_tx, session_phase_in_tx, touch_autosave_in_tx, SessionInfo};
 pub(crate) use snapshot_worker::{pause_snapshots, shutdown_snapshots};
+pub(crate) use snapshot_worker::{snapshot_health, SnapshotHealth};
 pub use snapshots::{SNAPSHOT_EVERY_N_SHOTS, SNAPSHOT_SUBDIR};
 pub use teams::{CompetitionTeam, TeamResultSummary};
 pub use training::{
@@ -186,3 +187,6 @@ mod durability_tests {
         std::fs::remove_dir_all(directory).unwrap();
     }
 }
+
+mod training_lifetime;
+pub use training_lifetime::TrainingLifetime;

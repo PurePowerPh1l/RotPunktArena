@@ -149,15 +149,18 @@ pub struct RfcommStatusDto {
 pub fn rfcomm_status(
     handle: tauri::State<'_, crate::connection::ConnectionHandle>,
 ) -> RfcommStatusDto {
+    let state = handle.snapshot();
+    let needs_setup =
+        state.status != crate::connection::ConnectionStatus::Linked && state.target.is_none();
     RfcommStatusDto {
-        status: handle.status().as_str().to_string(),
-        reason: handle.last_reason(),
-        connect_phase: handle.connect_phase().as_str().to_string(),
-        connect_origin: handle.connect_origin().as_api_str().map(|s| s.to_string()),
-        generation: handle.generation(),
-        target: handle.target().map(|t| t.summary()),
+        status: state.status.as_str().to_string(),
+        reason: state.reason,
+        connect_phase: state.phase.as_str().to_string(),
+        connect_origin: state.origin.as_api_str().map(|s| s.to_string()),
+        generation: state.generation,
+        target: state.target.map(|t| t.summary()),
         rfcomm_feature: cfg!(feature = "rfcomm"),
-        needs_setup: crate::connection::needs_setup(&handle),
+        needs_setup,
     }
 }
 
@@ -266,10 +269,14 @@ pub fn rfcomm_forget_device(
 
 #[tauri::command]
 /// Nuclear reconnect: Forget → Pair → RFCOMM (blocks until Linked or error).
-pub fn rfcomm_reconnect(
+pub async fn rfcomm_reconnect(
     handle: tauri::State<'_, crate::connection::ConnectionHandle>,
 ) -> Result<crate::connection::TargetSummary, String> {
-    let t = crate::connection::connect_known_nuclear(&handle)?;
+    let h = handle.inner().clone();
+    let t =
+        tauri::async_runtime::spawn_blocking(move || crate::connection::connect_known_nuclear(&h))
+            .await
+            .map_err(|e| e.to_string())??;
     Ok(t.summary())
 }
 
@@ -302,4 +309,42 @@ pub fn rfcomm_diag_tail(
 /// - Opens `ms-settings:bluetooth` via ShellExecute (fallback when in-app pair fails).
 pub fn rfcomm_open_pairing_settings() -> Result<(), String> {
     crate::connection::open_windows_bluetooth_settings()
+}
+
+/// Bounded archive access, including endless sessions and probe shots.
+#[tauri::command]
+pub async fn get_session_shot_page(
+    engine: tauri::State<'_, Arc<StandEngine>>,
+    session_id: String,
+    probe: bool,
+    before: Option<i64>,
+) -> Result<Vec<crate::engine::UiShot>, String> {
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        engine.with_db(|db| {
+            db.load_live_shot_page(
+                &session_id,
+                if probe { "probe" } else { "scored" },
+                before,
+                500,
+            )
+            .map(|rows| {
+                rows.into_iter()
+                    .map(|s| crate::engine::UiShot {
+                        shot_index: s.shot_index,
+                        value_raw: s.value_raw,
+                        distance_raw: s.distance_raw,
+                        x: s.x,
+                        y: s.y,
+                        value_display: s.value_display,
+                        distance_display: s.distance_display,
+                        series_total: s.series_total,
+                        series_teiler_total: s.series_teiler_total,
+                    })
+                    .collect()
+            })
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

@@ -9,6 +9,7 @@ import { formatPersonName, formatScoreDe } from "../../lib/format";
 import { printShotCard } from "../../print/printShotCard";
 
 type Props = {
+  sessionId?: string | null;
   shooterFallback: string;
   sessionShooterName?: string | null;
   selectedEntry?: CompetitionEntry | null;
@@ -49,6 +50,7 @@ type Props = {
 };
 
 export function LiveScoreColumn({
+  sessionId,
   shooterFallback,
   sessionShooterName,
   selectedEntry,
@@ -92,8 +94,8 @@ export function LiveScoreColumn({
       shooterName: displayName,
       modeLabel: mode === "competition" ? "Wettkampf" : endlessMode ? "Training · Endlos" : "Training",
       shots,
-      seriesTotal: displayMode === "teiler" ? seriesPrimary : seriesTotalPunkte,
-      maxShots,
+      seriesTotal: (shots[0]?.shotIndex ?? 1) > 1 ? shots.reduce((n,s) => n+(displayMode === "teiler" ? s.distanceDisplay : s.valueDisplay),0) : displayMode === "teiler" ? seriesPrimary : seriesTotalPunkte,
+      maxShots: (shots[0]?.shotIndex ?? 1) > 1 ? null : maxShots,
       displayMode,
     });
   }, [
@@ -207,7 +209,7 @@ export function LiveScoreColumn({
       {mode === "training" && rivalTarget && displayMode === "punkte" ? (
         <p className="rival-target" title={`Rival: ${rivalTarget.label}`}>
           Ziel{" "}
-          <strong>{formatScoreDe(rivalTarget.punkte)}</strong>
+          <strong>{formatScoreDe(rivalTarget.punkte * (maxShots ?? 10) / 10)}</strong>
           <span className="rival-target-label"> · {rivalTarget.label}</span>
         </p>
       ) : null}
@@ -238,6 +240,8 @@ export function LiveScoreColumn({
       {detail ? <p className="detail">{detail}</p> : null}
 
       <ShotList
+        sessionId={sessionId}
+        probe={probeActive}
         shots={shots}
         last={last}
         best={best}

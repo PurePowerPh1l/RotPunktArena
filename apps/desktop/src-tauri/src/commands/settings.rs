@@ -141,8 +141,7 @@ pub fn set_ui_prefs(
     prefs.training_series_shots =
         crate::db::normalize_training_series_shots(prefs.training_series_shots);
     // Keep live training preference in sync for start / endless-off.
-    engine.set_training_series_shots_pref(prefs.training_series_shots);
-    engine.with_db(|db| {
+    engine.store_training_preferences(prefs.training_series_shots, |db| {
         store_ui_prefs(db, &prefs)?;
         Ok(prefs.clone())
     })

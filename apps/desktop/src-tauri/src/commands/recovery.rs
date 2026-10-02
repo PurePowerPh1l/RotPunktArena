@@ -55,66 +55,120 @@ pub fn resume_session(
 }
 
 #[tauri::command]
-pub fn export_diagnostics(
+pub async fn export_diagnostics(
     app: tauri::AppHandle,
     engine: tauri::State<'_, Arc<StandEngine>>,
     file_name: Option<String>,
 ) -> Result<EmergencyExportResult, String> {
-    export_emergency_bundle_inner(&app, &engine, file_name)
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        export_emergency_bundle_inner(&app, &engine, file_name, None)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Legacy alias — same as `export_diagnostics`.
 #[tauri::command]
-pub fn export_emergency_bundle(
+pub async fn export_emergency_bundle(
     app: tauri::AppHandle,
     engine: tauri::State<'_, Arc<StandEngine>>,
     file_name: Option<String>,
 ) -> Result<EmergencyExportResult, String> {
-    export_emergency_bundle_inner(&app, &engine, file_name)
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        export_emergency_bundle_inner(&app, &engine, file_name, None)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Versioned full backup: SQLite + canonical device store + browser goals.
+#[tauri::command]
+pub async fn export_personal_backup(
+    app: tauri::AppHandle,
+    engine: tauri::State<'_, Arc<StandEngine>>,
+    session: tauri::State<'_, crate::commands::AdminSession>,
+    goals: String,
+) -> Result<EmergencyExportResult, String> {
+    session.require()?;
+    if goals.len() > 1024 * 1024 {
+        return Err("Trainingsziele sind zu groß".into());
+    }
+    let parsed: serde_json::Value = serde_json::from_str(&goals).map_err(|e| e.to_string())?;
+    if parsed["formatVersion"] != 2 || !parsed["entries"].is_object() {
+        return Err("Unbekanntes Trainingsziele-Format".into());
+    }
+    let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let devices =
+            serde_json::to_string_pretty(&crate::connection::load_device_store(&directory)?)
+                .map_err(|e| e.to_string())?;
+        export_emergency_bundle_inner(
+            &app,
+            &engine,
+            Some(format!("rotpunkt-personal-{}.zip", uuid::Uuid::new_v4())),
+            Some(vec![
+                ("rfcomm_devices.json".into(), devices),
+                ("training-goals.json".into(), goals),
+            ]),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn export_emergency_bundle_inner(
     app: &tauri::AppHandle,
-    engine: &tauri::State<'_, Arc<StandEngine>>,
+    engine: &StandEngine,
     file_name: Option<String>,
+    personal: Option<Vec<(String, String)>>,
 ) -> Result<EmergencyExportResult, String> {
-    let unclean = engine.with_db(|db| db.list_unclean_sessions())?;
-    let schema_version = engine.with_db(|db| db.schema_version())?;
-    let db_path = engine.with_db(|db| db.path().to_path_buf());
-
     let zip_path = resolve_export_path(app, file_name)?;
-    if let Some(parent) = zip_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let directory = zip_path.parent().ok_or("Export ohne Verzeichnis")?;
+    let id = uuid::Uuid::new_v4();
+    let staging = directory.join(format!(".export-{id}.sqlite"));
+    let temporary = directory.join(format!(".export-{id}.zip"));
+    let result = (|| {
+        engine.with_db(|db| db.vacuum_into(&staging))?;
+        let snapshot = crate::db::Database::open(&staging)?;
+        let unclean = snapshot.list_unclean_sessions()?;
+        let schema_version = snapshot.schema_version()?;
+        let events = snapshot.dump_events_jsonl(&unclean)?;
+        let manifest = serde_json::json!({
+            "formatVersion":1, "kind":if personal.is_some() {"personalBackup"} else {"diagnostics"}, "containsPersonalData":true, "containsAdminCredentials":true,
+            "appVersion":env!("CARGO_PKG_VERSION"), "schemaVersion":schema_version,
+            "exportedAt":chrono::Utc::now().to_rfc3339(), "platform":std::env::consts::OS,
+            "arch":std::env::consts::ARCH, "uncleanSessionIds":unclean, "parserVersion":crate::PARSER_VERSION,
+        });
+        drop(snapshot);
+        write_emergency_zip(
+            &temporary,
+            &staging,
+            &manifest,
+            &events,
+            personal.as_deref().unwrap_or(&[]),
+        )?;
+        // Atomic create-only publication; an earlier export is never truncated.
+        std::fs::hard_link(&temporary, &zip_path).map_err(|e| {
+            format!("Export veröffentlichen (vorhandene Datei bleibt erhalten): {e}")
+        })?;
+        Ok(EmergencyExportResult {
+            path: zip_path.to_string_lossy().into_owned(),
+            unclean_session_ids: unclean,
+            schema_version,
+        })
+    })();
+    for path in [
+        temporary,
+        staging.clone(),
+        PathBuf::from(format!("{}-wal", staging.display())),
+        PathBuf::from(format!("{}-shm", staging.display())),
+    ] {
+        let _ = std::fs::remove_file(path);
     }
-
-    let staging = zip_path.parent().unwrap_or(Path::new(".")).join(format!(
-        ".reddot-export-{}.sqlite",
-        chrono::Utc::now().timestamp_millis()
-    ));
-
-    engine.with_db(|db| db.vacuum_into(&staging))?;
-
-    let events_jsonl = engine.with_db(|db| db.dump_events_jsonl(&unclean))?;
-
-    let manifest = serde_json::json!({
-        "appVersion": env!("CARGO_PKG_VERSION"),
-        "schemaVersion": schema_version,
-        "exportedAt": chrono::Utc::now().to_rfc3339(),
-        "platform": std::env::consts::OS,
-        "arch": std::env::consts::ARCH,
-        "dbSourcePath": db_path.to_string_lossy(),
-        "uncleanSessionIds": unclean,
-        "parserVersion": crate::PARSER_VERSION,
-    });
-
-    write_emergency_zip(&zip_path, &staging, &manifest, &events_jsonl)?;
-    let _ = std::fs::remove_file(&staging);
-
-    Ok(EmergencyExportResult {
-        path: zip_path.to_string_lossy().into_owned(),
-        unclean_session_ids: unclean,
-        schema_version,
-    })
+    result
 }
 
 /// Resolve the export ZIP path. The diagnostics bundle contains the full
@@ -135,7 +189,11 @@ fn resolve_export_path(
         .filter(|s| !s.is_empty())
     {
         Some(raw) => {
-            if raw.contains(['/', '\\']) || raw.contains("..") {
+            if raw.contains(['/', '\\', ':', '<', '>', '|', '?', '*'])
+                || raw.contains("..")
+                || raw.chars().any(char::is_control)
+                || raw.ends_with('.')
+            {
                 return Err("Ungültiger Exportname".into());
             }
             if raw.ends_with(".zip") {
@@ -146,7 +204,7 @@ fn resolve_export_path(
         }
         None => {
             let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-            format!("reddot-diagnostics-{stamp}.zip")
+            format!("reddot-diagnostics-{stamp}-{}.zip", uuid::Uuid::new_v4())
         }
     };
     Ok(exports.join(name))
@@ -157,6 +215,7 @@ fn write_emergency_zip(
     sqlite_copy: &Path,
     manifest: &serde_json::Value,
     events_jsonl: &str,
+    attachments: &[(String, String)],
 ) -> Result<(), String> {
     let file = File::create(zip_path).map_err(|e| format!("ZIP anlegen: {e}"))?;
     let mut zip = ZipWriter::new(BufWriter::new(file));
@@ -183,6 +242,13 @@ fn write_emergency_zip(
             .map_err(|e| e.to_string())?;
     }
 
-    zip.finish().map_err(|e| e.to_string())?;
+    for (name, contents) in attachments {
+        zip.start_file(name, opts).map_err(|e| e.to_string())?;
+        zip.write_all(contents.as_bytes())
+            .map_err(|e| e.to_string())?;
+    }
+    let mut writer = zip.finish().map_err(|e| e.to_string())?;
+    writer.flush().map_err(|e| e.to_string())?;
+    writer.get_ref().sync_all().map_err(|e| e.to_string())?;
     Ok(())
 }
